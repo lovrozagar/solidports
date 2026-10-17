@@ -18,7 +18,7 @@ import { createDepsRenderEffect, isStaticProp, splitComponentProps } from '../..
 import type { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
 import { canRenderNative } from '../../utils/native';
-import { compileStateWriter } from '../../utils/native/element';
+import { compileStateWriter, isNativeRender } from '../../utils/native/element';
 import { createIdRegistration } from '../../utils/native/registration';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceAccessor } from '../../utils/propsView';
@@ -46,7 +46,7 @@ const REGION: Record<string, unknown> = { role: 'region' };
 export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; the panel's measurement machinery is created when the panel first renders.
-  if (canRenderNative(componentProps, undefined, true)) {
+  if (canRenderNative(componentProps, undefined, true, isNativeRender)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeAccordionPanel(componentProps);
   }

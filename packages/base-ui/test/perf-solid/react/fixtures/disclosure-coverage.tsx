@@ -1,6 +1,7 @@
 // Collapsible and Accordion over the coverage matrix's remaining axes (plan 3, leaf 1.13): one
-// instance with literal props, 1000 instances, a `{...props}` wrapper, and render functions with
-// and without state. Same markup as `solid/fixtures/disclosure-coverage.tsx`.
+// instance with literal props, 1000 instances, a `{...props}` wrapper, a render function with
+// state, a render element, and a consumer component that forwards its props and ref to a tag.
+// Same markup as `solid/fixtures/disclosure-coverage.tsx`.
 import * as React from 'react';
 import { Accordion } from '@base-ui/react/accordion';
 import { Collapsible } from '@base-ui/react/collapsible';
@@ -88,6 +89,30 @@ function CollapsiblesRenderElement() {
   );
 }
 
+/** A consumer's design-system button: forwards every prop, the ref included (React 19), to a tag. */
+function AppButton(props: React.ComponentProps<'button'>) {
+  return <button type="button" {...props} />;
+}
+
+/** A consumer's panel element, forwarding the same way. */
+function AppSection(props: React.ComponentProps<'section'>) {
+  return <section {...props} />;
+}
+
+function CollapsiblesRenderComponent() {
+  const open = useExposed('open', false);
+  return (
+    <div>
+      {range(size(300)).map((i) => (
+        <Collapsible.Root key={i} open={open}>
+          <Collapsible.Trigger render={<AppButton />}>Trigger {i}</Collapsible.Trigger>
+          <Collapsible.Panel render={<AppSection />}>Panel {i}</Collapsible.Panel>
+        </Collapsible.Root>
+      ))}
+    </div>
+  );
+}
+
 function AccordionOne() {
   return (
     <Accordion.Root>
@@ -136,6 +161,7 @@ export const fixtures: Record<string, React.FC> = {
   'collapsible/wrapper-300': CollapsiblesWrapped,
   'collapsible/render-fn-300': CollapsiblesRenderFn,
   'collapsible/render-element-300': CollapsiblesRenderElement,
+  'collapsible/render-component-300': CollapsiblesRenderComponent,
   'accordion/1': AccordionOne,
   'accordion/1000': controlledAccordion(1000, plainItem),
   'accordion/wrapper-300': controlledAccordion(300, (it) => (
@@ -166,6 +192,14 @@ export const fixtures: Record<string, React.FC> = {
         <Accordion.Trigger render={<button type="button" />}>{it.label}</Accordion.Trigger>
       </Accordion.Header>
       <Accordion.Panel render={<section />}>Content {it.label}</Accordion.Panel>
+    </Accordion.Item>
+  )),
+  'accordion/render-component-300': controlledAccordion(300, (it) => (
+    <Accordion.Item key={it.value} value={it.value}>
+      <Accordion.Header>
+        <Accordion.Trigger render={<AppButton />}>{it.label}</Accordion.Trigger>
+      </Accordion.Header>
+      <Accordion.Panel render={<AppSection />}>Content {it.label}</Accordion.Panel>
     </Accordion.Item>
   )),
 };

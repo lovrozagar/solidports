@@ -5,7 +5,11 @@ import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { canRenderNative, composeHandler } from '../../utils/native';
-import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import {
+  compileStateWriter,
+  isNativeButtonRender,
+  renderNativeElement,
+} from '../../utils/native/element';
 import type { SetAttribute } from '../../utils/native/element';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
@@ -49,7 +53,7 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
   // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined below.
   if (
-    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true) &&
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true, isNativeButtonRender) &&
     // Static once `canRenderNative` passes: a plain value, read without tracking anything.
     (componentProps.nativeButton ?? true) === true
   ) {

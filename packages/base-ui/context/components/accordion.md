@@ -26,7 +26,8 @@ Accordion items are controlled collapsibles registered as native list items; wit
 
 Yes, per part, chosen once at setup, on the client, the server and while hydrating:
 
-- Root (`AccordionRoot.tsx:48`), Item (`AccordionItem.tsx:40`), Header (`AccordionHeader.tsx:28`), Panel (`AccordionPanel.tsx:41`): `canRenderNative(props, undefined, true)` (`packages/base-ui/packages/solid/src/utils/native/index.ts:69`): no store proxy from `{...props}`, no `render`, static `ref`.
+- Root (`AccordionRoot.tsx`), Item (`AccordionItem.tsx`), Header (`AccordionHeader.tsx`): `canRenderNative(props, undefined, true)` (`packages/base-ui/packages/solid/src/utils/native/index.ts`): no store proxy from `{...props}`, no `render`, static `ref`.
+- Panel (`AccordionPanel.tsx`) and Trigger (`AccordionTrigger.tsx`): the same with a static `render` of any form, as Collapsible's (the Trigger's tag kept to `button`); same costs (`accordion.cost.test.tsx`).
 - Trigger (`AccordionTrigger.tsx:52`): the same plus a static `nativeButton` that resolves to `true`.
 - Contexts: transparent owners on the client, the provider on the server and its owners rebuilt while hydrating (D5, GOTCHA-017).
 

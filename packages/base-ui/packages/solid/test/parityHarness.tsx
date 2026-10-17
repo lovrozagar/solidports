@@ -1,6 +1,6 @@
 /*
  * Parity harness for composed native parts (plan 8 step 3.2): the same tree rendered through the
- * native fast paths and through the slow path (every part given `render="<its tag>"`), compared
+ * native fast paths and through the slow path (every part given a reactive `render`), compared
  * as normalized DOM (attributes sorted, generated `base-ui-*` ids renumbered by first appearance,
  * hydration keys ignored) after mount and after each interaction.
  */
@@ -102,9 +102,11 @@ export function mountParity(
 }
 
 /**
- * Creates `Component` with `props` (own-property getters kept) and, on the slow path, `render`
- * set to the part's own tag. A JSX spread would hand the part a proxy and disable its fast path,
- * so the props object is built by hand.
+ * Creates `Component` with `props` (own-property getters kept). On the slow path `render` becomes
+ * a getter: a reactive `render` always takes `useRenderElement`, while a static one (a tag, a
+ * `{ component }` config or a function) may render natively. The getter returns `props.render`
+ * when the case passes one, else the part's own tag. A JSX spread would hand the part a proxy and
+ * disable its fast path, so the props object is built by hand.
  */
 export function part<P extends object>(
   Component: (props: P) => JSX.Element,
@@ -112,11 +114,14 @@ export function part<P extends object>(
   tag: string,
   props: P,
 ): JSX.Element {
-  const merged = Object.defineProperties({}, Object.getOwnPropertyDescriptors(props)) as P & {
-    render?: string;
-  };
+  const merged = Object.defineProperties({}, Object.getOwnPropertyDescriptors(props)) as P;
   if (slow) {
-    merged.render = tag;
+    const render = 'render' in merged ? (merged as { render: unknown }).render : tag;
+    Object.defineProperty(merged, 'render', {
+      get: () => render,
+      enumerable: true,
+      configurable: true,
+    });
   }
   return createComponent(Component, merged);
 }

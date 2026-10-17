@@ -47,7 +47,7 @@ Input: Vitest JSON reports of upstream's suite and the Solid suite in one browse
 
 | pattern | count | what it checks |
 | --- | --- | --- |
-| `*.parity.test.tsx` | 7 (Accordion, Checkbox, Collapsible, Radio, Switch, Tabs, Toggle) plus `utils/native/parity.test.tsx` | native fast path and slow path (`render="<same tag>"`) give identical normalized DOM, handler order and state changes; harness `packages/solid/test/parityHarness.tsx` |
+| `*.parity.test.tsx` | 7 (Accordion, Checkbox, Collapsible, Radio, Switch, Tabs, Toggle) plus `utils/native/parity.test.tsx` | native fast path and slow path give identical normalized DOM, handler order and state changes; the harness (`packages/solid/test/parityHarness.tsx`) forces the slow side with a reactive `render` (a getter returning the case's form or the part's tag), since a static `render` may render natively (plan 3 leaf 5.1.2); the suites that build trees by hand keep `render="<same tag>"`, which stays slow for parts without a `render` check |
 | `*.cost.test.tsx` | 5 under `src/utils` | reactive-node budgets; see [perf method](../perf/method.md) |
 | `*.stale-closure.test.tsx` | 5 (AlertDialog, Dialog, Menu, PreviewCard, Tooltip roots) | a swapped callback prop (`onOpenChange`) is the one invoked |
 

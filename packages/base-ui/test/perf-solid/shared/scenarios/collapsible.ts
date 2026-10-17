@@ -73,6 +73,7 @@ const scenarios: Scenario[] = [
       ['collapsible/wrapper-300', ['scale-100', 'controlled', 'wrapper']],
       ['collapsible/render-fn-300', ['scale-100', 'controlled', 'render-fn']],
       ['collapsible/render-element-300', ['scale-100', 'controlled', 'render-element']],
+      ['collapsible/render-component-300', ['scale-100', 'controlled', 'render-component']],
     ] as const
   ).map(
     ([id, tags]): Scenario => ({

@@ -176,4 +176,115 @@ describe('collapsible cost against the hand-written floor', () => {
       Math.floor(budget * 1.25),
     );
   });
+
+  // The `render` values the port takes (`validateRenderProp`): a tag, a `{ component }` config
+  // naming a tag or a consumer component, and a render function. Each renders natively at the plain
+  // part's cost; a component or a function adds only its own nodes beyond a plain tag (plan 3 leaf
+  // 5.1.2).
+  const triggerFn = (props: object) => <button {...props} />;
+  const panelFn = (props: object) => <section {...props} />;
+  /** A consumer component in `render`: forwards every prop, the ref included, to a tag. */
+  const AppButton = (props: JSX.HTMLAttributes<HTMLButtonElement>) => <button {...props} />;
+  const AppSection = (props: JSX.HTMLAttributes<HTMLElement>) => <section {...props} />;
+  const forms = [
+    { name: 'a tag', trigger: 'button', panel: 'section', own: () => 0 },
+    {
+      name: 'a component config',
+      trigger: { component: 'button' },
+      panel: { component: 'section' },
+      own: () => 0,
+    },
+    {
+      name: 'a consumer component',
+      trigger: { component: AppButton },
+      panel: { component: AppSection },
+      own: (tag: 'trigger' | 'panel') =>
+        tag === 'trigger'
+          ? perCopy(() => <AppButton />) - perCopy(() => <button />)
+          : perCopy(() => <AppSection />) - perCopy(() => <section />),
+    },
+    {
+      name: 'a render function',
+      trigger: triggerFn,
+      panel: panelFn,
+      // Beyond its own element, a render function runs in its own memo, so its top-level reads
+      // re-render it and nothing else does: a parent resolves all its children in one computation.
+      // Measured without the memo (2026-10-17, the function called from the resolving computation):
+      // beside a sibling Trigger whose function read a signal at its top level, a function with
+      // only an inner read ran 2 times to the slow path's 1 when that signal changed, and a Panel
+      // beside it ran 2 times with a new element; while hydrating, the Panel's element went
+      // unclaimed. A part that returns the memo as an accessor gets one more computation from the
+      // parent's insert, as any function child does; a panel's own conditional already resolves it.
+      own: (tag: 'trigger' | 'panel') =>
+        tag === 'trigger'
+          ? perCopy(() => triggerFn({})) - perCopy(() => <button />) + 2
+          : perCopy(() => panelFn({})) - perCopy(() => <section />) + 1,
+    },
+  ] as const;
+  const openRootTrigger = () => (
+    <Collapsible.Root defaultOpen>
+      <Collapsible.Trigger>Toggle</Collapsible.Trigger>
+    </Collapsible.Root>
+  );
+
+  // A tag or a config naming one renders the part's own element: the part returns that element,
+  // not an accessor, so its parent's insert has nothing more to resolve.
+  it('a Trigger with a tag or a tag config costs exactly the plain Trigger', () => {
+    const plain = perCopy(part.rootTrigger);
+    const tag = 'button';
+    const config = { component: 'button' };
+    const asTag = perCopy(() => (
+      <Collapsible.Root>
+        <Collapsible.Trigger render={tag}>Toggle</Collapsible.Trigger>
+      </Collapsible.Root>
+    ));
+    const asConfig = perCopy(() => (
+      <Collapsible.Root>
+        <Collapsible.Trigger render={config}>Toggle</Collapsible.Trigger>
+      </Collapsible.Root>
+    ));
+    expect([asTag, asConfig], `plain ${plain}`).toEqual([plain, plain]);
+  });
+
+  for (const form of forms) {
+    // Plain identifiers, which the compiler passes as static props: `render={triggerRender}` would
+    // compile to a getter, a reactive `render`, which keeps the slow path.
+    const { trigger: triggerRender, panel: panelRender } = form;
+    describe(`with ${form.name} as render`, () => {
+      it('a Trigger costs at most the plain Trigger plus its own element', () => {
+        const cost =
+          perCopy(() => (
+            <Collapsible.Root>
+              <Collapsible.Trigger render={triggerRender}>Toggle</Collapsible.Trigger>
+            </Collapsible.Root>
+          )) - perCopy(part.root);
+        const budget = perCopy(part.rootTrigger) - perCopy(part.root) + form.own('trigger');
+        expect(cost, `Trigger ${cost} nodes, native ${budget}`).toBeLessThanOrEqual(budget);
+      });
+
+      it('a closed Panel costs at most the plain closed Panel', () => {
+        const cost =
+          perCopy(() => (
+            <Collapsible.Root>
+              <Collapsible.Trigger>Toggle</Collapsible.Trigger>
+              <Collapsible.Panel render={panelRender}>Content</Collapsible.Panel>
+            </Collapsible.Root>
+          )) - perCopy(part.rootTrigger);
+        const budget = perCopy(part.closed) - perCopy(part.rootTrigger);
+        expect(cost, `closed Panel ${cost} nodes, native ${budget}`).toBeLessThanOrEqual(budget);
+      });
+
+      it('an open Panel costs at most the plain open Panel plus its own element', () => {
+        const cost =
+          perCopy(() => (
+            <Collapsible.Root defaultOpen>
+              <Collapsible.Trigger>Toggle</Collapsible.Trigger>
+              <Collapsible.Panel render={panelRender}>Content</Collapsible.Panel>
+            </Collapsible.Root>
+          )) - perCopy(openRootTrigger);
+        const budget = perCopy(part.open) - perCopy(openRootTrigger) + form.own('panel');
+        expect(cost, `open Panel ${cost} nodes, native ${budget}`).toBeLessThanOrEqual(budget);
+      });
+    });
+  }
 });

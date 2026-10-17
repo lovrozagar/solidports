@@ -86,6 +86,7 @@ const scenarios: Scenario[] = [
       ['accordion/wrapper-300', ['scale-100', 'controlled', 'wrapper']],
       ['accordion/render-fn-300', ['scale-100', 'controlled', 'render-fn']],
       ['accordion/render-element-300', ['scale-100', 'controlled', 'render-element']],
+      ['accordion/render-component-300', ['scale-100', 'controlled', 'render-component']],
     ] as const
   ).map(
     ([id, tags]): Scenario => ({

@@ -34,7 +34,7 @@ Element props are one `createPropsView` over sources, lowest priority first (`co
 | absent or static non-function | Read once, no memo. |
 | string tag | Validated against `TAG_NAME_PATTERN`; becomes the tag. |
 | `{ component, ...props }` | `component` is the tag; the rest merges above part props; `children` and `ref` honored. |
-| function `(props, state)` | Called in a tracked branch: top-level reads re-run it, reads inside its JSX update in place. |
+| function `(props, state)` | Called in a tracked branch: top-level reads re-run it, reads inside its JSX update in place. The native path's memo (below) keeps these semantics. |
 | rendered element (`render={<div />}`) | Rejected: a DOM node has no props to merge. Dev throws `invalid-render-prop`. |
 
 ### Nodes per element
@@ -47,17 +47,32 @@ Element props are one `createPropsView` over sources, lowest priority first (`co
 
 ## Native kit: `utils/native/`
 
-### `canRenderNative(props, staticKeys)` (`native/index.ts:65`)
+### `canRenderNative(props, staticKeys, ssr, render)` (`native/index.ts`)
 
 Decided once at setup. True only when all hold:
 
-1. `!isServer && !isHydrating()`;
+1. `!isServer && !isHydrating()`, unless the part passes `ssr` (its native path renders on the server and hydrates);
 2. `props[$PROXY]` is falsy (no spread or merged props);
-3. `'render' in props` is false (even `render={undefined}` falls back);
-4. `ref` is static (absent counts);
+3. `ref` is static (absent counts);
+4. no `render` key, unless the part passes a `render` check and the value is static and passes it (a reactive `render`, which the compiler makes of any expression but a literal or an identifier, always falls back);
 5. every key in `staticKeys` is static.
 
 Parts add conditions; `Button` also needs no composite root and a static, `true` `nativeButton` (`button/Button.tsx:41`).
+
+### Render forms on the native path (plan 3 leaf 5.1.2)
+
+Collapsible's and Accordion's Trigger and Panel pass `isNativeRender` (the Triggers `isNativeButtonRender`, which keeps a tag to `button`, their element's semantics) and render every static `render` value natively (`native/element.ts`, `renderWithRender`):
+
+| Form | Native handling |
+| :--- | :--- |
+| tag, or `{ component: 'tag', ...props }` | The part's element, created by tag (`getNextElement()` while hydrating, one hydration key as a compiled template takes) and rendered as without `render`; the part returns the element itself. |
+| `{ component: Component, ...props }` | `createComponent(Component, props)` with the part's props object (below). |
+| render function `(props, state)` | Called with the part's props object and state from its own transparent memo; the part returns the memo. |
+| a config with handlers, `ref`, `children` or getters | Falls back: the slow path chains or inserts those. |
+
+- A config's other props are the top layer, above the part's and the consumer's (React merges `render.props` last), a part's own keys such as a panel's `id` included; its `class` comes after the consumer's resolved class and its `style` sits below the consumer's, as the props view combines them.
+- The props object a component or function receives is plain: literal attributes and handler dispatchers are data properties; everything that can change is a getter over one transparent memo holding the part's write, which replaces the part's attribute effect. The consumer's spread is the only binding, and the ref is only the ref, so a component that drops the ref still gets every attribute and handler (development's render-path mark, set through the ref, is then absent). Static children stay data properties, so the consumer's spread inserts them without a computation.
+- The render function's memo is needed: a parent resolves all its children in one computation, so a function called directly there would re-run, re-creating its element, for any sibling's top-level reads, and while hydrating it would run under another owner path and miss the server's element. Cost beyond the function's own element: the memo, plus, for a part its parent inserts directly (a Trigger), the computation a parent's insert adds for any accessor child; a Panel's own conditional already resolves its accessor.
 
 ### Rules
 

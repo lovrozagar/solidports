@@ -1,4 +1,5 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, For, omit, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
 import {
@@ -20,6 +21,17 @@ const item = (value: string) => (
       <Accordion.Trigger>{value}</Accordion.Trigger>
     </Accordion.Header>
   </Accordion.Item>
+);
+
+/** A consumer component in `render`: forwards every prop, the ref included, to a tag. */
+const AppButton = (props: JSX.HTMLAttributes<HTMLButtonElement>) => <button {...props} />;
+const AppSection = (props: JSX.HTMLAttributes<HTMLElement>) => <section {...props} />;
+/** The same components dropping the ref: the part cannot reach the element through them. */
+const NoRefButton = (props: JSX.HTMLAttributes<HTMLButtonElement>) => (
+  <button {...omit(props, 'ref')} />
+);
+const NoRefSection = (props: JSX.HTMLAttributes<HTMLElement>) => (
+  <section {...omit(props, 'ref')} />
 );
 
 export default defineSsrFixtures(import.meta.url, {
@@ -55,6 +67,92 @@ export default defineSsrFixtures(import.meta.url, {
       {item('a')}
       <Show when={showMiddleItem()}>{item('b')}</Show>
       {item('c')}
+    </Accordion.Root>
+  ),
+  // The three `render` values the port takes (plan 3 leaf 5.1.2) on the Trigger and the Panel:
+  // the client must claim the server's elements, not recreate them.
+  renderTag: () => (
+    <Accordion.Root defaultValue={['a']}>
+      <Accordion.Item value="a">
+        <Accordion.Header>
+          <Accordion.Trigger render="button" data-testid="trigger">
+            Toggle
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Panel render="section" keepMounted data-testid="panel">
+          Content
+        </Accordion.Panel>
+      </Accordion.Item>
+    </Accordion.Root>
+  ),
+  renderConfig: () => (
+    <Accordion.Root defaultValue={['a']}>
+      <Accordion.Item value="a">
+        <Accordion.Header>
+          <Accordion.Trigger
+            render={{ component: 'button', 'data-source': 'config' }}
+            data-testid="trigger"
+          >
+            Toggle
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Panel
+          render={{ component: 'section', 'data-source': 'config' }}
+          keepMounted
+          data-testid="panel"
+        >
+          Content
+        </Accordion.Panel>
+      </Accordion.Item>
+    </Accordion.Root>
+  ),
+  renderComponent: () => (
+    <Accordion.Root defaultValue={['a']}>
+      <Accordion.Item value="a">
+        <Accordion.Header>
+          <Accordion.Trigger render={{ component: AppButton }} data-testid="trigger">
+            Toggle
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Panel render={{ component: AppSection }} keepMounted data-testid="panel">
+          Content
+        </Accordion.Panel>
+      </Accordion.Item>
+    </Accordion.Root>
+  ),
+  renderComponentNoRef: () => (
+    <Accordion.Root defaultValue={['a']}>
+      <Accordion.Item value="a">
+        <Accordion.Header>
+          <Accordion.Trigger render={{ component: NoRefButton }} data-testid="trigger">
+            Toggle
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Panel render={{ component: NoRefSection }} keepMounted data-testid="panel">
+          Content
+        </Accordion.Panel>
+      </Accordion.Item>
+    </Accordion.Root>
+  ),
+  renderFunction: () => (
+    <Accordion.Root defaultValue={['a']}>
+      <Accordion.Item value="a">
+        <Accordion.Header>
+          <Accordion.Trigger
+            render={(props, state) => <button {...props} data-render-open={String(state.open)} />}
+            data-testid="trigger"
+          >
+            Toggle
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Panel
+          render={(props, state) => <section {...props} data-render-open={String(state.open)} />}
+          keepMounted
+          data-testid="panel"
+        >
+          Content
+        </Accordion.Panel>
+      </Accordion.Item>
     </Accordion.Root>
   ),
 });

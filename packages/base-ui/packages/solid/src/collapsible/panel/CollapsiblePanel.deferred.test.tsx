@@ -71,6 +71,11 @@ const clickTrigger = () => fireEvent.click(last('trigger')()!);
 const findPanel = () => fireEvent(last('panel')()!, new Event('beforematch'));
 
 const renderDiv = (props: object) => <div {...props} />;
+/**
+ * A call, which the compiler passes as a getter: a reactive `render`, which keeps the slow path (a
+ * static render function renders natively).
+ */
+const slowRender = () => renderDiv;
 
 /** The fixture's panel created open on the client on the slow path. */
 function CreatedOpen(props: { keepMounted?: boolean; hiddenUntilFound?: boolean; open?: boolean }) {
@@ -84,7 +89,7 @@ function CreatedOpen(props: { keepMounted?: boolean; hiddenUntilFound?: boolean;
           data-testid="panel"
           keepMounted={props.keepMounted}
           hiddenUntilFound={props.hiddenUntilFound}
-          render={renderDiv}
+          render={slowRender()}
         >
           Content
         </Collapsible.Panel>

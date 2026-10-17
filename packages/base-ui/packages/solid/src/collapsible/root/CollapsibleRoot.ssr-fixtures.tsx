@@ -1,5 +1,6 @@
-import { createSignal, merge } from 'solid-js';
+import { createSignal, merge, omit } from 'solid-js';
 import { isServer } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import { Collapsible } from '@solidports/base-ui/collapsible';
 import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
 import {
@@ -11,6 +12,17 @@ import {
 // Collapsible renders natively on the server and while hydrating, and falls back to
 // `useRenderElement` for some props. The choice must come out the same on both sides, or every
 // hydration key after the part shifts: each shape below hydrates with every node claimed.
+
+/** A consumer component in `render`: forwards every prop, the ref included, to a tag. */
+const AppButton = (props: JSX.HTMLAttributes<HTMLButtonElement>) => <button {...props} />;
+const AppSection = (props: JSX.HTMLAttributes<HTMLElement>) => <section {...props} />;
+/** The same components dropping the ref: the part cannot reach the element through them. */
+const NoRefButton = (props: JSX.HTMLAttributes<HTMLButtonElement>) => (
+  <button {...omit(props, 'ref')} />
+);
+const NoRefSection = (props: JSX.HTMLAttributes<HTMLElement>) => (
+  <section {...omit(props, 'ref')} />
+);
 
 export default defineSsrFixtures(import.meta.url, {
   // The hand-written floor the bench measures hydration against: it must hydrate cleanly too.
@@ -114,6 +126,72 @@ export default defineSsrFixtures(import.meta.url, {
         <Collapsible.Trigger>Nested</Collapsible.Trigger>
         <Collapsible.Panel render={(props) => <div {...props} />}>Nested content</Collapsible.Panel>
       </Collapsible.Root>
+    </Collapsible.Root>
+  ),
+  // The three `render` values the port takes (plan 3 leaf 5.1.2) on the Trigger and the Panel:
+  // the client must claim the server's elements, not recreate them.
+  renderTag: () => (
+    <Collapsible.Root defaultOpen>
+      <Collapsible.Trigger render="button" data-testid="trigger">
+        Toggle
+      </Collapsible.Trigger>
+      <Collapsible.Panel render="section" keepMounted data-testid="panel">
+        Content
+      </Collapsible.Panel>
+    </Collapsible.Root>
+  ),
+  renderConfig: () => (
+    <Collapsible.Root defaultOpen>
+      <Collapsible.Trigger
+        render={{ component: 'button', 'data-source': 'config' }}
+        data-testid="trigger"
+      >
+        Toggle
+      </Collapsible.Trigger>
+      <Collapsible.Panel
+        render={{ component: 'section', 'data-source': 'config' }}
+        keepMounted
+        data-testid="panel"
+      >
+        Content
+      </Collapsible.Panel>
+    </Collapsible.Root>
+  ),
+  renderComponent: () => (
+    <Collapsible.Root defaultOpen>
+      <Collapsible.Trigger render={{ component: AppButton }} data-testid="trigger">
+        Toggle
+      </Collapsible.Trigger>
+      <Collapsible.Panel render={{ component: AppSection }} keepMounted data-testid="panel">
+        Content
+      </Collapsible.Panel>
+    </Collapsible.Root>
+  ),
+  renderComponentNoRef: () => (
+    <Collapsible.Root defaultOpen>
+      <Collapsible.Trigger render={{ component: NoRefButton }} data-testid="trigger">
+        Toggle
+      </Collapsible.Trigger>
+      <Collapsible.Panel render={{ component: NoRefSection }} keepMounted data-testid="panel">
+        Content
+      </Collapsible.Panel>
+    </Collapsible.Root>
+  ),
+  renderFunction: () => (
+    <Collapsible.Root defaultOpen>
+      <Collapsible.Trigger
+        render={(props, state) => <button {...props} data-render-open={String(state.open)} />}
+        data-testid="trigger"
+      >
+        Toggle
+      </Collapsible.Trigger>
+      <Collapsible.Panel
+        render={(props, state) => <section {...props} data-render-open={String(state.open)} />}
+        keepMounted
+        data-testid="panel"
+      >
+        Content
+      </Collapsible.Panel>
     </Collapsible.Root>
   ),
 });
