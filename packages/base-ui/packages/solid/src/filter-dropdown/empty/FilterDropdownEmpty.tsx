@@ -43,7 +43,7 @@ export function FilterDropdownEmpty(componentProps: FilterDropdownEmpty.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface FilterDropdownEmptyState {}

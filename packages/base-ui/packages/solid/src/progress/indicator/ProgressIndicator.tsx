@@ -28,7 +28,7 @@ export function ProgressIndicator(componentProps: ProgressIndicator.Props) {
   // JSX, on the client, the server and while hydrating; the fill is a part style below the
   // consumer's.
   if (canRenderNative(componentProps, undefined, true)) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return renderNativeElement(DIV, componentProps, {
       own: OWN_KEYS,
       state: context.state,
@@ -55,7 +55,7 @@ export function ProgressIndicator(componentProps: ProgressIndicator.Props) {
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 /**

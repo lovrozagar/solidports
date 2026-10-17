@@ -67,7 +67,7 @@ export function MenuBackdrop(componentProps: MenuBackdrop.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MenuBackdropState {

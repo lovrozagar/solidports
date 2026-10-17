@@ -54,7 +54,7 @@ export function SelectBackdrop(componentProps: SelectBackdrop.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SelectBackdropState {

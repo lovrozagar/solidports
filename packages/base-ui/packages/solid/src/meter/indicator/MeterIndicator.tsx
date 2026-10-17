@@ -28,7 +28,7 @@ export function MeterIndicator(componentProps: MeterIndicator.Props) {
   // consumer's. The indicator has no state attributes, and `class`/`style` functions receive an
   // empty state, as on the slow path.
   if (canRenderNative(componentProps, undefined, true)) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return renderNativeElement(DIV, componentProps, {
       own: OWN_KEYS,
       state: EMPTY_OBJECT as MeterIndicator.State,
@@ -51,7 +51,7 @@ export function MeterIndicator(componentProps: MeterIndicator.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 /** The indicator's fill for a percentage. */

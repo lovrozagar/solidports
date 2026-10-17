@@ -66,7 +66,7 @@ export function PreviewCardViewport(componentProps: PreviewCardViewport.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export namespace PreviewCardViewport {

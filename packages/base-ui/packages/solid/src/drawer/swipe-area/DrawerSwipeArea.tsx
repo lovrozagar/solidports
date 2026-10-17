@@ -520,7 +520,7 @@ export function DrawerSwipeArea(componentProps: DrawerSwipeArea.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DrawerSwipeAreaProps extends BaseUIComponentProps<'div', DrawerSwipeAreaState> {

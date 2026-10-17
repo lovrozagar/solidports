@@ -33,7 +33,7 @@ export function ProgressLabel(componentProps: ProgressLabel.Props) {
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ProgressLabelState extends ProgressRootState {}

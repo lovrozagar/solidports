@@ -67,7 +67,7 @@ function Inner(componentProps: ItemIndicator.Props) {
     ref: () => indicatorRef,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ItemIndicatorProps extends BaseUIComponentProps<'span', ItemIndicator.State> {

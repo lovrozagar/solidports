@@ -1,4 +1,4 @@
-import { createMemo, isStatic, Show, untrack } from 'solid-js';
+import { createMemo, isStatic, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { CompositeItem } from '../internals/composite/item/CompositeItem';
@@ -148,7 +148,7 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
   ];
 
   const element = useRenderElement('button', componentProps, {
-    enabled: () => !groupContext,
+    enabled: !groupContext,
     props,
     ref: buttonRef,
     state,
@@ -161,21 +161,25 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
     focusableWhenDisabled: false,
   }));
 
+  // The group context is fixed for the part's lifetime: choosing here, not with `<Show>`, gives a
+  // list's parent one source per toggle instead of three.
+  if (!groupContext) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+    return element();
+  }
   return (
-    <Show when={groupContext} fallback={element()}>
-      <CompositeItem
-        tag="button"
-        render={renderProps.render}
-        class={renderProps.class}
-        metadata={itemMetadata}
-        state={state}
-        refs={[buttonRef, componentProps.ref as any]}
-        props={props}
-      >
-        {}
-        {local.children}
-      </CompositeItem>
-    </Show>
+    <CompositeItem
+      tag="button"
+      render={renderProps.render}
+      class={renderProps.class}
+      metadata={itemMetadata}
+      state={state}
+      refs={[buttonRef, componentProps.ref as any]}
+      props={props}
+    >
+      {}
+      {local.children}
+    </CompositeItem>
   );
 }
 /** The part's own props: never forwarded to the element. */

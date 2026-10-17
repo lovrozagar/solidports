@@ -66,7 +66,7 @@ export function TooltipViewport(componentProps: TooltipViewport.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export namespace TooltipViewport {

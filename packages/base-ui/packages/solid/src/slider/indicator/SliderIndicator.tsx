@@ -92,7 +92,7 @@ export function SliderIndicator(componentProps: SliderIndicator.Props) {
     stateAttributesMapping: sliderStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SliderIndicatorState extends SliderRootState {}

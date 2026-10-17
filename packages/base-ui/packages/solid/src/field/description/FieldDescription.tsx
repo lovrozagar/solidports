@@ -45,7 +45,7 @@ export function FieldDescription(componentProps: FieldDescription.Props) {
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface FieldDescriptionState extends FieldRootState {}

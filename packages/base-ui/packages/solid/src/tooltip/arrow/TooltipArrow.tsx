@@ -56,7 +56,7 @@ export function TooltipArrow(componentProps: TooltipArrow.Props) {
     stateAttributesMapping: popupStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface TooltipArrowState {

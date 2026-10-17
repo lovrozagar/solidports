@@ -353,7 +353,7 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
     stateAttributesMapping: triggerOpenStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface TooltipTriggerState {

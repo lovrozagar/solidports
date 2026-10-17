@@ -54,7 +54,7 @@ export function SliderLabel(componentProps: SliderLabel.Props) {
     stateAttributesMapping: sliderStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export type SliderLabelState = SliderRoot.State;

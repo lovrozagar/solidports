@@ -55,7 +55,7 @@ export function CompositeItem<Metadata, State extends Record<string, any>>(
     },
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface CompositeItemProps<Metadata, State extends Record<string, any>> extends Pick<

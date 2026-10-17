@@ -834,25 +834,37 @@ export function useRenderElement<
               </Dynamic>
             );
           }
-          return (
-            <Dynamic component={component} ref={hostRef}>
-              {resolvedChildren()}
-            </Dynamic>
-          );
+          // While hydrating, `<Dynamic>` creates the owners the server's did. Otherwise the tag is
+          // fixed for this run, so the element is created directly: `<Dynamic>` would add two
+          // accessor layers a list's parent tracks per row.
+          if (isHydrating()) {
+            // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+            return (
+              <Dynamic component={component} ref={hostRef}>
+                {resolvedChildren()}
+              </Dynamic>
+            );
+          }
+          const Tag = dynamic(() => component, { static: true }) as (props: any) => JSX.Element;
+          return <Tag ref={hostRef}>{resolvedChildren()}</Tag>;
         })()}
       </>
     );
   };
 
-  // A part without `enabled` always renders, so it skips the `<Show>` layer.
-  const Component =
-    'enabled' in params
-      ? (props: HTMLProps) => (
-          <Show when={access(params.enabled) ?? true}>
-            <Resolved {...props} />
-          </Show>
-        )
-      : Resolved;
+  // A part without `enabled`, or with a fixed one, chooses once and skips the `<Show>` layer: each
+  // layer is one more source a list's parent tracks per row.
+  const enabled = fixedEnabled(params);
+  let Component: (props: HTMLProps) => JSX.Element = Resolved;
+  if (enabled === false) {
+    Component = () => null;
+  } else if (enabled === undefined) {
+    Component = (props) => (
+      <Show when={access(params.enabled) ?? true}>
+        <Resolved {...props} />
+      </Show>
+    );
+  }
 
   return ((renderFnProps: HTMLProps = {}) => {
     return <Component {...renderFnProps} />;
@@ -864,6 +876,18 @@ type RenderFunctionProps<TagName extends keyof JSX.IntrinsicElements | undefined
   | JSX.HTMLAttributes<
       TagName extends keyof JSX.IntrinsicElements ? JSX.IntrinsicElements[TagName] : any
     >;
+
+/** A fixed `enabled` parameter (absent: `true`), or `undefined` when it can change. */
+function fixedEnabled(params: object): boolean | undefined {
+  const descriptor = Object.getOwnPropertyDescriptor(params, 'enabled');
+  if (descriptor === undefined) {
+    return true;
+  }
+  if (!('value' in descriptor) || typeof descriptor.value === 'function') {
+    return undefined;
+  }
+  return descriptor.value ?? true;
+}
 
 export type UseRenderElementParameters<
   State extends Record<string, MaybeAccessor<any>>,

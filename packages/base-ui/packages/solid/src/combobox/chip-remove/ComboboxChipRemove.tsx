@@ -120,7 +120,7 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
     state,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ComboboxChipRemoveState {

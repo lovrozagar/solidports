@@ -572,7 +572,7 @@ export function SliderControl(componentProps: SliderControl.Props) {
     stateAttributesMapping: sliderStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 interface FingerState {

@@ -300,7 +300,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SelectTriggerState extends FieldRoot.State {

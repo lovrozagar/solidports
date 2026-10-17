@@ -94,7 +94,7 @@ export function NavigationMenuPopup(componentProps: NavigationMenuPopup.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface NavigationMenuPopupState {

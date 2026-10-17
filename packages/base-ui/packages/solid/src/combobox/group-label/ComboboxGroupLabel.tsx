@@ -38,7 +38,7 @@ export function ComboboxGroupLabel(componentProps: ComboboxGroupLabel.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ComboboxGroupLabelState {}

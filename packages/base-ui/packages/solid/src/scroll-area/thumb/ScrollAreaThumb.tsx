@@ -63,7 +63,7 @@ export function ScrollAreaThumb(componentProps: ScrollAreaThumb.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ScrollAreaThumbState {

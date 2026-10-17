@@ -67,7 +67,7 @@ export function MenuViewport(componentProps: MenuViewport.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MenuViewportState {

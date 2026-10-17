@@ -21,7 +21,7 @@ export function ComboboxIcon(componentProps: ComboboxIcon.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 export interface ComboboxIconState {}
 

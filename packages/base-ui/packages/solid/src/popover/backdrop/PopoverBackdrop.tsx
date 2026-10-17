@@ -63,7 +63,7 @@ export function PopoverBackdrop(props: PopoverBackdrop.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface PopoverBackdropState {

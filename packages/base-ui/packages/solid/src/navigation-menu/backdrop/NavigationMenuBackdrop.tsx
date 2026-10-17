@@ -47,7 +47,7 @@ export function NavigationMenuBackdrop(componentProps: NavigationMenuBackdrop.Pr
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface NavigationMenuBackdropState {

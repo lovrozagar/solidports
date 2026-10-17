@@ -316,7 +316,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
     stateAttributesMapping: triggerStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ComboboxTriggerState extends FieldRoot.State {

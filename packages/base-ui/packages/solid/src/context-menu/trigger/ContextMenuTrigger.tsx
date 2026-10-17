@@ -213,7 +213,7 @@ export function ContextMenuTrigger(componentProps: ContextMenuTrigger.Props) {
     stateAttributesMapping: pressableTriggerOpenStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export type ContextMenuTriggerState = {

@@ -23,7 +23,7 @@ export function ListboxSeparator(componentProps: ListboxSeparator.Props) {
     props: [{ role: 'presentation' }, elementProps],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ListboxSeparatorProps extends BaseUIComponentProps<'div', ListboxSeparatorState> {

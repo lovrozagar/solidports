@@ -95,7 +95,7 @@ export function TooltipPopup(componentProps: TooltipPopup.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface TooltipPopupState {

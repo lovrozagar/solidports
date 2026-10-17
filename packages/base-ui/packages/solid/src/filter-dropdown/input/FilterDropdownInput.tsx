@@ -175,7 +175,7 @@ export function FilterDropdownInput(componentProps: FilterDropdownInputHostProps
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface FilterDropdownInputState {

@@ -74,7 +74,7 @@ export function FieldLabel(componentProps: FieldLabel.Props) {
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface FieldLabelState extends FieldRootState {}

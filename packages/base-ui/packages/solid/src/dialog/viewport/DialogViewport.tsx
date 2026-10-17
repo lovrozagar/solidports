@@ -68,7 +68,7 @@ export function DialogViewport(componentProps: DialogViewport.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DialogViewportState {

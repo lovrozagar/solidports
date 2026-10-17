@@ -66,7 +66,7 @@ export function SelectValue(componentProps: SelectValue.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SelectValueState {

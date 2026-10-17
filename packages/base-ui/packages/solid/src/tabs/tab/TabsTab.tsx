@@ -46,7 +46,7 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     untrack(() => componentProps.nativeButton ?? true) === true
   ) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return NativeTabsTab(componentProps);
   }
 
@@ -268,7 +268,7 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
     stateAttributesMapping: tabsStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 type Handler = (...args: any[]) => unknown;

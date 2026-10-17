@@ -67,7 +67,7 @@ export function DrawerBackdrop(componentProps: DrawerBackdrop.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DrawerBackdropProps extends BaseUIComponentProps<'div', DrawerBackdrop.State> {

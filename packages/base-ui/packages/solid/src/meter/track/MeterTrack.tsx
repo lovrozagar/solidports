@@ -24,7 +24,7 @@ export function MeterTrack(componentProps: MeterTrack.Props) {
   // JSX, on the client, the server and while hydrating. The track has no state attributes, and
   // `class`/`style` functions receive an empty state, as on the slow path.
   if (canRenderNative(componentProps, undefined, true)) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return renderNativeElement(DIV, componentProps, {
       own: OWN_KEYS,
       state: EMPTY_OBJECT as MeterTrack.State,
@@ -39,7 +39,7 @@ export function MeterTrack(componentProps: MeterTrack.Props) {
     props: elementProps,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MeterTrackState extends MeterRootState {}

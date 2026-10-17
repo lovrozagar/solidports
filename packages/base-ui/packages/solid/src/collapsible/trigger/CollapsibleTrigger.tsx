@@ -53,7 +53,7 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
     // Static once `canRenderNative` passes: a plain value, read without tracking anything.
     (componentProps.nativeButton ?? true) === true
   ) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return NativeCollapsibleTrigger(componentProps);
   }
 
@@ -85,7 +85,7 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 type Handler = (...args: any[]) => unknown;

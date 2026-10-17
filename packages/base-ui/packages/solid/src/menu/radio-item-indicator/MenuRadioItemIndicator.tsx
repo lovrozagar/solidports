@@ -60,7 +60,7 @@ export function MenuRadioItemIndicator(componentProps: MenuRadioItemIndicator.Pr
     stateAttributesMapping: itemMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MenuRadioItemIndicatorProps extends BaseUIComponentProps<

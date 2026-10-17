@@ -68,7 +68,7 @@ export function SelectList(componentProps: SelectList.Props) {
     ref: setListElement,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SelectListProps extends BaseUIComponentProps<'div', SelectList.State> {}

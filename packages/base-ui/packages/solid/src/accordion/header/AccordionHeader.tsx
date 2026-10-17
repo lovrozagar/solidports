@@ -27,7 +27,7 @@ export function AccordionHeader(componentProps: AccordionHeader.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): an `<h3>` rendered with direct JSX,
   // on the client, the server and while hydrating.
   if (canRenderNative(componentProps, undefined, true)) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return renderNativeElement(H3, componentProps, {
       own: OWN_KEYS,
       state: () => item.state,
@@ -46,7 +46,7 @@ export function AccordionHeader(componentProps: AccordionHeader.Props) {
     stateAttributesMapping: accordionStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface AccordionHeaderState extends AccordionItemState {}

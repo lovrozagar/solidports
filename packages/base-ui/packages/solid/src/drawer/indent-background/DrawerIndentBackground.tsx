@@ -37,7 +37,7 @@ export function DrawerIndentBackground(componentProps: DrawerIndentBackground.Pr
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DrawerIndentBackgroundState {

@@ -31,7 +31,7 @@ export function SelectIcon(componentProps: SelectIcon.Props) {
     stateAttributesMapping: triggerOpenStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SelectIconState {
