@@ -469,6 +469,8 @@ describe('<Collapsible.Panel />', () => {
       expect(screen.getByTestId('panel')).toBe(panel);
     });
 
+    // Solid: a member-expression `render` compiles to a getter, which keeps the slow path, where an
+    // initially open panel watches its open animation from mount, as upstream's panel does.
     it('keeps the measured size when an open animation finishes during a close commit', async () => {
       const animationsDisabled = globalThis.BASE_UI_ANIMATIONS_DISABLED;
       globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
@@ -490,9 +492,90 @@ describe('<Collapsible.Panel />', () => {
         return null;
       }
 
+      const slow: { render: Collapsible.Panel.Props['render'] } = {
+        render: (props, state) => (
+          <div {...props}>
+            <ResolveAnimationOnClose open={state.open} />
+            {props.children}
+          </div>
+        ),
+      };
+
       const setPanelRef = (node: HTMLDivElement | null) => {
         if (node) {
           node.getAnimations = () => {
+            if (node.hasAttribute('data-open')) {
+              animationStarted = true;
+              return [animation];
+            }
+
+            return [];
+          };
+        }
+      };
+
+      try {
+        await render(() => (
+          <Collapsible.Root defaultOpen>
+            <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+            <Collapsible.Panel
+              ref={setPanelRef}
+              keepMounted
+              render={slow.render}
+              style={{ transition: 'height 10s linear' }}
+            >
+              {PANEL_CONTENT}
+            </Collapsible.Panel>
+          </Collapsible.Root>
+        ));
+
+        const panel = screen.getByText(PANEL_CONTENT);
+
+        await act(async () => {
+          await waitForAnimationFrame();
+        });
+        expect(animationStarted).toBe(true);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Trigger' }));
+        await flushMicrotasks();
+
+        expect(panel.style.getPropertyValue('--collapsible-panel-height')).toMatch(/px$/);
+      } finally {
+        animation.cancel();
+        abortSpy.mockRestore();
+        globalThis.BASE_UI_ANIMATIONS_DISABLED = animationsDisabled;
+      }
+    });
+
+    // Solid: a static render function takes the native path, whose initially open panel builds no
+    // open-complete watcher until its root's state first changes (5.1.2's mount cost), so the race
+    // above cannot happen there: nothing reads the animations at mount, and the close measures.
+    it('keeps the measured size when a natively rendered panel created open closes', async () => {
+      const animationsDisabled = globalThis.BASE_UI_ANIMATIONS_DISABLED;
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+      const abortSpy = vi.spyOn(AbortController.prototype, 'abort').mockImplementation(() => {});
+      let animationStarted = false;
+      let getAnimationsCalls = 0;
+      const animation = new Animation(new KeyframeEffect(null, [], 10_000), document.timeline);
+      animation.play();
+
+      function ResolveAnimationOnClose(props: { open: boolean }) {
+        createRenderEffect(
+          () => props.open,
+          (open) => {
+            if (!open && animationStarted) {
+              animation.finish();
+            }
+          },
+        );
+
+        return null;
+      }
+
+      const setPanelRef = (node: HTMLDivElement | null) => {
+        if (node) {
+          node.getAnimations = () => {
+            getAnimationsCalls += 1;
             if (node.hasAttribute('data-open')) {
               animationStarted = true;
               return [animation];
@@ -528,7 +611,7 @@ describe('<Collapsible.Panel />', () => {
         await act(async () => {
           await waitForAnimationFrame();
         });
-        expect(animationStarted).toBe(true);
+        expect(getAnimationsCalls).toBe(0);
 
         fireEvent.click(screen.getByRole('button', { name: 'Trigger' }));
         await flushMicrotasks();

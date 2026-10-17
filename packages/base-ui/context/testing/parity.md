@@ -60,6 +60,11 @@ The perf rewrite has one hard rule: every suite passes at every step.
 - Upstream-mirrored tests (title-matched by `test-parity.mjs`), e2e, regressions, screen reader, docs hydration, public types and node resolution pass unchanged.
 - A unit test may change only when it probes a low-level Solid internal that the step rewrites honestly: node budgets in `*.cost.test.tsx`, `useRenderElement.*` internals, `SolidStoreV2`, `solid-helpers`, native-kit parity mechanics. The change keeps the behavior the test protects and states why in the commit.
 - Lowering a cost budget is the expected outcome of a perf step; raising one needs a reason.
+- One mirrored test is split by render path (2026-10-17, plan 3 leaf 5.1.2's fallout). In `CollapsiblePanel.test.tsx`, "keeps the measured size when an open animation finishes during a close commit" mocks `getAnimations` and requires an initially open panel to call it at mount. Upstream's mount-time `useOpenChangeComplete` makes that call.
+  - A static render function now takes the native path. There the panel builds no open-complete watcher until its root's state first changes (5.1.2's mount win), so the call does not exist.
+  - The upstream title keeps the original body, precondition included, on the slow path: `render={slow.render}`, whose getter keeps the slow path.
+  - "keeps the measured size when a natively rendered panel created open closes" asserts the native path's outcome (px height after the close) and that nothing reads the animations at mount.
+  - Building the watcher at mount was rejected: a frame and a `getAnimations` per initially open panel is the cost 5.1.2 removed, and nothing observable needs it.
 - Never add `.skip`, `.todo`, `.fails` or a new `skipIf` to make a step pass; `test-parity.mjs` fails on them.
 - Loop per step: red (a test or budget that fails for the named reason), fix, green, then every gate and `bun run test:base-ui:all`. See `.rulesync/reference/tdd.md` and `.claude/rules/standards.md`.
 
