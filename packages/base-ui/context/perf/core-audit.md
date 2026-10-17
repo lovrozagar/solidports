@@ -28,6 +28,8 @@ Measurements are dev runtime, jsdom, Solid 2.0.0-rc.15, nodes beyond a plain ele
 
 ### S1. `renderElement(props, spec)`: one element binding for every part
 
+A part declares its spec; `useRenderElement` cannot infer one (D14). The slow path keeps its per-key binding, and parts move to the native kit one family at a time.
+
 Replaces `useRenderElement` and the three native renderers. The full sketch is in [render path](audit/render-path.md) section 3.
 
 - Setup, untracked: classify consumer keys once with `isStatic` / `hasStaticKeys`, through `merge` proxies too.
