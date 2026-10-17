@@ -7,12 +7,15 @@
 //   node test/perf-solid/run.mjs [runs=8] [filter,...]     filter: `shared/filter.mjs` terms
 //   (id prefix, component:<name>, tag:<tag>, ! to exclude)
 // Env: VARIANTS=name:lib:dir,...  THROTTLE=4  SIZE=large  WARMUP=2
-// Exit code 1 when a step errors or a variant's DOM summary differs from the first variant's.
+// Exit code 1 when a step errors, a page logs a console warning or error that
+// `known-warnings.json` does not list (`shared/console.mjs`), or a variant's DOM summary differs
+// from the first variant's.
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { matchConsole } from './shared/console.mjs';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
 import { assertScriptMetric, evaluateInTask } from './shared/measure.mjs';
 import { summarize } from './shared/report.mjs';
@@ -32,6 +35,9 @@ const VARIANTS = Object.fromEntries(
 );
 const NAMES = Object.keys(VARIANTS);
 const KNOWN = JSON.parse(fs.readFileSync(path.join(here, 'known-differences.json'), 'utf8'));
+const KNOWN_CONSOLE = JSON.parse(
+  fs.readFileSync(path.join(here, 'known-warnings.json'), 'utf8'),
+).entries;
 const METRICS = ['ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'TaskDuration'];
 
 const server = http
@@ -53,13 +59,23 @@ const port = server.address().port;
 async function openPage(browser, name) {
   const page = await browser.newPage();
   const errors = [];
+  const logs = [];
   page.on('pageerror', (error) => errors.push(String(error).slice(0, 300)));
+  page.on('console', (message) => {
+    const type = message.type();
+    if (type === 'warning' || type === 'error') {
+      logs.push({
+        kind: type === 'warning' ? 'warn' : 'error',
+        text: message.text().slice(0, 300),
+      });
+    }
+  });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Performance.enable');
   if (THROTTLE > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
   await page.goto(`http://localhost:${port}/${name}/${QUERY}`);
   await page.waitForFunction(() => 'bench' in window);
-  return { page, cdp, errors };
+  return { page, cdp, errors, logs };
 }
 
 async function metrics(cdp) {
@@ -95,12 +111,14 @@ if (list.length === 0) {
 const results = {};
 const problems = [];
 const knownHits = [];
+/** Every console warning and error the pages logged, by scenario and variant. */
+const consoleEntries = [];
 const timers = Object.fromEntries(list.map((scenario) => [scenario.id, scenario.timers]));
 for (const { id, steps } of list) {
   results[id] = {};
   for (let round = 0; round < 2; round += 1) {
     for (const name of NAMES) {
-      const { page, cdp, errors } = await openPage(browser, name);
+      const { page, cdp, errors, logs } = await openPage(browser, name);
       const entry = (results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], errors: [] });
       for (let run = 0; run < WARMUP + RUNS; run += 1) {
         await page.evaluate('gc()');
@@ -141,6 +159,7 @@ for (const { id, steps } of list) {
         }
       }
       entry.errors.push(...errors);
+      consoleEntries.push(...logs.map((log) => ({ scenario: id, variant: name, ...log })));
       await page.close();
     }
   }
@@ -177,6 +196,11 @@ for (const { id, steps } of list) {
 }
 await browser.close();
 server.close();
+
+const consoleCheck = matchConsole(consoleEntries, KNOWN_CONSOLE);
+for (const entry of consoleCheck.unknown) {
+  problems.push(`${entry.scenario} [${entry.variant}] console.${entry.kind}: ${entry.text}`);
+}
 
 const fmt = (n) => (n == null ? '-' : n.toFixed(1));
 const summary = summarize(results, NAMES, timers);
@@ -215,6 +239,19 @@ if (knownHits.length) {
     ...knownHits.map((hit) => `- ${hit}`),
   );
 }
+if (consoleCheck.known.length) {
+  const counts = new Map();
+  for (const hit of consoleCheck.known) {
+    const key = `${hit.variant} console.${hit.kind}: ${hit.reason}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  lines.push(
+    '',
+    '## Known console messages (known-warnings.json)',
+    '',
+    ...[...counts].map(([key, count]) => `- ${count}× ${key}`),
+  );
+}
 if (problems.length) {
   lines.push('', '## Problems', '', ...problems.map((problem) => `- ${problem}`));
 }
@@ -232,6 +269,7 @@ fs.writeFileSync(
       filter: process.argv[3] ?? null,
       raw: list.filter((scenario) => scenario.tags.includes('raw')).map((scenario) => scenario.id),
       summary,
+      console: consoleEntries,
       problems,
     },
     null,
