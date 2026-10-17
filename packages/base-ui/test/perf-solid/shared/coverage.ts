@@ -1,0 +1,192 @@
+/*
+ * The per-component coverage matrix (plan 3, leaf 1.13): the axes a component's bench scenarios and
+ * SSR cases should cover between them, which of them apply to it, and the gaps still pending, each
+ * naming the leaf that fills it. `scripts/base-ui-perf-manifest.test.ts` derives each component's
+ * covered axes from the scenario and SSR-case tags and fails on a gap that is not pending, and on a
+ * pending axis that is covered by now.
+ */
+import type { ComponentName, ScenarioTag } from './manifest';
+
+/** The matrix's axes: a subset of the scenario tags. */
+export const COVERAGE_AXES = [
+  'scale-1',
+  'scale-100',
+  'scale-1000',
+  'controlled',
+  'uncontrolled',
+  'static-props',
+  'reactive-props',
+  'wrapper',
+  'render-fn',
+  'render-element',
+  'open',
+  'close',
+  'toggle-all',
+  'ssr',
+  'hydrate',
+] as const satisfies readonly ScenarioTag[];
+
+export type CoverageAxis = (typeof COVERAGE_AXES)[number];
+
+/** Components with an open state to open and close. */
+const OPENABLE: ReadonlySet<ComponentName> = new Set([
+  'accordion',
+  'collapsible',
+  'dialog',
+  'alert-dialog',
+  'drawer',
+  'popover',
+  'preview-card',
+  'tooltip',
+  'menu',
+  'context-menu',
+  'menubar',
+  'navigation-menu',
+  'select',
+  'combobox',
+  'autocomplete',
+]);
+
+/** Components with a value or open state a consumer can own or leave to the component. */
+const STATEFUL: ReadonlySet<ComponentName> = new Set([
+  ...OPENABLE,
+  'checkbox',
+  'checkbox-group',
+  'switch',
+  'radio',
+  'radio-group',
+  'toggle',
+  'toggle-group',
+  'tabs',
+  'slider',
+  'number-field',
+  'otp-field',
+  'input',
+]);
+
+/** Components whose instances a step can open or check all at once. */
+const GROUP_TOGGLE: ReadonlySet<ComponentName> = new Set(['accordion', 'collapsible', 'checkbox-group']);
+
+/** Components that render no element of their own: providers and a hook. */
+const NO_ELEMENT: ReadonlySet<ComponentName> = new Set([
+  'csp-provider',
+  'direction-provider',
+  'unstable-use-media-query',
+]);
+
+/** Whether `axis` applies to `component`, and why not when it does not. */
+export function axisApplies(component: ComponentName, axis: CoverageAxis): true | string {
+  switch (axis) {
+    case 'controlled':
+    case 'uncontrolled':
+      return STATEFUL.has(component) || 'no value or open state to own';
+    case 'open':
+    case 'close':
+      return OPENABLE.has(component) || 'no open state';
+    case 'toggle-all':
+      return GROUP_TOGGLE.has(component) || 'no group of instances toggled at once';
+    case 'wrapper':
+    case 'render-fn':
+    case 'render-element':
+    case 'static-props':
+    case 'reactive-props':
+    case 'ssr':
+    case 'hydrate':
+      return !NO_ELEMENT.has(component) || 'renders no element of its own';
+    default:
+      return true;
+  }
+}
+
+/** The leaf that brings each family to the full bar (plan 3, phase 5), which fills its gaps. */
+const FAMILY_LEAF: Partial<Record<ComponentName, string>> = {
+  progress: 'plan 3 leaf 5.2',
+  meter: 'plan 3 leaf 5.2',
+  avatar: 'plan 3 leaf 5.2',
+  input: 'plan 3 leaf 5.2',
+  'use-render': 'plan 3 leaf 5.2',
+  separator: 'plan 3 leaf 5.2',
+  'csp-provider': 'plan 3 leaf 5.2',
+  'direction-provider': 'plan 3 leaf 5.2',
+  button: 'plan 3 leaf 5.3',
+  toggle: 'plan 3 leaf 5.3',
+  'toggle-group': 'plan 3 leaf 5.3',
+  toolbar: 'plan 3 leaf 5.3',
+  checkbox: 'plan 3 leaf 5.3',
+  'checkbox-group': 'plan 3 leaf 5.3',
+  switch: 'plan 3 leaf 5.3',
+  radio: 'plan 3 leaf 5.3',
+  'radio-group': 'plan 3 leaf 5.3',
+  field: 'plan 3 leaf 5.4',
+  fieldset: 'plan 3 leaf 1.13 (its first scenario), then 5.4',
+  form: 'plan 3 leaf 5.4',
+  'number-field': 'plan 3 leaf 5.4',
+  slider: 'plan 3 leaf 5.4',
+  'otp-field': 'plan 3 leaf 5.4',
+  tabs: 'plan 3 leaf 5.5',
+  'scroll-area': 'plan 3 leaf 5.5',
+  select: 'plan 3 leaf 5.6',
+  combobox: 'plan 3 leaf 5.6',
+  autocomplete: 'plan 3 leaf 5.6',
+  menu: 'plan 3 leaf 5.6',
+  'context-menu': 'plan 3 leaf 5.6',
+  menubar: 'plan 3 leaf 5.6',
+  tooltip: 'plan 3 leaf 5.7',
+  popover: 'plan 3 leaf 5.7',
+  'preview-card': 'plan 3 leaf 5.7',
+  dialog: 'plan 3 leaf 5.7',
+  'alert-dialog': 'plan 3 leaf 5.7',
+  drawer: 'plan 3 leaf 5.7',
+  'navigation-menu': 'plan 3 leaf 5.7',
+  toast: 'plan 3 leaf 5.8',
+  'unstable-use-media-query': 'plan 3 leaf 1.13 (its first scenario)',
+};
+
+/** Axes that apply but no scenario or SSR case covers yet, by component. */
+const PENDING: Partial<Record<ComponentName, readonly CoverageAxis[]>> = {
+  'alert-dialog': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'autocomplete': ['scale-1', 'scale-100', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'avatar': ['scale-1', 'scale-100', 'static-props', 'wrapper', 'render-fn', 'render-element'],
+  'button': ['scale-1', 'scale-100', 'reactive-props', 'wrapper', 'ssr', 'hydrate'],
+  'checkbox': ['scale-1', 'wrapper', 'render-fn', 'render-element'],
+  'checkbox-group': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'combobox': ['scale-1', 'scale-100', 'uncontrolled', 'static-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'context-menu': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'csp-provider': ['scale-1', 'scale-1000'],
+  'dialog': ['scale-1000', 'controlled', 'reactive-props', 'wrapper', 'render-fn', 'render-element'],
+  'direction-provider': ['scale-1', 'scale-1000'],
+  'drawer': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'field': ['scale-1000', 'static-props', 'wrapper', 'render-fn', 'render-element'],
+  'fieldset': ['scale-1', 'scale-100', 'scale-1000', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'form': ['scale-1', 'scale-1000', 'static-props', 'wrapper', 'render-fn', 'render-element'],
+  'input': ['scale-1', 'scale-100', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element'],
+  'menu': ['scale-1000', 'reactive-props', 'wrapper', 'render-element', 'ssr', 'hydrate'],
+  'menubar': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'meter': ['scale-1', 'scale-100', 'static-props', 'wrapper', 'render-fn', 'render-element'],
+  'navigation-menu': ['scale-1', 'scale-100', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'number-field': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'otp-field': ['scale-100', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'popover': ['scale-1000', 'controlled', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'preview-card': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'progress': ['scale-1', 'scale-100', 'static-props', 'wrapper', 'render-fn', 'render-element'],
+  'radio': ['scale-1', 'scale-1000', 'uncontrolled', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'radio-group': ['scale-1', 'scale-1000', 'uncontrolled', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'scroll-area': ['scale-1', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'select': ['scale-100', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element'],
+  'separator': ['scale-1', 'scale-100', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element'],
+  'slider': ['scale-1000', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'switch': ['scale-1', 'scale-100', 'controlled', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'tabs': ['scale-1', 'scale-1000', 'static-props', 'wrapper', 'render-fn', 'render-element'],
+  'toast': ['scale-1', 'scale-1000', 'static-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'toggle': ['scale-1', 'wrapper', 'render-element', 'ssr', 'hydrate'],
+  'toggle-group': ['scale-1', 'scale-1000', 'uncontrolled', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'toolbar': ['scale-1', 'scale-1000', 'static-props', 'reactive-props', 'wrapper', 'render-element', 'ssr', 'hydrate'],
+  'tooltip': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'unstable-use-media-query': ['scale-1', 'scale-100', 'scale-1000'],
+  'use-render': ['scale-1', 'scale-100', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+};
+
+/** A component's pending gaps with the leaf that fills them. */
+export function pendingAxes(component: ComponentName): { leaf: string; axes: readonly CoverageAxis[] } {
+  return { leaf: FAMILY_LEAF[component] ?? '', axes: PENDING[component] ?? [] };
+}

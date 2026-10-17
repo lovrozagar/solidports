@@ -11,6 +11,7 @@ import {
 	SCENARIO_TAGS,
 } from "../packages/base-ui/test/perf-solid/shared/manifest.ts"
 import type { Scenario } from "../packages/base-ui/test/perf-solid/shared/types.ts"
+import { axisApplies, COVERAGE_AXES, pendingAxes } from "../packages/base-ui/test/perf-solid/shared/coverage.ts"
 import { ssrCases } from "../packages/base-ui/test/perf-solid/ssr/cases.ts"
 
 const BASE_UI = resolve(import.meta.dir, "../packages/base-ui")
@@ -176,6 +177,37 @@ describe("base-ui perf scenario manifest", () => {
 			empty: [],
 		})
 	}, 60_000)
+
+	test("every component covers its coverage-matrix axes, or each gap is pending with the leaf that fills it", async () => {
+		const scenarios = (await loadScenarios()).map(({ scenario }) => scenario)
+		const cases = ssrCases as { components: readonly string[]; tags: readonly string[] }[]
+		const unexpected: string[] = []
+		const stale: string[] = []
+		for (const component of COMPONENTS) {
+			const covered = new Set<string>()
+			for (const s of scenarios)
+				if ((s.components as readonly string[]).includes(component)) for (const t of s.tags) covered.add(t)
+			for (const c of cases) if (c.components.includes(component)) for (const t of c.tags) covered.add(t)
+			const { leaf, axes } = pendingAxes(component)
+			for (const axis of COVERAGE_AXES) {
+				const applies = axisApplies(component, axis) === true
+				const pending = axes.includes(axis)
+				if (applies && !covered.has(axis) && !pending) unexpected.push(`${component} ${axis}`)
+				if (pending && (covered.has(axis) || !applies)) stale.push(`${component} ${axis}`)
+			}
+			if (axes.length > 0) expect(leaf, `${component}'s pending gaps name their leaf`).not.toBe("")
+		}
+		// A gap with no pending entry: add a scenario (or an SSR case) that covers it.
+		expect(unexpected).toEqual([])
+		// A pending entry the scenarios cover by now, or for an axis that does not apply: remove it.
+		expect(stale).toEqual([])
+	})
+
+	test("Collapsible and Accordion (plan 3 leaf 5.1) have no pending coverage gap", () => {
+		for (const component of ["collapsible", "accordion"] as const) {
+			expect(pendingAxes(component).axes).toEqual([])
+		}
+	})
 
 	test("scenario sources typecheck, so a tag or component typo fails", () => {
 		const run = Bun.spawnSync(["bun", "run", "--cwd", PERF, "tsc", "-p", "tsconfig.json"], {
