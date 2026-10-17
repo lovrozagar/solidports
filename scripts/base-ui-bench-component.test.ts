@@ -24,8 +24,14 @@ const temp = () => {
 	temps.push(dir)
 	return dir
 }
+// The tests build throwaway repos and run git in them. Git's hook variables (`GIT_DIR`,
+// `GIT_INDEX_FILE` and the rest) would point every such command at the repo that runs the suite: a
+// pre-push hook once committed and configured into it this way. Each command gets an environment
+// without them.
+const withoutGitVariables = () =>
+	Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")))
 const git = (cwd: string, ...args: string[]) => {
-	const run = Bun.spawnSync(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" })
+	const run = Bun.spawnSync(["git", ...args], { cwd, env: withoutGitVariables(), stdout: "pipe", stderr: "pipe" })
 	if (run.exitCode !== 0) throw new Error(run.stderr.toString())
 	return run.stdout.toString().trim()
 }
@@ -159,5 +165,26 @@ describe("bench:component driver", () => {
 		expect(dirHash(dir)).toBe(first)
 		writeFileSync(join(dir, "assets", "a.js"), "2")
 		expect(dirHash(dir)).not.toBe(first)
+	})
+
+	test("reads the repo it is given even when git's hook variables point elsewhere", () => {
+		// A process started under a git hook inherits GIT_DIR: run the driver's code in one.
+		const dir = repo()
+		const canary = repo()
+		// Its own history: two repos built alike share their SHAs.
+		git(canary, "commit", "-q", "--no-verify", "--allow-empty", "-m", "canary")
+		const canaryHead = git(canary, "rev-parse", "HEAD")
+		const driver = join(import.meta.dir, "../packages/base-ui/scripts/bench-component.mjs")
+		const run = Bun.spawnSync(
+			[
+				"bun",
+				"-e",
+				`const m = await import(${JSON.stringify(driver)}); console.log(m.gitProvenance(${JSON.stringify(dir)}).sha)`,
+			],
+			{ env: { ...withoutGitVariables(), GIT_DIR: join(canary, ".git") }, stdout: "pipe", stderr: "pipe" },
+		)
+		expect(run.stderr.toString()).toBe("")
+		expect(run.stdout.toString().trim()).toBe(git(dir, "rev-parse", "HEAD"))
+		expect(git(canary, "rev-parse", "HEAD")).toBe(canaryHead)
 	})
 })
