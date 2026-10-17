@@ -60,7 +60,7 @@ export function ToastContent(componentProps: ToastContent.Props) {
     state,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ToastContentState {

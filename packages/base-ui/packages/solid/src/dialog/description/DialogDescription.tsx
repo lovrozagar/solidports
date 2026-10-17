@@ -30,7 +30,7 @@ export function DialogDescription(componentProps: DialogDescription.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DialogDescriptionProps extends BaseUIComponentProps<

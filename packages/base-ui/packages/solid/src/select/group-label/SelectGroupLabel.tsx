@@ -38,7 +38,7 @@ export function SelectGroupLabel(componentProps: SelectGroupLabel.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SelectGroupLabelState {}

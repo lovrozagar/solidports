@@ -72,7 +72,7 @@ export function ComboboxLabel(componentProps: ComboboxLabel.Props) {
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export type ComboboxLabelState = FieldRoot.State;

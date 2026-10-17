@@ -59,7 +59,7 @@ export function FilterDropdownClear(componentProps: FilterDropdownClear.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface FilterDropdownClearState {

@@ -47,7 +47,7 @@ export function AvatarFallback(componentProps: AvatarFallback.Props) {
     stateAttributesMapping: avatarStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface AvatarFallbackState extends AvatarRootState {}

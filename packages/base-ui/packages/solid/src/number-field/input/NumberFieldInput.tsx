@@ -513,7 +513,7 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface NumberFieldInputState extends NumberFieldRootState {}

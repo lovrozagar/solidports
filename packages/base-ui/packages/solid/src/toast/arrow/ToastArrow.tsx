@@ -45,7 +45,7 @@ export function ToastArrow(componentProps: ToastArrow.Props) {
     state,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ToastArrowState {

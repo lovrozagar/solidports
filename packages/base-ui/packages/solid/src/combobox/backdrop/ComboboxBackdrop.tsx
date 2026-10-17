@@ -54,7 +54,7 @@ export function ComboboxBackdrop(componentProps: ComboboxBackdrop.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ComboboxBackdropProps extends BaseUIComponentProps<

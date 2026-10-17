@@ -57,7 +57,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
     // Static once `canRenderNative` passes: a plain value, read without tracking anything.
     (componentProps.nativeButton ?? true) === true
   ) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return NativeAccordionTrigger(componentProps);
   }
 
@@ -110,7 +110,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {

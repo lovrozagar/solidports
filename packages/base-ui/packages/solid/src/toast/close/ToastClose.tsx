@@ -57,7 +57,7 @@ export function ToastClose(componentProps: ToastClose.Props) {
     state,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ToastCloseState {

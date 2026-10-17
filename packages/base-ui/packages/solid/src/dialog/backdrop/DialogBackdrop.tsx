@@ -58,7 +58,7 @@ export function DialogBackdrop(componentProps: DialogBackdrop.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DialogBackdropProps extends BaseUIComponentProps<'div', DialogBackdrop.State> {

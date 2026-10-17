@@ -86,7 +86,7 @@ export function DrawerIndent(componentProps: DrawerIndent.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DrawerIndentState {

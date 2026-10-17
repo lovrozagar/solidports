@@ -64,7 +64,7 @@ export function PopoverViewport(componentProps: PopoverViewport.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export namespace PopoverViewport {

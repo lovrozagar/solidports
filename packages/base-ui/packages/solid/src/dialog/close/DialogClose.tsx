@@ -48,7 +48,7 @@ export function DialogClose(componentProps: DialogClose.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DialogCloseProps

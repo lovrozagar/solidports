@@ -19,7 +19,7 @@ export function DrawerContent(componentProps: DrawerContent.Props) {
     props: [{ [DRAWER_CONTENT_ATTRIBUTE as string]: '' }, elementProps],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DrawerContentProps extends BaseUIComponentProps<'div', DrawerContent.State> {}

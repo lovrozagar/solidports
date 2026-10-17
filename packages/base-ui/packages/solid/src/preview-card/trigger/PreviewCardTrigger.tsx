@@ -152,7 +152,7 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
     stateAttributesMapping: triggerOpenStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface PreviewCardTriggerState {

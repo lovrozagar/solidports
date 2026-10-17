@@ -26,7 +26,7 @@ export function ProgressTrack(componentProps: ProgressTrack.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX, on the client, the server and while hydrating.
   if (canRenderNative(componentProps, undefined, true)) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return renderNativeElement(DIV, componentProps, {
       own: OWN_KEYS,
       state: context.state,
@@ -45,7 +45,7 @@ export function ProgressTrack(componentProps: ProgressTrack.Props) {
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ProgressTrackState extends ProgressRootState {}

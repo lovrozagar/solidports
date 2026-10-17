@@ -293,7 +293,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface FieldControlState extends FieldRootState {}

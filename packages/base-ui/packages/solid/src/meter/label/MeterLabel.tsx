@@ -30,7 +30,7 @@ export function MeterLabel(componentProps: MeterLabel.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MeterLabelState extends MeterRootState {}

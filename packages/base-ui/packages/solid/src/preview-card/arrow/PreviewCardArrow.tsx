@@ -51,7 +51,7 @@ export function PreviewCardArrow(componentProps: PreviewCardArrow.Props) {
     stateAttributesMapping: popupStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface PreviewCardArrowState {

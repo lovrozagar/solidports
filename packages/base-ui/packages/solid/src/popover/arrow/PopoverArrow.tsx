@@ -51,7 +51,7 @@ export function PopoverArrow(componentProps: PopoverArrow.Props) {
     stateAttributesMapping: popupStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface PopoverArrowState {

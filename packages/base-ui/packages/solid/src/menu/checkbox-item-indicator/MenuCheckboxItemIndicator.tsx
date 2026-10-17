@@ -60,7 +60,7 @@ export function MenuCheckboxItemIndicator(componentProps: MenuCheckboxItemIndica
     stateAttributesMapping: itemMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MenuCheckboxItemIndicatorProps extends BaseUIComponentProps<

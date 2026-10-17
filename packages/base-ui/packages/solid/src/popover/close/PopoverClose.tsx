@@ -41,7 +41,7 @@ export function PopoverClose(props: PopoverClose.Props) {
     ref: buttonRef,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface PopoverCloseState {}

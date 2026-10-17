@@ -30,7 +30,7 @@ export function DialogTitle(componentProps: DialogTitle.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DialogTitleProps extends BaseUIComponentProps<'h2', DialogTitle.State> {}

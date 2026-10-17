@@ -58,7 +58,7 @@ export function NavigationMenuArrow(componentProps: NavigationMenuArrow.Props) {
     stateAttributesMapping: popupStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface NavigationMenuArrowState {

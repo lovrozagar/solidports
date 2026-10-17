@@ -38,7 +38,7 @@ export function MenuGroupLabel(componentProps: MenuGroupLabel.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MenuGroupLabelProps extends BaseUIComponentProps<'div', MenuGroupLabel.State> {}

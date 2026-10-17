@@ -89,7 +89,7 @@ export function PreviewCardPopup(componentProps: PreviewCardPopup.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface PreviewCardPopupState {

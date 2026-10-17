@@ -22,7 +22,7 @@ export function NumberFieldGroup(componentProps: NumberFieldGroup.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface NumberFieldGroupState extends NumberFieldRoot.State {}

@@ -44,7 +44,7 @@ export function ComboboxEmpty(componentProps: ComboboxEmpty.Props) {
     },
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ComboboxEmptyState {}

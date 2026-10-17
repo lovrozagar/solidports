@@ -45,7 +45,7 @@ export function SelectItemText(componentProps: SelectItemText.Props) {
     },
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SelectItemTextState {}

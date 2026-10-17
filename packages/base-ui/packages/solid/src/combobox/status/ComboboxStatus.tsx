@@ -33,7 +33,7 @@ export function ComboboxStatus(componentProps: ComboboxStatus.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ComboboxStatusState {}

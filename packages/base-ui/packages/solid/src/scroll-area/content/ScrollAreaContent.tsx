@@ -68,7 +68,7 @@ export function ScrollAreaContent(componentProps: ScrollAreaContent.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ScrollAreaContentState extends ScrollAreaRootState {}

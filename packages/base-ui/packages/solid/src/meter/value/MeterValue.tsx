@@ -29,7 +29,7 @@ export function MeterValue(componentProps: MeterValue.Props) {
     props: [{ 'aria-hidden': 'true' }, elementProps],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MeterValueState extends MeterRootState {}

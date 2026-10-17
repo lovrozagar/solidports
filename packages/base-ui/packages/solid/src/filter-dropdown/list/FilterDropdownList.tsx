@@ -54,7 +54,7 @@ export function FilterDropdownList(componentProps: FilterDropdownList.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface FilterDropdownListState {}

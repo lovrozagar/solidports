@@ -10,7 +10,7 @@ Every part renders through `useRenderElement` (the slow path: lazy props-view pr
 
 ## Slow path: `useRenderElement`
 
-`src/utils/useRenderElement.tsx` (re-exported from `internals/`) returns a component; `enabled` wraps it in `<Show>`.
+`src/utils/useRenderElement.tsx` (re-exported from `internals/`) returns a component; an `enabled` that can change wraps it in `<Show>`, while a fixed one (a boolean, or absent) is chosen once. Parts return `element()` itself, not `<>{element()}</>`: a list's parent resolves every accessor layer a row returns and tracks each one, and the fragment compiles to one more memo.
 
 ### Props sources
 
@@ -42,7 +42,7 @@ Element props are one `createPropsView` over sources, lowest priority first (`co
 - Static tag, `render`, and `params.props` on a non-hydrating client: no source memos; `dynamic(() => tag, { static: true })` renders directly; literal text children skip the children memo.
 - Intrinsic element: `hostRef` creates a root under the module-level `attributeRootOwner` (`:597`) holding one structure render effect over the key set (`:631`). Handlers get stable dispatchers and static values are assigned once; every other key gets its own render effect (`:676`).
 - Refs: a layout effect re-syncs only when a ref source can change (`:468`). Part refs get React's `null` on cleanup; consumer callback refs never do.
-- Dynamic `render`, accessor tag, server, or hydration: up to three source memos, a branch insert, and `<Dynamic>` for component tags and server renders.
+- Dynamic `render`, accessor tag, server, or hydration: up to three source memos, a branch memo, and `<Dynamic>` for component tags, server renders and hydration. A string tag on the client outside hydration renders through `dynamic(() => tag, { static: true })` inside the branch, so a list's parent tracks one source per row (`useRenderElement.fanIn.test.tsx`).
 - Hydration: a microtask re-applies attributes skipped during `hydrate()` and removes stale server attributes, keeping form-state ones (`:694`).
 
 ## Native kit: `utils/native/`

@@ -50,7 +50,7 @@ export function SelectLabel(componentProps: SelectLabel.Props) {
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export type SelectLabelState = FieldRoot.State;

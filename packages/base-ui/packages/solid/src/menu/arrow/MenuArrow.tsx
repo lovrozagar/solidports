@@ -51,7 +51,7 @@ export function MenuArrow(componentProps: MenuArrow.Props) {
     stateAttributesMapping: popupStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface MenuArrowState {

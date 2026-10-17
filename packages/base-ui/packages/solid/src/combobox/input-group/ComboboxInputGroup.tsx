@@ -76,7 +76,7 @@ export function ComboboxInputGroup(componentProps: ComboboxInputGroup.Props) {
     stateAttributesMapping: triggerStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ComboboxInputGroupState extends FieldRoot.State {

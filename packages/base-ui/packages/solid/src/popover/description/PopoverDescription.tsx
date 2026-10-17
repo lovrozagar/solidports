@@ -30,7 +30,7 @@ export function PopoverDescription(componentProps: PopoverDescription.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface PopoverDescriptionState {}

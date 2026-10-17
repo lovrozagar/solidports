@@ -36,7 +36,7 @@ export function FieldsetLegend(componentProps: FieldsetLegend.Props) {
     ],
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface FieldsetLegendState {

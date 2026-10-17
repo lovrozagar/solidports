@@ -38,7 +38,7 @@ export function ProgressValue(componentProps: ProgressValue.Props) {
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ProgressValueState extends ProgressRootState {}

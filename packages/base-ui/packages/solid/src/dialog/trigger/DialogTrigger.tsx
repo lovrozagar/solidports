@@ -132,7 +132,7 @@ export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Paylo
     stateAttributesMapping: triggerOpenStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface DialogTriggerProps<Payload = unknown>

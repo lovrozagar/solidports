@@ -601,7 +601,7 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
     stateAttributesMapping: sliderStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 function callHandler<E extends Event>(

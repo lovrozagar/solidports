@@ -58,7 +58,7 @@ export function SliderValue(componentProps: SliderValue.Props) {
     stateAttributesMapping: sliderStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SliderValueState extends SliderRootState {}

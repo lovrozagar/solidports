@@ -54,7 +54,7 @@ export function PreviewCardBackdrop(componentProps: PreviewCardBackdrop.Props) {
     stateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface PreviewCardBackdropState {

@@ -50,7 +50,7 @@ export function ComboboxArrow(componentProps: ComboboxArrow.Props) {
     stateAttributesMapping: popupStateMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ComboboxArrowState {

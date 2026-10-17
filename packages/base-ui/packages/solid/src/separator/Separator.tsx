@@ -30,7 +30,7 @@ export function Separator(componentProps: Separator.Props) {
         return orientation();
       },
     };
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return renderNativeElement(DIV, componentProps, {
       own: OWN_KEYS,
       state,
@@ -63,7 +63,7 @@ export function Separator(componentProps: Separator.Props) {
     state,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SeparatorProps extends BaseUIComponentProps<'div', Separator.State> {

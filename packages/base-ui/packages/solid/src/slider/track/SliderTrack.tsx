@@ -22,7 +22,7 @@ export function SliderTrack(componentProps: SliderTrack.Props) {
     stateAttributesMapping: sliderStateAttributesMapping,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface SliderTrackState extends SliderRootState {}
