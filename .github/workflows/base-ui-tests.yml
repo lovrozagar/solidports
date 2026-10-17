@@ -287,9 +287,10 @@ jobs:
   benchmark:
     name: Benchmark tests
     runs-on: ubuntu-latest
-    # The measured run took 23.9 to 29.6 minutes on the hosted runner (2026-10-17, six runs) and
-    # was cancelled at 30 in two more, so 30 cut off normal work; the D17 per-run cycles add to it.
-    timeout-minutes: 60
+    # A correctness smoke, as test-all's benchmark suite: every scenario and step once, failing on a
+    # step error, an unlisted warning or a DOM summary mismatch. A shared runner's numbers gate
+    # nothing (no thresholds; runs drift 20-30%); the measured bench runs on the Mac (D13, D16).
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -302,4 +303,4 @@ jobs:
       - working-directory: packages/base-ui
         run: |
           bun run bench:solid:build
-          bun run bench:solid
+          WARMUP=0 HEAP_RUNS=1 node test/perf-solid/run.mjs 1

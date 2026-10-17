@@ -6,7 +6,7 @@ verified: 2026-10-17
 
 # Perf method
 
-Three instruments: the Chromium benchmark (React vs Solid production builds, in CI with no thresholds), the local-only SSR bench, and `*.cost.test.tsx` reactive-node budgets counted in dev mode.
+Three instruments: the Chromium benchmark (React vs Solid production builds; CI runs its one-run correctness check, the Mac its measured form), the local-only SSR bench, and `*.cost.test.tsx` reactive-node budgets counted in dev mode.
 
 ## Scenario manifest
 
@@ -28,7 +28,7 @@ The spec for the tooling phase 1 builds. Each item moves into the sections below
 
 ## Chromium benchmark (`test/perf-solid`)
 
-Identical scenarios mounted by `@base-ui/react` (`react/`) and `@solidports/base-ui` (`solid/`) apps, both built in production mode. CI job "Benchmark tests" runs it on every push.
+Identical scenarios mounted by `@base-ui/react` (`react/`) and `@solidports/base-ui` (`solid/`) apps, both built in production mode. CI job "Benchmark tests" runs its one-run correctness check on every push; the measured runs are the Mac's (`bench:component`).
 
 ```bash
 # from packages/base-ui
@@ -65,7 +65,7 @@ node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
   - Before the action, the runner attaches a MutationObserver to `document` for that step only, and records the time inside the first mutation batch where `until` holds. After settling it polls `until` once per frame as the fallback for state no mutation reports, and fails the step after `UNTIL_TIMEOUT_MS` (2 s). An `until` that already holds before the action is an error, since it would measure nothing.
   - `settled` is that time minus `timerMs`, so a slow close render shows up instead of hiding behind the timer; `sync` and `paint` never include it, and CDP `script` covers the whole step. The observer's cost lands on those three steps only, and equally on every variant.
   - The step runner lives in `shared/step.ts`; `scripts/base-ui-perf-step.test.ts` covers it.
-- Ratios are each variant's median over the first variant's (`solid/react` by default; `base/react` and `cur/react` in a compare). `shared/report.mjs` builds the summary, which keeps every variant's raw `sync`, `script`, `settled` and heap samples for the regression rule. `RESULTS_FILE=<path without extension>` names the output; otherwise it lands in the results folder. CI prints the table to the job log.
+- Ratios are each variant's median over the first variant's (`solid/react` by default; `base/react` and `cur/react` in a compare). `shared/report.mjs` builds the summary, which keeps every variant's raw `sync`, `script`, `settled` and heap samples for the regression rule. `RESULTS_FILE=<path without extension>` names the output; otherwise it lands in the results folder. CI prints the one-run table to the job log, which is not a measurement.
 
 ### Correctness gate, not a speed gate
 
