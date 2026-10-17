@@ -244,7 +244,7 @@ export const suites = [
     exclusive: true,
     // The measured run (`--full-bench`) takes about half an hour.
     timeoutSeconds: 3600,
-    run: ['bun run bench:solid:build', 'WARMUP=0 node test/perf-solid/run.mjs 1'],
+    run: ['bun run bench:solid:build', 'WARMUP=0 HEAP_RUNS=1 node test/perf-solid/run.mjs 1'],
     fullRun: ['bun run bench:solid:build', 'bun run bench:solid'],
   },
 ];

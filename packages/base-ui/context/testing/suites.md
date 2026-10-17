@@ -30,7 +30,7 @@ User-approved 2026-10-16 for the perf rewrite (plan 3):
 
 A perf commit is pushed only after its Mac bench against current `main` shows the metric it targets improved and no gated metric regressed under the regression rule (`shared/regression.mjs`, D16); correctness gates alone are not enough (from D13, where a perf unit with every correctness gate green made the server no faster). Before a push of library code, two jsdom runs: the Mac's full test-all jsdom and chromium (the gate of record), and Linux jsdom scoped to the change, `bun run test:solid:jsdom --changed origin/main --run` at `nice -n 19 ionice -c3`. The Mac's timing can hide a failure that is deterministic on Linux, as an effect-order change was (D10). A change to shared core code fans out to most of the suite, which is correct. CI stays the final word.
 
-The benchmark suite's gate form is `WARMUP=0 node test/perf-solid/run.mjs 1`: the same DOM summaries and known differences, without the 8-run timing (about 28 minutes in the measured form).
+The benchmark suite's gate form is `WARMUP=0 HEAP_RUNS=1 node test/perf-solid/run.mjs 1`: the same DOM summaries and known differences, without the 8-run timing (about 28 minutes in the measured form).
 
 ## Local setup
 
