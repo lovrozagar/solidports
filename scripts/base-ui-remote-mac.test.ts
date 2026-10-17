@@ -164,6 +164,29 @@ describe("stopping a Mac run", () => {
 		expect(waitFor(() => !alive(command))).toBe(true)
 	}, 20_000)
 
+	test("a locked run runs heavy suites one at a time unless the caller sets GATES_HEAVY", async () => {
+		const { dir } = shims()
+		const home = join(dir, "home")
+		mkdirSync(join(home, ".gates"), { recursive: true })
+		const seen = async (heavy: string | undefined) => {
+			const out = join(dir, `heavy-${heavy ?? "default"}`)
+			const env: Record<string, string | undefined> = { ...process.env, HOME: home, PATH: `${dir}:${process.env.PATH}` }
+			delete env.GATES_HEAVY
+			if (heavy !== undefined) env.GATES_HEAVY = heavy
+			const run = Bun.spawn(["bash", "-c", lockedRun(60, ["sh", "-c", `echo "$GATES_HEAVY" > ${out}`])], {
+				env,
+				stdout: "ignore",
+				stderr: "ignore",
+			})
+			expect(await run.exited).toBe(0)
+			return readFileSync(out, "utf8").trim()
+		}
+		// On the Mac, jsdom beside a browser suite took 922 s and timed out a cold import test;
+		// one after the other they took 527 s together.
+		expect(await seen(undefined)).toBe("1")
+		expect(await seen("2")).toBe("2")
+	}, 30_000)
+
 	test("a locked run ends when the session that started it goes away", async () => {
 		const { dir } = shims()
 		const home = join(dir, "home")

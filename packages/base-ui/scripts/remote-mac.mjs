@@ -144,10 +144,12 @@ ${lockedRun(timeout, command)}`;
 /**
  * Runs `command` under the Mac's machine-wide lock with a hard timeout, and ends it when the ssh
  * session that started it goes away (its parent, or `$REMOTE_MAC_WATCH`): a run stopped on this
- * machine must not go on holding the lock there.
+ * machine must not go on holding the lock there. Heavy suites run one at a time there unless the
+ * caller sets `GATES_HEAVY`: jsdom beside a browser suite took 922 s and timed out a cold import
+ * test, and the two one after the other took 527 s.
  */
 export function lockedRun(timeout, command) {
-  return `GATES_LOCK=~/.gates/solidports-suites.flock flock ~/.gates/heavy.flock timeout -k 30 ${timeout} sh -c ${quote(command.map(quote).join(' '))} &
+  return `GATES_HEAVY=\${GATES_HEAVY:-1} GATES_LOCK=~/.gates/solidports-suites.flock flock ~/.gates/heavy.flock timeout -k 30 ${timeout} sh -c ${quote(command.map(quote).join(' '))} &
 RUN=$!
 WATCH=\${REMOTE_MAC_WATCH:-$PPID}
 (
