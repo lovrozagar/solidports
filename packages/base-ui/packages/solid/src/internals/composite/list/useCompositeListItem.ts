@@ -64,6 +64,11 @@ export function useCompositeListItem<Metadata>(
   const owner = {};
   let componentRef: Element | null = null;
 
+  // Registered as a reader, not a value: the list reads it at flush, so a text element that attaches
+  // after the item's ref (an ItemText part) needs no second registration.
+  const readTextRef =
+    params.textRef === undefined ? undefined : () => untrack(() => access(params.textRef));
+
   // `MaybeAccessor<Metadata>` cannot narrow a generic `Metadata`, so name the resolved type.
   const readMetadata = () => access(params.metadata) as Metadata | undefined;
 
@@ -72,7 +77,7 @@ export function useCompositeListItem<Metadata>(
       metadata: readMetadata() ?? null,
       index: externalIndex() ?? null,
       label: access(params.label),
-      textRef: access(params.textRef),
+      textRef: readTextRef,
     }));
 
   // The registration last handed to the list, to skip re-registering unchanged data.
@@ -107,7 +112,7 @@ export function useCompositeListItem<Metadata>(
       metadata: readMetadata() ?? null,
       index: externalIndex() ?? null,
       label: access(params.label),
-      textRef: access(params.textRef),
+      textRef: readTextRef,
     }),
     (registration) => {
       if (
@@ -115,8 +120,7 @@ export function useCompositeListItem<Metadata>(
         (lastRegistration !== null &&
           lastRegistration.metadata === registration.metadata &&
           lastRegistration.index === registration.index &&
-          lastRegistration.label === registration.label &&
-          lastRegistration.textRef === registration.textRef)
+          lastRegistration.label === registration.label)
       ) {
         return;
       }

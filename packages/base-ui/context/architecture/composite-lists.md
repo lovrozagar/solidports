@@ -27,8 +27,8 @@ All paths are under `packages/base-ui/packages/solid/src/`.
 ## Registration
 
 - The list keeps `Map<Element, { owner, registration }[]>`. Nested items that share one DOM node each register with their own `owner` object; the first attached entry wins and later ones take over when it unregisters. React gets this from ref attachment order.
-- A registration is `{ metadata, index, label, textRef }`. `index: null` means automatic (DOM order); a number reserves that slot.
-- Items register from their ref (Solid applies refs once, never with `null`) and unregister in `onCleanup`. `useCompositeListItem` also runs one effect (`:105-125`) that re-registers when metadata, explicit index, label or `textRef` change, compared field by field against the last registration.
+- A registration is `{ metadata, index, label, textRef }`. `index: null` means automatic (DOM order); a number reserves that slot. `textRef` is a reader the list calls when it builds labels, as React reads its ref object at flush: an ItemText part's ref attaches after the item registered, and a registered element value made every Select item register twice per open (two 1,000-item flushes).
+- Items register from their ref (Solid applies refs once, never with `null`) and unregister in `onCleanup`. `useCompositeListItem` also runs one effect that re-registers when metadata, explicit index or label change, compared field by field against the last registration.
 - Index guess: with `IndexGuessBehavior.GuessFromOrder` (or `guessIndex` in the native helpers), the initial index comes from `nextIndexRef` in creation order, so a flat list in DOM order needs no update after the first flush. The flush corrects a wrong guess.
 - Each item subscribes to map changes. The slow hook subscribes from a layout effect keyed on the explicit index (`:135-147`), so items with an explicit index do not subscribe. The native helpers subscribe at setup.
 

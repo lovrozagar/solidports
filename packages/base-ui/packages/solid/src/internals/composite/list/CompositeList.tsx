@@ -104,7 +104,7 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
         labels[item.index] =
           item.registration.label !== undefined
             ? item.registration.label
-            : (item.registration.textRef?.textContent ?? item.element.textContent);
+            : (item.registration.textRef?.()?.textContent ?? item.element.textContent);
       }
     });
 

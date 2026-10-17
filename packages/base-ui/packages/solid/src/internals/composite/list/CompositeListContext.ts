@@ -4,7 +4,12 @@ export interface CompositeListRegistration<Metadata> {
   metadata: Metadata | null;
   index: number | null;
   label: string | null | undefined;
-  textRef: HTMLElement | null | undefined;
+  /**
+   * Reads the item's text element. The list calls it when it builds labels, as React reads its
+   * `textRef` object at flush: the text element (an ItemText part's ref) can attach after the
+   * item registered.
+   */
+  textRef: (() => HTMLElement | null | undefined) | undefined;
 }
 
 export interface CompositeListContextValue<Metadata> {

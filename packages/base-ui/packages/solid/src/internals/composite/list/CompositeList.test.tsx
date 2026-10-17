@@ -1,10 +1,12 @@
 import { expect, vi, describe, it } from 'vitest';
 import { createMemo, createSignal, For, Loading, Show, untrack } from 'solid-js';
 import { Portal } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { act, createRenderer } from '#test-utils';
 import { CompositeList } from './CompositeList';
 import { IndexGuessBehavior, useCompositeListItem } from './useCompositeListItem';
+import { CompositeListContext, useCompositeListContext } from './CompositeListContext';
 import { renderServer } from '../../../../test/ssrFixtures';
 import fixtures, { hydratedRefs } from './CompositeList.ssr-fixtures';
 
@@ -887,6 +889,55 @@ describe('<CompositeList />', () => {
       ));
 
       expect(refs.labels).toEqual(['explicit label', null, 'from text ref', 'from element']);
+    });
+
+    it('registers an item once when its text element attaches in the same mount', async () => {
+      // Select and Combobox items read their text element from a ref their ItemText part sets.
+      // The item's own ref registers first; when the text element arrived, the item registered a
+      // second time, and the list rebuilt its whole snapshot again (2,000 registrations and two
+      // flushes to open a 1,000-item Select). React registers the ref object and reads it at flush.
+      const refs = createRefs();
+      let registrations = 0;
+      function CountRegistrations(props: { children: JSX.Element }) {
+        const context = useCompositeListContext();
+        const value = {
+          ...context,
+          register: (...args: Parameters<typeof context.register>) => {
+            registrations += 1;
+            context.register(...args);
+          },
+        };
+        return <CompositeListContext value={value}>{props.children}</CompositeListContext>;
+      }
+      function TextRefItem(props: { text: string }) {
+        const textRef: { current: HTMLElement | null } = { current: null };
+        const { setRef } = useCompositeListItem({ textRef: () => textRef.current });
+        return (
+          <div ref={setRef}>
+            <span
+              ref={(node) => {
+                textRef.current = node;
+              }}
+            >
+              {props.text}
+            </span>
+            -ignored
+          </div>
+        );
+      }
+
+      await render(() => (
+        <CompositeList refs={refs}>
+          <CountRegistrations>
+            <TextRefItem text="one" />
+            <TextRefItem text="two" />
+            <TextRefItem text="three" />
+          </CountRegistrations>
+        </CompositeList>
+      ));
+
+      expect(refs.labels).toEqual(['one', 'two', 'three']);
+      expect(registrations).toBe(3);
     });
 
     it('drops label slots for items that unmount', async () => {
