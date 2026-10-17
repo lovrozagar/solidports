@@ -95,7 +95,7 @@ Rules for editing: never renumber. Add new entries at the end. When an entry sto
 
 - **Symptom:** moving a JSX provider onto `provideContext` (one transparent owner) changed behavior in `AriaCombobox` (Autocomplete's `mode="both"` kept a temporary inline value over an external controlled update) and `NumberFieldRoot` (a Field with `validationMode="onSubmit"` marked the input invalid on input).
 - **Cause:** a flush applies its user effects by reactive height, and a provider's two lazy children memos raise the height of everything under it. Without them, effects created in the provider's children run earlier against the root's own effects; `AriaCombobox`'s `ValueChangeEffects` is rendered last for exactly that order.
-- **Fix:** those two keep their JSX providers. Making the order explicit (not by height) is a follow-up before they move.
+- **Fix:** those two keep their JSX providers. Making the order explicit (not by height) is a follow-up before they move. Same mechanism as [D10](../decisions/log.md) (S3 parked): effect order by height, which React does not share.
 
 ## Retired
 
