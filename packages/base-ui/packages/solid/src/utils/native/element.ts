@@ -18,6 +18,7 @@ import {
 import { assign, escape, insert, isServer, ssrElement } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
+import { serverElement } from './serverElement';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
 import { warn } from '../warn';
 import {
@@ -449,6 +450,7 @@ function renderServerElement<State extends object>(
   serverKeys = keys;
   let attributes: Record<string, unknown>;
   let markup: string;
+  let shared: boolean;
   try {
     const partLiteral = spec.literal;
     if (partLiteral) {
@@ -493,6 +495,7 @@ function renderServerElement<State extends object>(
       }
     }
     attributes = serverObject;
+    shared = serverObjectShared;
     markup = takeServerMarkup(writeKeys, writeValues, start, writeTop);
   } finally {
     writeTop = start;
@@ -510,6 +513,11 @@ function renderServerElement<State extends object>(
     children = isStatic(props, 'children')
       ? escape(source.children)
       : () => escape(source.children);
+  }
+  // The native kit's own writer for the cases a native element has (D18); `ssrElement` for the rest.
+  const written = serverElement(element.tag, attributes, children, markup, shared);
+  if (written !== undefined) {
+    return written as unknown as Element;
   }
   return ssrElement(
     element.tag,
