@@ -60,6 +60,10 @@ A keyed `createProjection` created once at the list root, unconditionally on bot
 
 Measured and dropped (D13): native server templates, which wrote an element's markup without `ssrElement`. `ssrElement` and its node walk cost about 200 µs of a 2.55 ms collapsible/300-open server render; the server gap to the floor is the parts' setup (ServerPanel and its closures, the root model, ids and memos, the markup string).
 
+Measured and not landed (2026-10-17): a server micro-diet, with `autoDimensions` returning the shared style for the variables object it saw last and the server panel no longer allocating the client's machinery closure. Mac, 30 runs, interleaved with main: collapsible/300 1.31 against 1.28 ms, collapsible/300-open 1.90 against 1.93, accordion/300 2.58 against 2.61, accordion/300-open 4.03 against 4.01. Within 2% either way, so no gain.
+
+Open design question for a later phase: the server is 1.5x (closed) to 2.1x (open) the floor in every run, because the port runs, per part, the model, context, id registration, state view and markup string that the floor writes inline. Closing that takes a per-family server renderer that writes a family's markup directly, the floor's shape, with the floor's ratio as the ceiling. Decide it once several families are on the native path, so one shape serves all of them.
+
 These are not needed for the pilot:
 
 - `SolidStore` write fast path; derived selectors shared per store.
