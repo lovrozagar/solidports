@@ -291,7 +291,9 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   const multiple = () => selectionMode() === 'multiple';
   const single = () => selectionMode() === 'single';
   const hasInputValue = () => inputValueProp() !== undefined || defaultInputValue() !== undefined;
-  const hasItems = () => items() !== undefined;
+  // A memo: every item reads it (`ComboboxHasItemsContext`), and a new `items` array leaves the
+  // answer unchanged, so the items must not subscribe to the collection itself.
+  const hasItems = createMemo(() => items() !== undefined);
   const hasFilteredItemsProp = () => filteredItemsProp() !== undefined;
 
   const autoHighlightMode = createMemo<false | 'input-change' | 'always'>(() => {
