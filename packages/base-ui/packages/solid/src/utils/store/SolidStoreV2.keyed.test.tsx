@@ -84,18 +84,44 @@ function ownersCreatedBy(run: () => void) {
 }
 
 describe('SolidStore keyed selectors', () => {
-  it('a keyed selector re-runs only the readers of the old and the new id', () => {
+  it('after its first change, a keyed selector re-runs only the readers of the old and the new id', () => {
     const [store, disposeStore] = ownedStore();
     const { runs, memos, dispose } = readers(store, 'isActive');
-    const before = runs.reduce((a, b) => a + b, 0);
+    const total = () => runs.reduce((a, b) => a + b, 0);
+    // The first change re-runs every reader once, as a plain selector does, and keys them.
+    let before = total();
     store.set('active', '5');
     flush();
     memos.forEach((memo) => memo());
-    expect(runs.reduce((a, b) => a + b, 0) - before).toBe(2);
-    expect(memos.map((memo) => memo()).filter(Boolean).length).toBe(1);
+    expect(total() - before).toBeLessThanOrEqual(100);
     expect(memos[5]()).toBe(true);
+    for (const next of ['9', '42']) {
+      before = total();
+      store.set('active', next);
+      flush();
+      memos.forEach((memo) => memo());
+      expect(total() - before).toBe(2);
+    }
+    expect(memos.map((memo) => memo()).filter(Boolean).length).toBe(1);
+    expect(memos[42]()).toBe(true);
     dispose();
     disposeStore();
+  });
+
+  it('creates nothing for a store whose current id never moves (closed popup roots)', () => {
+    // Plan 3, 4.4b: a projection per keyed selector at the first tracked read made 500 closed
+    // roots mount 13-22% slower; a closed root's active id never changes.
+    const created = (selector: 'isActive' | 'isActivePlain') => {
+      const [store, disposeStore] = ownedStore();
+      let dispose!: () => void;
+      const owners = ownersCreatedBy(() => {
+        [, dispose] = inRoot(() => createMemo(() => store.select(selector, () => '0'))());
+      });
+      dispose();
+      disposeStore();
+      return owners.length;
+    };
+    expect(created('isActive')).toBe(created('isActivePlain'));
   });
 
   it('a selector of the same shape not declared keyed re-runs every reader, exactly as before', () => {
@@ -174,6 +200,9 @@ describe('SolidStore keyed selectors', () => {
       let dispose!: () => void;
       const owners = ownersCreatedBy(() => {
         [, dispose] = inRoot(() => createMemo(() => store.select('isActive', () => '0'))());
+        // The projection is created on the first change of the current id.
+        store.set('active', '1');
+        flush();
       });
       dispose();
       const kept = owners.filter((owner) => !isDisposed(owner));
