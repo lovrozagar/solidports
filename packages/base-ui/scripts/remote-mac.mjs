@@ -162,11 +162,15 @@ mkdir -p "$(dirname ~/${heartbeat})" && touch ~/${heartbeat}
 export REMOTE_MAC_HEARTBEAT=~/${heartbeat}`
       : ''
   }
-cat > ~/.gates/bin/flock <<'SHIM'
+# Written beside the installed shims and renamed over them: a run started together may be
+# executing them, and a rewrite in place made it exit 126 or read a half-written script.
+cat > ~/.gates/bin/flock.$$ <<'SHIM'
 ${FLOCK_SHIM}SHIM
-cat > ~/.gates/bin/timeout <<'SHIM'
+cat > ~/.gates/bin/timeout.$$ <<'SHIM'
 ${TIMEOUT_SHIM}SHIM
-chmod +x ~/.gates/bin/flock ~/.gates/bin/timeout
+chmod +x ~/.gates/bin/flock.$$ ~/.gates/bin/timeout.$$
+mv -f ~/.gates/bin/flock.$$ ~/.gates/bin/flock
+mv -f ~/.gates/bin/timeout.$$ ~/.gates/bin/timeout
 flock -n ~/.gates/heavy.flock true || echo "remote-mac: waiting for ~/.gates/heavy.flock ($(cat ~/.gates/heavy.flock 2>/dev/null) holds it)"
 ${lockedRun(timeout, ['bash', '-c', lockedScript({ sha, command, bundle, ref, fetch, outDir })])}`;
 }

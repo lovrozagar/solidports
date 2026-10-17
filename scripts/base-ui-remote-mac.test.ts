@@ -287,6 +287,48 @@ describe("stopping a Mac run", () => {
 })
 
 describe("queued Mac runs", () => {
+	test("a run installs its shims without disturbing another run that is executing them", async () => {
+		// Each run writes the flock and timeout shims before it queues. Written in place, a second
+		// run started together rewrote the file the first was executing: the first exited 126 (the
+		// kernel refuses to run a file open for writing) or read a half-written script.
+		const { dir } = shims()
+		const home = join(dir, "home")
+		const bin = join(home, ".bun/bin")
+		mkdirSync(join(home, "solidports-ci/.git"), { recursive: true })
+		mkdirSync(join(home, ".gates/bin"), { recursive: true })
+		mkdirSync(bin, { recursive: true })
+		writeFileSync(join(bin, "git"), "#!/bin/sh\nexit 0\n")
+		writeFileSync(join(bin, "bun"), "#!/bin/sh\nexit 0\n")
+		chmodSync(join(bin, "git"), 0o755)
+		chmodSync(join(bin, "bun"), 0o755)
+		const installed = join(home, ".gates/bin/flock")
+		writeFileSync(installed, FLOCK_SHIM)
+		chmodSync(installed, 0o755)
+		// The other run, in the middle of writing the installed shim.
+		const writer = openSync(installed, "r+")
+		try {
+			const run = Bun.spawn(
+				[
+					"bash",
+					"-c",
+					remoteScript({
+						sha: "abc",
+						timeout: 60,
+						command: ["true"],
+						bundle: "solidports-remote-x.bundle",
+						ref: "refs/remote-mac/x",
+						fetch: [],
+						outDir: "remote-mac-out/x",
+					}),
+				],
+				{ env: { ...process.env, HOME: home }, stdout: "ignore", stderr: "ignore" },
+			)
+			expect(await run.exited).toBe(0)
+		} finally {
+			closeSync(writer)
+		}
+	}, 30_000)
+
 	test("two runs started together check out and run one after the other", async () => {
 		const { dir } = shims()
 		const home = join(dir, "home")
