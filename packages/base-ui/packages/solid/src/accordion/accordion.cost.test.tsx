@@ -5,7 +5,7 @@
  * per-component nodes cancel out (plan 3, Accordion after the Collapsible pilot).
  */
 import { DEV, createSignal, flush } from 'solid-js';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
@@ -18,6 +18,21 @@ import {
 } from '../../test/floor/accordion';
 import { startingTimeline, withoutSizes } from '../../test/floor/startingTimeline';
 import { panelReads } from '../../test/floor/panelReads';
+
+// Counts membership reads (`isOpen(key)`) through the root's keyed selector, unchanged otherwise.
+const membership = vi.hoisted(() => ({ reads: 0 }));
+vi.mock('../utils/createKeyedSelector', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/createKeyedSelector')>();
+  return {
+    createKeyedSelector: (values: Parameters<typeof actual.createKeyedSelector>[0]) => {
+      const isSelected = actual.createKeyedSelector(values);
+      return (key: unknown) => {
+        membership.reads += 1;
+        return isSelected(key);
+      };
+    },
+  };
+});
 
 type Hooks = { onOwner?: (owner: unknown) => void };
 const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
@@ -289,6 +304,28 @@ describe('accordion cost against the hand-written floor', () => {
       }
     });
   }
+
+  // An item's open re-reads its membership once per node that depends on it, not once per
+  // dependency of every pass of its panel's machinery (plan 3 leaf 5.1.3 (b)): each read is a
+  // projection lookup, 12% of open all at 300.
+  it("an item's open reads its membership at most 20 times", async () => {
+    const [open, setOpen] = createSignal(false);
+    const view = render(() => controlled.part(open));
+    flush();
+    membership.reads = 0;
+    setOpen(true);
+    flush();
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    flush();
+    const reads = membership.reads;
+    view.unmount();
+    expect(reads, `membership reads ${reads}`).toBeLessThanOrEqual(20);
+  });
 
   it('an open item costs at most the open floor item plus 25%', () => {
     const cost = perItem(partRoot(true), part.full);
