@@ -134,9 +134,9 @@ const repoEnv = () =>
   Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
 
 function git(cwd, args, encoding = 'utf8') {
-  const run = spawnSync('git', args, { cwd, encoding, env: repoEnv(), maxBuffer: 1 << 30 });
-  if (run.status !== 0) throw new Error(`git ${args.join(' ')}: ${run.stderr}`);
-  return run.stdout;
+  const result = spawnSync('git', args, { cwd, encoding, env: repoEnv(), maxBuffer: 1 << 30 });
+  if (result.status !== 0) throw new Error(`git ${args.join(' ')}: ${result.stderr}`);
+  return result.stdout;
 }
 
 const sha256 = () => createHash('sha256');
@@ -165,13 +165,13 @@ export function gitProvenance(cwd) {
  * would otherwise read as no difference.
  */
 export function depsDrift(cwd, baseSha) {
-  const run = spawnSync('git', ['diff', '--quiet', baseSha, '--', 'bun.lock'], {
+  const diff = spawnSync('git', ['diff', '--quiet', baseSha, '--', 'bun.lock'], {
     cwd,
     env: repoEnv(),
   });
-  if (run.status !== 0 && run.status !== 1)
+  if (diff.status !== 0 && diff.status !== 1)
     throw new Error(`git diff ${baseSha} -- bun.lock failed`);
-  return run.status === 1;
+  return diff.status === 1;
 }
 
 /** Hash of the tracked and untracked (not ignored) files under `paths`, by path and content. */
@@ -304,8 +304,18 @@ function buildArchived(sha, name, others) {
   };
 }
 
-async function main() {
-  const options = parseArgs(process.argv.slice(2));
+/**
+ * The driver. `deps` replaces the process runner, the archived-library build, the results folder
+ * and the builds folder (the end-to-end test feeds canned runner output through them). Resolves to the exit code.
+ * @param {string[]} argv
+ * @param {{ run?: typeof run, buildArchived?: typeof buildArchived, resultsDir?: string, buildsDir?: string }} [deps]
+ */
+export async function main(argv, deps = {}) {
+  const exec = deps.run ?? run;
+  const archived = deps.buildArchived ?? buildArchived;
+  const outDir = deps.resultsDir ?? resultsDir;
+  const buildsDir = deps.buildsDir ?? builds;
+  const options = parseArgs(argv);
   const manifest = await import('../test/perf-solid/shared/manifest.ts');
   const { ssrCases } = await import('../test/perf-solid/ssr/cases.ts');
   const components = resolveComponents(options.names, manifest.COMPONENTS);
@@ -321,21 +331,21 @@ async function main() {
   }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const label = components.length > 3 ? `${components.length}-components` : components.join('+');
-  const out = path.join(resultsDir, `component-${label}-${stamp}`);
-  fs.mkdirSync(resultsDir, { recursive: true });
+  const out = path.join(outDir, `component-${label}-${stamp}`);
+  fs.mkdirSync(outDir, { recursive: true });
 
   // --- Builds (once) ---
-  run('bun', ['run', 'bench:solid:build']);
+  exec('bun', ['run', 'bench:solid:build']);
   let base = null;
   /** With `--at`, the commit measured instead of the working tree. */
   let measured = null;
   const browserVariants = ['react:react:dist'];
   const ssrVariants = ['react:react'];
   if (options.compare) {
-    const file = path.join(resultsDir, 'baselines', `${options.compare}.json`);
+    const file = path.join(outDir, 'baselines', `${options.compare}.json`);
     if (!fs.existsSync(file)) throw new Error(`No baseline "${options.compare}" at ${file}`);
     const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
-    const built = buildArchived(saved.sha, 'base', ['cur:solid']);
+    const built = archived(saved.sha, 'base', ['cur:solid']);
     base = {
       label: options.compare,
       sha: saved.sha,
@@ -348,26 +358,26 @@ async function main() {
     ssrVariants.push(built.ssrVariant, 'cur:solid');
   } else if (options.at) {
     const sha = git(repo, ['rev-parse', options.at]).trim();
-    const built = buildArchived(sha, 'at', []);
+    const built = archived(sha, 'at', []);
     measured = { sha, buildHash: built.buildHash };
     browserVariants.push(`solid:solid:${built.browserOut}`);
     ssrVariants.push(built.ssrVariant.replace(/^at:/, 'solid:'));
   } else {
     browserVariants.push('solid:solid:dist');
     ssrVariants.push('solid:solid');
-    run('node', ['test/perf-solid/ssr/run.mjs'], {
+    exec('node', ['test/perf-solid/ssr/run.mjs'], {
       env: { BUILD_ONLY: '1', SSR_VARIANTS: ssrVariants.join(',') },
     });
   }
   const curBuildHash = measured?.buildHash ?? {
-    browser: dirHash(path.join(builds, 'solid', 'dist')),
+    browser: dirHash(path.join(buildsDir, 'solid', 'dist')),
   };
 
   // --- Browser scenarios ---
   const browserFilter = [...components.map((c) => `component:${c}`), options.filter]
     .filter(Boolean)
     .join(',');
-  const browserExit = run(
+  const browserExit = exec(
     'node',
     ['test/perf-solid/run.mjs', String(options.runs), browserFilter],
     {
@@ -390,7 +400,7 @@ async function main() {
   let ssr = null;
   let ssrExit = 0;
   if (ssrIds.length) {
-    ssrExit = run(
+    ssrExit = exec(
       'node',
       // `--expose-gc`: the server sampler collects before each batch (`ssr/sample.mjs`).
       ['--expose-gc', 'test/perf-solid/ssr/run.mjs', String(options.ssrRuns), ssrIds.join(',')],
@@ -414,7 +424,7 @@ async function main() {
   };
   if (plan.names.length && !options.at) {
     const report = `${out}-cost.json`;
-    run(
+    exec(
       'bun',
       [
         'x',
@@ -574,7 +584,7 @@ async function main() {
     if (blockers.length) {
       throw new Error(`Not saving a baseline from a run with failures: ${blockers.join('; ')}`);
     }
-    const dir = path.join(resultsDir, 'baselines');
+    const dir = path.join(outDir, 'baselines');
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `${options.saveBaseline}.json`);
     const browserResults = browser && JSON.parse(fs.readFileSync(`${out}-browser.json`, 'utf8'));
@@ -595,14 +605,17 @@ async function main() {
       ),
     );
     console.log(`saved baseline ${options.saveBaseline} → ${file}`);
-    process.exit(0);
+    return 0;
   }
-  process.exit(failures.length ? 1 : 0);
+  return failures.length ? 1 : 0;
 }
 
 if (import.meta.main) {
-  main().catch((error) => {
-    console.error(error.message);
-    process.exit(1);
-  });
+  main(process.argv.slice(2)).then(
+    (code) => process.exit(code),
+    (error) => {
+      console.error(error.message);
+      process.exit(1);
+    },
+  );
 }

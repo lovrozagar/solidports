@@ -214,10 +214,10 @@ function main() {
     const reactRuns = [];
     /** Reruns both suites' files of `entries` `count` times, one invocation per suite each time. */
     const rerunFiles = (entries, count) => {
-      const files = (results) => [
+      const files = (suite) => [
         ...new Set(
           entries
-            .map((entry) => results.get(entry.key)?.file)
+            .map((entry) => suite.get(entry.key)?.file)
             .filter(Boolean)
             .map(relative),
         ),
