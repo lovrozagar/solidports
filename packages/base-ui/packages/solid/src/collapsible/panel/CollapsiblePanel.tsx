@@ -110,18 +110,6 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
     get props() {
       return [
         panelProps,
-        {
-          // The client writes measured sizes to these variables directly (see
-          // `useCollapsiblePanel`); the server renders their initial `auto`.
-          get style() {
-            return isServer
-              ? {
-                  [CollapsiblePanelCssVars.collapsiblePanelHeight as string]: 'auto',
-                  [CollapsiblePanelCssVars.collapsiblePanelWidth as string]: 'auto',
-                }
-              : undefined;
-          },
-        },
         elementProps,
         {
           get style() {
@@ -135,6 +123,12 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
             return panel.shouldPreventOpenAnimation() ? { 'animation-name': 'none' } : undefined;
           },
         },
+        // The variables at `auto`, on the server and the client alike (D9), last as the native
+        // panel writes them: the client writes measured sizes over them directly (see
+        // `useCollapsiblePanel`), and an unchanged `auto` writes nothing, so a measured size stays.
+        // Rendering them on the client too keeps the server's after hydration, which removes what
+        // the client does not render.
+        { style: panel.dimensionStyle },
       ];
     },
     stateAttributesMapping: collapsibleStateAttributesMapping,
