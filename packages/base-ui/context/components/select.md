@@ -68,6 +68,7 @@ See [composite lists](../architecture/composite-lists.md), [floating](../archite
 ## Known issues and divergences
 
 - Interaction hooks mount on first intent rather than up front as in React; closed-state output is handlers only, so behavior matches.
+- Typeahead and the rendered value label read each item's label from `Select.ItemText` when the list flushes, as React reads its `textRef`. Before plan 3 leaf 4.9 they got that text only because every item registered a second time once its ItemText attached; a single registration would have given them the whole item's text (indicator included). The second registration came within the same open, so no user saw the wrong label.
 
 ## Docs
 
