@@ -12,6 +12,8 @@ The living playbook for moving a family onto the native kit (D15): read it befor
 
 The slow path is the largest bucket of library time, and only native ports shrink it (core-audit, "The slow path after the core phase"). Within phase 5, take a family's parts in order of their slow-path share in the latest attribution (`attribution.mjs`, the render-element bucket by component): among the list families, Combobox (497 ms expected) and Select (461 ms) come first.
 
+Popup families carry a heap gap the core phase does not close: 500 closed Tooltip roots retain 23.4 MB against React's 11.2 MB (the bench's heap after mount, measured with a full collection). Each popup family's port takes its share of that gap as an exit criterion.
+
 ## Unit loop
 
 1. Red: cost tests at the native budget in a `*.cost.test.tsx` (nodes beyond a plain element, `expectNativePath` on every measured part), a `<Family>.parity.test.tsx` through `test/parityHarness.tsx`, and `*.ssr-fixtures.tsx` with a hydration test that updates after hydration and compares with a client render. Run them to see them fail.

@@ -56,7 +56,7 @@ node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 | `paint` | `sync` plus `nextPaint()` (one `requestAnimationFrame` then `setTimeout(0)`) |
 | `script` | change in CDP `ScriptDuration`, ms (the step runs in its own task, so its synchronous work counts) |
 | layout, style | change in `LayoutDuration`, `RecalcStyleDuration` (JSON only) |
-| heap after mount KB | `usedJSHeapSize` after the mount step minus before it, both after `gc()` (`--expose-gc`) |
+| heap after mount KB | `usedJSHeapSize` after the mount step minus before it, both after a full collection (`collectGarbage`: CDP `HeapProfiler.collectGarbage`, `shared/measure.mjs`) |
 | settled | steps with `until` only: ms from step start until `until` first held, minus the step's `timerMs` |
 
 - Settle steps (mount, unmount, and any step with `settle`) wait two more frames before `verify`.
@@ -75,6 +75,7 @@ node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 
 - Compare ratios from one session, never absolute ms across sessions (the README notes up to 2x drift). Between CI runs 38559281856 and 38882393542 the unchanged React side moved 20–30% on many steps.
 - Small or negative heap values (closed popups, combobox) are GC noise; read heap only where both sides exceed about 100 KB.
+- A full collection sometimes keeps a just-removed subtree reachable, all of it or nothing, with any collector (a page's `gc()`, CDP's, from a fresh task, the least of three): a page with no library at all reproduces it. With the page's `gc()`, half of Solid's samples after an unmount still counted the previous tree (500 tooltip roots read 1.5 MB or 23.4 MB at random, sides trading places between runs, and the gate flagged the flips). CDP's collection made the bench's samples single-mode (72 of 72 locally, spread 0.4% for tooltip/roots-500); the medians of 24 samples absorb a rare keep.
 - CPU and allocation profile of one scenario: `node test/perf-solid/profile.mjs <lib> <scenario> [dir] [setup] [measured]` (self time per function plus sampled heap).
 
 ## SSR bench (`test/perf-solid/ssr/run.mjs`)
