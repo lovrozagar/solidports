@@ -68,4 +68,15 @@ export const ssrCases: readonly SsrCase[] = [
     tags: ['ssr', 'hydrate', 'scale-1000', 'controlled', 'portal'],
   },
   { id: 'tabs/200', components: ['tabs'], tags: ['ssr', 'hydrate', 'scale-100', 'controlled'] },
+  {
+    id: 'progress/1000',
+    components: ['progress', 'meter'],
+    tags: ['ssr', 'hydrate', 'scale-1000', 'controlled'],
+  },
+  {
+    id: 'input/1000',
+    components: ['input', 'separator'],
+    tags: ['ssr', 'hydrate', 'scale-1000', 'uncontrolled'],
+  },
+  { id: 'avatar/1000', components: ['avatar'], tags: ['ssr', 'hydrate', 'scale-1000'] },
 ];
