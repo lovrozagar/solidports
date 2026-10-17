@@ -12,7 +12,7 @@ Inventory of `packages/base-ui/scripts/`, `packages/base-ui/packages/solid/scrip
 
 | Path | Does | Wired by | Origin |
 | :--- | :--- | :--- | :--- |
-| `test-all.mjs` | Runs every suite of the Base UI tests, browser parity and typescript@next workflows (27 suites), logs to `.tmp/base-ui-test-all/`, prints pass/fail/not run. `--only`, `--list`. Suites that launch browsers or bind fixed ports run under an flock on the machine-wide gate lock (`GATES_LOCK`, default `~/.cache/gates/heavy.lock`, which flare's gates take too). | root `test:base-ui:all` | port |
+| `test-all.mjs` | Runs every suite of the Base UI tests, browser parity and typescript@next workflows (28 suites), logs to `.tmp/base-ui-test-all/`, prints pass/fail/not run. `--only`, `--list`. Suites that launch browsers or bind fixed ports run under an flock on the machine-wide gate lock (`GATES_LOCK`, default `~/.cache/gates/heavy.lock`, which flare's gates take too). | root `test:base-ui:all` | port |
 | `serve-strict.mjs` | Serves `<dir>/build` with the SPA fallback on 127.0.0.1 and ::1 at one port; exits 1 naming the port when either is taken (replaces `serve`, which drifts to a random port). | the four fixed-port test servers (`test:e2e*:server`, `test:regressions*:server`) | port |
 | `warning-census.mjs` | Turns a `SOLID_WARNING_CENSUS` JSONL into the per-suite warning census report: counts by kind, origin and swallowed, and the distinct messages ([suites](../testing/suites.md)). | manual | port |
 | `bench-component.mjs` | One perf report per component: browser scenarios, SSR cases and cost tests; `--save-baseline`, `--compare` (baseline library from `git archive`, cached builds, the regression rule, D16). Run with Bun. | `bench:component` | port |

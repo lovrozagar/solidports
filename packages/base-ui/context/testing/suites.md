@@ -6,7 +6,7 @@ verified: 2026-10-17
 
 # Test suites
 
-Base UI has 27 suites, one per step of the "Base UI tests" workflow plus Firefox and WebKit browser parity; `bun run test:base-ui:all` runs them all, while root `bun run verify` checks only Base UI types and this context map.
+Base UI has 28 suites, one per step of the "Base UI tests" workflow plus Firefox and WebKit browser parity; `bun run test:base-ui:all` runs them all, while root `bun run verify` checks only Base UI types and this context map.
 
 ## Run everything
 
@@ -14,7 +14,7 @@ From the repo root: `bun run test:base-ui:all` (`packages/base-ui/scripts/test-a
 
 - Runs each suite with the workflow's own commands, then prints a pass / fail / not run table in suite order. A suite that cannot run here (screen reader off Windows) is "not run", never omitted. Report all three states; "not run" is not a pass.
 - Suites run concurrently: light ones (lint, typecheck, package, generated files) up to `GATES_LIGHT` at a time (default 4), heavy ones (test runners, browsers, docs builds, benchmark) up to `GATES_HEAVY` (default 2), and at most one `exclusive` suite (browsers, fixed ports) at a time on top of the machine lock below. `after` keeps chains ordered: package → public-types → node-resolution, docs-validate → docs-build → docs-hydration.
-- `--list` prints the 27 suites; `--only a,b` reruns some (the rest show "not run"). `--changed [ref]` runs only jsdom and chromium on vitest's module-graph diff against HEAD (uncommitted changes) or the ref, with `--passWithNoTests`: a one-line change to `utils/useRenderElement.tsx` selects 369 test files, an untouched tree none. `--full-bench` runs the measured benchmark instead of the gate's one-run check.
+- `--list` prints the 28 suites; `--only a,b` reruns some (the rest show "not run"). `--changed [ref]` runs only jsdom and chromium on vitest's module-graph diff against HEAD (uncommitted changes) or the ref, with `--passWithNoTests`: a one-line change to `utils/useRenderElement.tsx` selects 369 test files, an untouched tree none. `--full-bench` runs the measured benchmark instead of the gate's one-run check.
 - Generated-file suites fail when they change the paths they declare (`generated`), compared against those paths before the suite (local edits are not discarded); scoping keeps suites running beside them from being blamed on them.
 - One run per tree: a second `test:base-ui:all` is refused, naming the PID that holds `.tmp/base-ui-test-all/run.lock`; a crashed run's lock frees itself within seconds. Each run logs to its own `.tmp/base-ui-test-all/<stamp>/` folder (one `<suite>.log` per suite, parity reports beside them), `latest` points at the newest, and a failing row prints its log path.
 
@@ -53,6 +53,7 @@ Workflow `.github/workflows/base-ui-tests.yml` runs on push to `main`, pull requ
 | `stylelint` | Linting | `bunx stylelint ... 'docs/solid/**/*.css'` |
 | `vale` | Linting | `bun run valelint` (every tracked `.md`/`.mdx` outside `docs/docs-infra`) |
 | `error-codes` | Generated files verification | `bun run extract-error-codes` + clean diff |
+| `docs-generate` | Generated files verification | `bun run docs:generate` + clean diff of `docs/solid` (Solid only: the docs are generated from `docs/react`) |
 | `inline-scripts` | Generated files verification | `bun run inline-scripts` + clean diff |
 | `test-parity` | Generated files verification | `node scripts/test-parity.mjs` |
 | `typecheck` | Typechecking | `bun run typecheck` (root) |

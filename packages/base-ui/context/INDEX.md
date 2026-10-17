@@ -45,7 +45,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | --- | --- | --- | --- |
 | testing/parity.md | Test parity | `testing`, `parity`, `upstream`, `tdd` | Three scripts hold the Solid suite to upstream's: `test-parity.mjs` matches every upstream test by title,… |
 | testing/quirks.md | Test quirks | `testing`, `flush`, `jsdom`, `ssr` | Solid 2 batches writes until a flush, so the harness flushes after every testing-library event and gives React's `act`… |
-| testing/suites.md | Test suites | `testing`, `ci`, `vitest`, `browsers` | Base UI has 27 suites, one per step of the "Base UI tests" workflow plus Firefox and WebKit browser parity;… |
+| testing/suites.md | Test suites | `testing`, `ci`, `vitest`, `browsers` | Base UI has 28 suites, one per step of the "Base UI tests" workflow plus Firefox and WebKit browser parity;… |
 
 ## perf
 
