@@ -24,8 +24,8 @@ describe("test:base-ui:all machine lock", () => {
 		])
 	})
 
-	test("the lock is the one flare's gates take, unless GATES_LOCK overrides it", () => {
-		expect(EXCLUSIVE_LOCK).toBe(process.env.GATES_LOCK ?? join(process.env.HOME ?? "", ".cache/flare-gates/heavy.lock"))
+	test("the lock is the neutral one every repo's gates take, unless GATES_LOCK overrides it", () => {
+		expect(EXCLUSIVE_LOCK).toBe(process.env.GATES_LOCK ?? join(process.env.HOME ?? "", ".cache/gates/heavy.lock"))
 	})
 
 	test("an exclusive suite's command runs under flock on the lock; others run as written", () => {

@@ -37,11 +37,12 @@ function hasCommand(command) {
 const logRoot = path.join(root, '.tmp/base-ui-test-all');
 
 /**
- * The lock flare's gates take around their Playwright runs (`~/.cache/flare-gates/heavy.lock`), so
- * the two repos exclude each other; `GATES_LOCK` overrides it.
+ * The machine lock every repo's heavy gates take around their browser runs
+ * (`~/.cache/gates/heavy.lock`; flare's take it too), so they exclude each other; `GATES_LOCK`
+ * overrides it.
  */
 export const EXCLUSIVE_LOCK =
-  process.env.GATES_LOCK ?? path.join(os.homedir(), '.cache/flare-gates/heavy.lock');
+  process.env.GATES_LOCK ?? path.join(os.homedir(), '.cache/gates/heavy.lock');
 
 /**
  * Seconds an exclusive command may hold the lock before `timeout` kills it (SIGTERM, then SIGKILL
