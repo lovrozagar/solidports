@@ -11,3 +11,10 @@ pre-commit:
       root: "packages/base-ui/"
       glob: "**/{packages/solid,docs/solid}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
       run: bunx eslint --report-unused-disable-directives --max-warnings 0 --no-warn-ignored {staged_files}
+
+pre-push:
+  jobs:
+    # CI installs the Bun `package.json` pins; a local Bun of another version can pass the scripts
+    # suite where CI fails it. Run it under the pinned version when they differ.
+    - name: scripts-on-pinned-bun
+      run: bun scripts/pinned-bun-test.ts

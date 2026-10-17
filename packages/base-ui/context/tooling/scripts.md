@@ -53,6 +53,7 @@ Details of the docs scripts: [docs pipeline](docs-pipeline.md). Upstream's `api-
 | `verify.ts` | Runs every gate, stamps HEAD. | `verify` | standards ("Managed by" header) |
 | `pre-push.ts` | Refuses pushed commits without a verify stamp. | `lefthook.base.yml` pre-push | standards |
 | `standards-check.ts` | Drift check against `~/Development/standards/sync.ts`; skips when absent. | `lefthook.base.yml` pre-push | standards |
+| `pinned-bun-test.ts` + `.test.ts` | Runs `bun test ./scripts` under the Bun `packageManager` pins (`bunx bun@<pin>`, the version CI installs) when the local Bun is another version; does nothing when they match. | `lefthook.yml` pre-push | repo |
 
 `test:scripts` (`bun test ./scripts`) runs the root tests and is a verify gate. Root `lint` lints only `scripts/`. Release flow: [release](release.md); gates: [standards](standards.md).
 
