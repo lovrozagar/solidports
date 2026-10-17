@@ -1,12 +1,12 @@
 // Runs the shared scenarios (`shared/scenarios/*.ts`) against the React and Solid production builds
 // in Chromium. Each scenario runs in a fresh page per variant: WARMUP unmeasured cycles, then RUNS
-// measured cycles of mount → steps → unmount. Variants are interleaved (two rounds) so their ratios
-// are comparable within one session.
+// timing cycles of mount → steps → unmount, then HEAP_RUNS heap cycles (`shared/cycles.mjs`).
+// Variants are interleaved (two rounds) so their ratios are comparable within one session.
 //
 // Usage (from packages/base-ui, after `bun run bench:solid:build`):
 //   node test/perf-solid/run.mjs [runs=8] [filter,...]     filter: `shared/filter.mjs` terms
 //   (id prefix, component:<name>, tag:<tag>, ! to exclude)
-// Env: VARIANTS=name:lib:dir,...  THROTTLE=4  SIZE=large  WARMUP=2
+// Env: VARIANTS=name:lib:dir,...  THROTTLE=4  SIZE=large  WARMUP=2  HEAP_RUNS=6
 // Exit code 1 when a step errors, a page logs a console warning or error that
 // `known-warnings.json` does not list (`shared/console.mjs`), or a variant's DOM summary differs
 // from the first variant's.
@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { matchConsole } from './shared/console.mjs';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
+import { heapCycle, timingCycle } from './shared/cycles.mjs';
 import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
 import { summarize } from './shared/report.mjs';
 
@@ -25,6 +26,7 @@ const builds = path.resolve(here, '../../../../.tmp/grunt/bench-builds');
 const resultsDir = path.resolve(here, '../../../../.tmp/grunt/bench-results');
 const RUNS = Number(process.argv[2] ?? 8);
 const WARMUP = Number(process.env.WARMUP ?? 2);
+const HEAP_RUNS = Number(process.env.HEAP_RUNS ?? 6);
 const THROTTLE = Number(process.env.THROTTLE ?? 1);
 const QUERY = process.env.SIZE === 'large' ? '?size=large' : '';
 const VARIANTS = Object.fromEntries(
@@ -120,43 +122,44 @@ for (const { id, steps } of list) {
     for (const name of NAMES) {
       const { page, cdp, errors, logs } = await openPage(browser, name);
       const entry = (results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], errors: [] });
+      const collect = () => collectGarbage(cdp);
+      const readHeap = () => page.evaluate('performance.memory.usedJSHeapSize');
+      const runStep = async (index) => {
+        const before = await metrics(cdp);
+        // In a task of its own, so `script` counts a synchronous step (`shared/measure.mjs`).
+        const result = await evaluateInTask(
+          page,
+          ([scenario, step]) => window.bench.step(scenario, step),
+          [id, index],
+        );
+        const after = await metrics(cdp);
+        return { result, before, after };
+      };
+      const stepCount = steps.length;
       for (let run = 0; run < WARMUP + RUNS; run += 1) {
-        await collectGarbage(cdp);
-        const heapBefore = await page.evaluate('performance.memory.usedJSHeapSize');
-        for (let index = 0; index < steps.length; index += 1) {
-          const before = await metrics(cdp);
-          // In a task of its own, so `script` counts a synchronous step (`shared/measure.mjs`).
-          const result = await evaluateInTask(
-            page,
-            ([scenario, step]) => window.bench.step(scenario, step),
-            [id, index],
-          );
-          const after = await metrics(cdp);
+        const timed = await timingCycle({ collect, runStep, stepCount });
+        timed.forEach(({ result, before, after }, index) => {
           if (result.error) entry.errors.push(`${steps[index]}: ${result.error}`);
           if (run === WARMUP && round === 0) entry.summaries[steps[index]] = result.summary;
-          if (run >= WARMUP) {
-            const step = (entry.steps[steps[index]] ??= {
-              sync: [],
-              paint: [],
-              script: [],
-              layout: [],
-              style: [],
-              settled: [],
-            });
-            step.sync.push(result.sync);
-            step.paint.push(result.paint);
-            step.script.push((after.ScriptDuration - before.ScriptDuration) * 1000);
-            step.layout.push((after.LayoutDuration - before.LayoutDuration) * 1000);
-            step.style.push((after.RecalcStyleDuration - before.RecalcStyleDuration) * 1000);
-            if (result.settled !== null) step.settled.push(result.settled);
-          }
-          if (index === 0 && run >= WARMUP) {
-            await collectGarbage(cdp);
-            entry.heapKB.push(
-              ((await page.evaluate('performance.memory.usedJSHeapSize')) - heapBefore) / 1024,
-            );
-          }
-        }
+          if (run < WARMUP) return;
+          const step = (entry.steps[steps[index]] ??= {
+            sync: [],
+            paint: [],
+            script: [],
+            layout: [],
+            style: [],
+            settled: [],
+          });
+          step.sync.push(result.sync);
+          step.paint.push(result.paint);
+          step.script.push((after.ScriptDuration - before.ScriptDuration) * 1000);
+          step.layout.push((after.LayoutDuration - before.LayoutDuration) * 1000);
+          step.style.push((after.RecalcStyleDuration - before.RecalcStyleDuration) * 1000);
+          if (result.settled !== null) step.settled.push(result.settled);
+        });
+      }
+      for (let run = 0; run < HEAP_RUNS; run += 1) {
+        entry.heapKB.push(await heapCycle({ collect, readHeap, runStep, stepCount }));
       }
       entry.errors.push(...errors);
       consoleEntries.push(...logs.map((log) => ({ scenario: id, variant: name, ...log })));

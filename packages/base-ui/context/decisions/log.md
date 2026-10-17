@@ -1,7 +1,7 @@
 ---
 tags: [decisions, log, history]
 sources: []
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Decision log
@@ -149,3 +149,16 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
   - The margin, not alpha alone, carries A/A: progress/1000's A/A pair had p 0.0036, below alpha, but its shift interval (−1.01 to −0.15 ms) stayed inside the 1.37 ms minimum effect, so it read "same".
 - Verdicts from runs before this entry are read as unjudged.
 
+
+### D17 — The browser bench times warmed cycles and reads the heap in cycles of its own (2026-10-17)
+
+- Supersedes the per-run sequence of `test/perf-solid/run.mjs`. Each measured cycle collected the whole heap (`HeapProfiler.collectGarbage`), read it, timed the mount, collected and read again, and timed the rest. Timing a mount right after a forced full collection measured a state no app mounts in.
+- Harness modes, D16-judged at 12 runs (24 samples a side):
+  - Linux, toolbar/200, A/A of one build: the old cycle flagged 4 false regressions; with no collection at all (sync IQR 9–19%) or warmed (collect, untimed mount and unmount, then timed; IQR 4–17%), none.
+  - Mac (scratch 5d306ce1, load 2.1–3.0), toolbar/200, tooltip/handle-500 and tooltip/roots-500, A/A twice per mode: warmed with no collection after the timed mount flagged 1 false verdict (toolbar close menu script 2.3 → 2.1 ms; sync IQR median 4.9%); warmed with a collection after the timed mount, none in either round (median 4.0% and 4.7%).
+- The bench now runs two cycles (`shared/cycles.mjs`, `scripts/base-ui-perf-cycles.test.ts`):
+  - Timing: collect, mount and unmount untimed, the timed mount, collect untimed, then the other steps timed.
+  - Heap: collect, read, mount, collect, read, unmount; nothing timed. `HEAP_RUNS` (default 6) per page, so 12 heap samples a side, above `MIN_SAMPLES` (10). In the warmed cycle the reading before the mount would include the warm-up's garbage. The heap cycles read the same verdict in both Mac rounds (tooltip/roots-500 23,783 → 22,824 KB for 4.4a).
+  - The gate smoke in `test:base-ui:all` runs `HEAP_RUNS=1`.
+- This is the reference instrument from here. Unit verdicts from the old cycle are re-judged on it.
+- 4.4a (lazy store key signals, d44668ae against 5330e011) on the Mac regressed toolbar/200 under both warmed modes, all four passes: mount +6–13%, ArrowRight x100 +4–9%; it improved tooltip/roots-500 mount by about 10%. Its Linux "same" in the warmed probe did not hold, so the regression is the library's, not the old cycle's, and 4.4a stays unpushed until it is fixed.
