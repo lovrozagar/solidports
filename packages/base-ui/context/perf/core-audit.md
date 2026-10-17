@@ -94,7 +94,7 @@ A floor (`packages/solid/test/floor`) implements the same public contract as the
 ## Hydration rules for every step
 
 - A family switches server, hydration and client in one commit, gated by `test/hydration`, `*.hydration.test.tsx`, `test/ssr` and the docs crawl.
-- Never branch on `isServer` / `isHydrating()` in a way that changes id-consuming nodes; anything created conditionally is transparent or goes through `runInLazyScope`.
+- Never branch in a way that makes hydration's owners differ from the server's: anything created conditionally is transparent or goes through `runInLazyScope`, unless the hydrating side creates what the server did (nothing created outside hydration is claimed).
 - Lazy nodes (S5) go through `runInLazyScope`; `createProjection` (S4) is created unconditionally; `onSettled` is called unconditionally.
 - Writable memos that replace effects now run on the server: no DOM reads in them.
 

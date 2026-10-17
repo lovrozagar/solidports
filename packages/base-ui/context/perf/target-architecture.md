@@ -1,7 +1,7 @@
 ---
 tags: [perf, native, architecture, solid2]
 sources: [packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/propsView.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Target architecture
@@ -33,7 +33,7 @@ Details: [render pipeline](../architecture/render-pipeline.md), [primitive costs
 | lists | `createProjection` for keyed highlight and selection; registration by creation-order guess plus binary-search fix-up; `mapArray` rows. |
 | floating | One store per popup; memos only where many readers fan out; one effect running `autoUpdate`; position written through the binding. |
 | transitions | One status signal and one effect group, created on first open. |
-| SSR and hydration | Same component code on client, server and hydration. Id-consuming nodes (elements, memos, owners, non-transparent effects, `onSettled`) are created unconditionally and in the same order on both sides; client-only nodes are `transparent`. Never branch on `isHydrating()` in a way that changes node counts. |
+| SSR and hydration | Same component code on client, server and hydration. Id-consuming nodes (elements, memos, owners, non-transparent effects, `onSettled`) are created unconditionally and in the same order on both sides; client-only nodes are `transparent`. Never branch in a way that makes hydration's owners differ from the server's: a branch on `isHydrating()` is safe when the hydrating side creates what the server did, since nothing created outside hydration is claimed. |
 
 What to carry over from other Solid libraries: untracked component calls, `[fn, data]` handlers, one presence signal per element, DOM-order registration. What to avoid: Proxy merges, `<Dynamic>` per element, whole-object spreads that re-assign every key on any change.
 

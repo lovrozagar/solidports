@@ -834,9 +834,11 @@ export function useRenderElement<
               </Dynamic>
             );
           }
-          // While hydrating, `<Dynamic>` creates the owners the server's did. Otherwise the tag is
-          // fixed for this run, so the element is created directly: `<Dynamic>` would add two
-          // accessor layers a list's parent tracks per row.
+          // Only what is created while hydrating must match the server's owners: the server renders
+          // `<Dynamic>`, so hydration does too. Any other run claims nothing (a client render, or a
+          // re-run after hydration), so its owners need not match, and the tag is fixed for the run:
+          // the element is created directly, without the two accessor layers `<Dynamic>` adds for a
+          // list's parent to track per row.
           if (isHydrating()) {
             // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
             return (
