@@ -39,7 +39,7 @@ function Counter(props: CounterProps) {
       return mergeProps<'button'>(defaultProps(), otherProps);
     },
   });
-  return <>{element}</>;
+  return element();
 }
 export default function ExampleCounter() {
   return (

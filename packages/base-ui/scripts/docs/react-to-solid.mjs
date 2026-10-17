@@ -901,6 +901,16 @@ const renderedMemo = (id, imports) => {
   );
 };
 
+/** Whether `node` names a `const` bound to a `useRender(...)` call in the component `fnPath`. */
+function isUseRenderElement(node, fnPath) {
+  if (!t.isIdentifier(node)) {
+    return false;
+  }
+  const binding = fnPath.scope.getBinding(node.name);
+  const init = binding?.kind === 'const' ? binding.path.node.init : undefined;
+  return t.isCallExpression(init) && t.isIdentifier(init.callee, { name: 'useRender' });
+}
+
 const fragmentOf = (expression) =>
   t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), [
     t.jsxExpressionContainer(expression),
@@ -1686,7 +1696,17 @@ function lowerFunction(fnPath, kind, ctx) {
         t.isNullLiteral(only.argument) ||
         isJsxNode(only.argument) ||
         t.isLiteral(only.argument));
-    if (!simple && render.length === 1 && t.isReturnStatement(only) && ctx.jsx) {
+    if (
+      !simple &&
+      render.length === 1 &&
+      t.isReturnStatement(only) &&
+      isUseRenderElement(only.argument, fnPath)
+    ) {
+      // Solid's `useRender` returns a function that creates the element: the component calls it,
+      // so it owns the element. As a child (`<>{element}</>`), the parent's insert effect would call
+      // it, own the element and re-create it whenever it re-ran.
+      only.argument = t.callExpression(t.identifier(only.argument.name), []);
+    } else if (!simple && render.length === 1 && t.isReturnStatement(only) && ctx.jsx) {
       only.argument = fragmentOf(only.argument);
     } else if (!simple && render.length === 1 && t.isReturnStatement(only)) {
       const renderId = uid('render');
@@ -2997,7 +3017,10 @@ function isElementProp(path, expression, programPath) {
   }
   // The component: the nearest enclosing function with a typed props parameter.
   let fnPath = path.getFunctionParent();
-  while (fnPath && !(t.isIdentifier(fnPath.node.params[0]) && fnPath.node.params[0].typeAnnotation)) {
+  while (
+    fnPath &&
+    !(t.isIdentifier(fnPath.node.params[0]) && fnPath.node.params[0].typeAnnotation)
+  ) {
     fnPath = fnPath.parentPath.getFunctionParent();
   }
   const param = fnPath?.node.params[0];
