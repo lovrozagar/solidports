@@ -33,6 +33,12 @@ export const CANDIDATES = [
         : path === 'utils/native/context.ts' ||
           (/(solid-js|@solidjs\/signals)/.test(path) && /Provider|setContext/.test(name)),
   },
+  {
+    id: 'compat-shims',
+    leaf: '4.x compat shims',
+    matches: (path) => path === 'solid-1-compat.ts' || path === 'solid-helpers.tsx',
+  },
+  { id: 'flush', leaf: '4.x flushSync', matches: (path) => path === 'utils/flushSync.ts' },
   { id: 'store', leaf: '4.4', matches: (path) => path.startsWith('utils/store/') },
   {
     id: 'keyed-selection',
@@ -56,7 +62,7 @@ export const CANDIDATES = [
   { id: 'native-kit', leaf: '4.5', matches: (path) => path.startsWith('utils/native/') },
   {
     id: 'render-element',
-    leaf: 'D14 (per-part ports)',
+    leaf: '4.x slow path',
     matches: (path) =>
       path === 'utils/useRenderElement.tsx' ||
       path === 'utils/propsView.ts' ||
@@ -124,21 +130,30 @@ export function attributeCpu(profile, resolve) {
     for (const child of node.children ?? []) parent.set(child, node.id);
   }
   const bucketCache = new Map();
+  /** The sample's bucket and the function of the frame that decided it. */
   const nodeBucket = (id) => {
     if (bucketCache.has(id)) return bucketCache.get(id);
     let found = null;
     for (let current = id; current !== undefined && found === null; current = parent.get(current)) {
       const callFrame = byId.get(current).callFrame;
-      const bucket = callFrame.url ? bucketOf(resolve(callFrame)) : null;
+      const frame = callFrame.url ? resolve(callFrame) : null;
+      const bucket = frame ? bucketOf(frame) : null;
       // The bench's own frames sit atop every stack: they keep only their own time, never the
       // runtime work below them.
-      if (bucket && (bucket !== 'bench-harness' || current === id)) found = bucket;
+      if (bucket && (bucket !== 'bench-harness' || current === id)) {
+        found = {
+          bucket,
+          name: frame.name || `(anonymous:${frame.source.split('/').pop()}:${frame.line ?? '?'})`,
+        };
+      }
     }
     bucketCache.set(id, found);
     return found;
   };
+  const isCandidate = (bucket) => CANDIDATES.some((candidate) => candidate.id === bucket);
   const result = {
     ms: {},
+    fns: {},
     runtime: {},
     gcMs: 0,
     idleMs: 0,
@@ -170,8 +185,14 @@ export function attributeCpu(profile, resolve) {
       result[special] += ms;
       return;
     }
-    const bucket = nodeBucket(id) ?? 'runtime';
+    const decided = nodeBucket(id);
+    const bucket = decided?.bucket ?? 'runtime';
     result.ms[bucket] = (result.ms[bucket] ?? 0) + ms;
+    if (decided && isCandidate(bucket)) {
+      // A candidate's time by function, so a unit can be scoped to what dominates inside it.
+      const fns = (result.fns[bucket] ??= {});
+      fns[decided.name] = (fns[decided.name] ?? 0) + ms;
+    }
     if (bucket === 'runtime') {
       // Runtime time with no library frame on the stack, by the package of the running frame.
       const pkg = packageOf(resolve(byId.get(id).callFrame).source);

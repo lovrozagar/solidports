@@ -88,6 +88,10 @@ describe("perf attribution", () => {
 		)
 		expect(bucketOf(resolve(frame("packages/base-ui/packages/solid/test/floor/collapsible.tsx")))).toBe("bench-harness")
 		expect(CANDIDATES.map((c) => c.id)).toContain("composite-list")
+		// The shims and helpers outside provideContext, and flushSync, are candidates of their own.
+		expect(bucketOf({ source: `${SRC}/solid-1-compat.ts`, name: "mergeProps" })).toBe("compat-shims")
+		expect(bucketOf({ source: `${SRC}/solid-helpers.tsx`, name: "splitComponentProps" })).toBe("compat-shims")
+		expect(bucketOf({ source: `${SRC}/utils/flushSync.ts`, name: "flushSync" })).toBe("flush")
 	})
 
 	test("a library copy outside the working tree is library code once its root is declared", () => {
@@ -130,6 +134,8 @@ describe("perf attribution", () => {
 		})
 		// Runtime time with no library frame, by package.
 		expect(result.runtime).toEqual({ "@solidjs/signals": 10 })
+		// Each candidate's time by the function its samples were credited to.
+		expect(result.fns).toEqual({ "native-kit": { renderClientElement: 3 }, store: { set: 2 } })
 		expect(result.gcMs).toBe(5)
 		expect(result.idleMs).toBe(7)
 		// Every sample is accounted for.
