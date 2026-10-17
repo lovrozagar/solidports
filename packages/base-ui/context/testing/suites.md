@@ -105,6 +105,8 @@ Other workflows:
 
 Both environments record: jsdom appends with Node's `fs`, browser mode through the `appendWarningCensus` command in `packages/solid/vitest.config.mts` (the file path is substituted at transform time, since browser mode has no `process.env`). The report counts per suite by kind, origin and swallowed, and lists distinct messages by code or text.
 
+The browser bench and the docs crawl hold their pages to the same rule (plan 3 leaves 1.9 and 1.11): every console warning and error a page logs fails the run unless a list names it with a reason, `test/perf-solid/known-warnings.json` for the bench (per variant, `shared/console.mjs`) and `scripts/docs/known-console.json` for the crawl (`scripts/docs/consoleCheck.mjs`, where a message about hydration fails at any level, listed or not). Both lists start empty; an entry is added only for a message that is intentional, never to make a run pass.
+
 ## Engine matrix
 
 | engine | upstream CI | ours |

@@ -20,6 +20,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { consoleProblem } from './consoleCheck.mjs';
 import { EXCLUDED } from './excluded.mjs';
 
 const FORK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -93,9 +94,8 @@ async function checkRoute(browser, route) {
   await page.addInitScript(recordClaims);
   const problems = [];
   page.on('console', (message) => {
-    if (message.type() === 'error' || /hydrat/i.test(message.text())) {
-      problems.push(`console ${message.type()}: ${message.text().slice(0, 240)}`);
-    }
+    const problem = consoleProblem({ type: message.type(), text: message.text() });
+    if (problem) problems.push(problem);
   });
   page.on('pageerror', (error) => problems.push(`page error: ${error.message.slice(0, 240)}`));
   let demo = 'none';
@@ -128,7 +128,9 @@ async function checkRoute(browser, route) {
       await trigger.click();
       let opened = false;
       for (let attempt = 0; attempt < 20 && !opened; attempt += 1) {
-        opened = await handle.evaluate((element) => element.getAttribute('aria-expanded') === 'true');
+        opened = await handle.evaluate(
+          (element) => element.getAttribute('aria-expanded') === 'true',
+        );
         if (!opened) {
           await page.waitForTimeout(100);
         }
@@ -221,7 +223,9 @@ async function startPreview() {
 
 const missing = missingRoutes();
 for (const file of missing) {
-  console.log(`FAIL route parity: no Solid page for ${file.replace('(docs)/solid/', '(docs)/react/')}`);
+  console.log(
+    `FAIL route parity: no Solid page for ${file.replace('(docs)/solid/', '(docs)/react/')}`,
+  );
 }
 
 const routes = only.length > 0 ? only : solidRoutes();
