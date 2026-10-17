@@ -27,6 +27,7 @@ import react from '@vitejs/plugin-react';
 import solid from '@solidjs/vite-plugin';
 import { build } from 'vite';
 import { matchesFilter, parseFilter } from '../shared/filter.mjs';
+import { assertScriptMetric, evaluateInTask } from '../shared/measure.mjs';
 import { median } from '../shared/regression.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -35,6 +36,18 @@ const repo = path.resolve(here, '../../../../..');
 const builds = path.join(repo, '.tmp/grunt/bench-builds');
 const resultsDir = path.join(repo, '.tmp/grunt/bench-results');
 const RUNS = Number(process.argv[2] ?? 20);
+/**
+ * CDP main-thread metrics per hydration step: sample name, metric, scale to ms or count.
+ * `TaskDuration` counts script run inside a DevTools evaluate, as Solid's synchronous hydrate is
+ * here; `ScriptDuration` does not.
+ */
+const LAYOUT_METRICS = [
+  ['TaskMs', 'TaskDuration', 1000],
+  ['LayoutMs', 'LayoutDuration', 1000],
+  ['StyleMs', 'RecalcStyleDuration', 1000],
+  ['Layouts', 'LayoutCount', 1],
+  ['Styles', 'RecalcStyleCount', 1],
+];
 const WARMUP = 3;
 
 const VARIANTS = Object.fromEntries(
@@ -136,6 +149,12 @@ for (const key of keys) {
         hydrateScriptMs: [],
         firstCloseMs: [],
         firstCloseScriptMs: [],
+        ...Object.fromEntries(
+          LAYOUT_METRICS.flatMap(([sample]) => [
+            [`commit${sample}`, []],
+            [`settle${sample}`, []],
+          ]),
+        ),
       },
     };
   }
@@ -192,6 +211,13 @@ if (!process.env.SERVER_ONLY) {
     .listen(0);
   const port = httpServer.address().port;
   const browser = await chromium.launch();
+  {
+    const page = await browser.newPage();
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Performance.enable');
+    await assertScriptMetric(page, cdp);
+    await page.close();
+  }
   const settle = () =>
     new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0))),
@@ -213,27 +239,37 @@ if (!process.env.SERVER_ONLY) {
         await page.goto(`http://localhost:${port}/${name}/?fixture=${encodeURIComponent(key)}`);
         await page.waitForFunction(() => '__hydrate' in window);
         const before = await cdp.send('Performance.getMetrics');
-        const result = await page.evaluate(
-          async ([fixture, settleSource]) => {
-            const settleFn = new Function(`return (${settleSource})()`);
-            const start = performance.now();
-            const { syncMs, committed } = window.__hydrate(fixture);
-            const commitMs = await committed;
-            await settleFn();
-            return { syncMs, commitMs, totalMs: performance.now() - start };
+        // Two steps, with the metrics read between them: up to the commit (a layout or style
+        // recalculation there is forced by script), then the two settled frames.
+        // In a task of its own, so `script` counts Solid's synchronous hydrate (`shared/measure.mjs`).
+        const committed = await evaluateInTask(
+          page,
+          (fixture) => {
+            window.__benchStart = performance.now();
+            const { syncMs, committed: done } = window.__hydrate(fixture);
+            return done.then((commitMs) => ({ syncMs, commitMs }));
           },
-          [key, settle.toString()],
+          key,
         );
+        const atCommit = await cdp.send('Performance.getMetrics');
+        const totalMs = await page.evaluate(async (settleSource) => {
+          await new Function(`return (${settleSource})()`)();
+          return performance.now() - window.__benchStart;
+        }, settle.toString());
+        const result = { ...committed, totalMs };
         const after = await cdp.send('Performance.getMetrics');
         const metric = (list, metricName) =>
           list.metrics.find((m) => m.name === metricName)?.value ?? 0;
+        const delta = (from, to, metricName) => metric(to, metricName) - metric(from, metricName);
         if (run >= WARMUP) {
           const samples = results[key][name].samples;
           samples.hydrateSyncMs.push(result.syncMs);
           samples.hydrateCommitMs.push(result.commitMs);
-          samples.hydrateScriptMs.push(
-            (metric(after, 'ScriptDuration') - metric(before, 'ScriptDuration')) * 1000,
-          );
+          samples.hydrateScriptMs.push(delta(before, after, 'ScriptDuration') * 1000);
+          for (const [sample, metricName, scale] of LAYOUT_METRICS) {
+            samples[`commit${sample}`].push(delta(before, atCommit, metricName) * scale);
+            samples[`settle${sample}`].push(delta(atCommit, after, metricName) * scale);
+          }
           total[name].push(result.totalMs);
         }
         if (run === WARMUP) {
@@ -274,6 +310,10 @@ if (!process.env.SERVER_ONLY) {
       entry.hydrateCommitMs = median(entry.samples.hydrateCommitMs);
       entry.hydrateTotalMs = median(total[name]);
       entry.hydrateScriptMs = median(entry.samples.hydrateScriptMs);
+      for (const [sample] of LAYOUT_METRICS) {
+        entry[`commit${sample}`] = median(entry.samples[`commit${sample}`]);
+        entry[`settle${sample}`] = median(entry.samples[`settle${sample}`]);
+      }
       entry.firstCloseMs = entry.samples.firstCloseMs.length
         ? median(entry.samples.firstCloseMs)
         : null;
@@ -318,6 +358,23 @@ for (const key of keys) {
       `${ratio(row[NAMES[0]].serverMs, row[n].serverMs)} / ${ratio(row[NAMES[0]].hydrateCommitMs, row[n].hydrateCommitMs)} / ${ratio(withClose(row[NAMES[0]]), withClose(row[n]))}`,
   );
   lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
+}
+lines.push(
+  '',
+  '## Main thread while hydrating',
+  '',
+  'CDP `TaskDuration`, `LayoutDuration` and `RecalcStyleDuration` ms and `LayoutCount` / `RecalcStyleCount`, medians: up to the commit (a layout there is forced by script), then over the two settled frames.',
+  '',
+  `| fixture | ${NAMES.map((n) => `${n} to commit: task ms / layout ms / style ms / layouts / recalcs · settle: task ms / layout ms / style ms`).join(' | ')} |`,
+  `|---|${NAMES.map(() => '---').join('|')}|`,
+);
+for (const key of keys) {
+  const row = results[key];
+  const cells = NAMES.map(
+    (n) =>
+      `${fmt(row[n].commitTaskMs)} / ${fmt(row[n].commitLayoutMs)} / ${fmt(row[n].commitStyleMs)} / ${row[n].commitLayouts} / ${row[n].commitStyles} · ${fmt(row[n].settleTaskMs)} / ${fmt(row[n].settleLayoutMs)} / ${fmt(row[n].settleStyleMs)}`,
+  );
+  lines.push(`| ${key} | ${cells.join(' | ')} |`);
 }
 if (problems.length) lines.push('', '## Problems', '', ...problems.map((p) => `- ${p}`));
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');

@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
+import { assertScriptMetric, evaluateInTask } from './shared/measure.mjs';
 import { summarize } from './shared/report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -72,6 +73,7 @@ const browser = await chromium.launch({
   args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
 });
 const probe = await openPage(browser, NAMES[0]);
+await assertScriptMetric(probe.page, probe.cdp);
 const all = await probe.page.evaluate(() => window.bench.list());
 const vocab = await probe.page.evaluate(() => window.bench.vocab);
 let FILTER;
@@ -105,7 +107,9 @@ for (const { id, steps } of list) {
         const heapBefore = await page.evaluate('performance.memory.usedJSHeapSize');
         for (let index = 0; index < steps.length; index += 1) {
           const before = await metrics(cdp);
-          const result = await page.evaluate(
+          // In a task of its own, so `script` counts a synchronous step (`shared/measure.mjs`).
+          const result = await evaluateInTask(
+            page,
             ([scenario, step]) => window.bench.step(scenario, step),
             [id, index],
           );
