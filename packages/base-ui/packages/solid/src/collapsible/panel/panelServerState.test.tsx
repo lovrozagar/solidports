@@ -8,7 +8,7 @@
 import { flush } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { screen } from '@solidjs/testing-library';
-import { createRenderer } from '#test-utils';
+import { createRenderer, expectNativePath } from '#test-utils';
 import { renderServer } from '../../../test/ssrFixtures';
 import type { SsrFixtures } from '../../../test/ssrFixtures';
 import accordionFixtures from '../../accordion/panel/AccordionPanel.ssr-fixtures';
@@ -54,7 +54,9 @@ describe.each([
     render(fixtures.fixtures[name]);
     flush();
     // The server container comes first in the document, the client render after it.
-    const client = PARTS.map((part) => attributesOf(screen.getAllByTestId(part)[1]));
+    const clientParts = PARTS.map((part) => screen.getAllByTestId(part)[1]);
+    expectNativePath(...clientParts);
+    const client = clientParts.map(attributesOf);
     expect(server).toEqual(client);
   });
 });

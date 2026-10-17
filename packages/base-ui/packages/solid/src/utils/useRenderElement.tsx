@@ -33,6 +33,7 @@ import {
 } from './propsView';
 import { resolveClassName } from './resolveClassName';
 import { resolveStyle } from './resolveStyle';
+import { markRenderPath } from './renderPath';
 import type {
   BaseUIComponentProps,
   BaseUIHTMLProps,
@@ -291,6 +292,9 @@ export function useRenderElement<
     const applyRef = (el: any) => {
       if (el === attachedElement) {
         return;
+      }
+      if (process.env.NODE_ENV !== 'production' && el instanceof Element) {
+        markRenderPath(el, 'slow');
       }
       attachedElement = el;
       appliedRefs = new Set();

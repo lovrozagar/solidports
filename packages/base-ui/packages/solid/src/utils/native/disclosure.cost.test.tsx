@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { Collapsible } from '@solidports/base-ui/collapsible';
 import { Tabs } from '@solidports/base-ui/tabs';
-import { createRenderer } from '#test-utils';
+import { createRenderer, expectNoSlowPath } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
@@ -34,6 +34,8 @@ describe('native disclosure part cost', () => {
     flush();
     hooks.onOwner = undefined;
     const created = count;
+    // The budgets are the native path's: a part that fell back to the slow path fails here.
+    expectNoSlowPath(view.container);
     view.unmount();
     return created;
   }

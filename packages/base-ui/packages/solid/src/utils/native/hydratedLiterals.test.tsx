@@ -6,7 +6,7 @@
 import { flush } from 'solid-js';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { describe, expect, it } from 'vitest';
-import { createRenderer } from '#test-utils';
+import { createRenderer, expectNativePath } from '#test-utils';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures from './hydratedLiterals.ssr-fixtures';
 
@@ -69,6 +69,8 @@ function attributesOf(testId: string) {
 async function sequence(name: Name, part: string) {
   await Promise.resolve();
   flush();
+  // Both renders must be the native path's: a spread, say, would move a part to the slow path.
+  expectNativePath(screen.getByTestId(part));
   const states = [attributesOf(part)];
   for (const trigger of TREES[name].updates) {
     fireEvent.click(screen.getByTestId(trigger));
