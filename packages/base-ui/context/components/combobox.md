@@ -64,6 +64,7 @@ The slow steps all mount many items at once (open, clear back to the full list, 
 - `AriaCombobox.tsx:1715` defers click, dismiss and list navigation; `useInteractions` composes them at `:1721`, `:1727` and `:1751`.
 - `floating-ui-solid/hooks/useInteractions.ts:36`: the `lists` memo has no equality, so every live props view built from it re-merges when any hook's props change.
 - `ComboboxItem.tsx:81`: each item memoizes `store.select('isActive', index)`; `isActive` is a keyed selector, so after the first move a highlight move re-runs two of them.
+- `AriaCombobox.tsx` `hasItems` is a memo: each item reads it in two effects (`ComboboxItem.tsx`), and as a plain accessor over `items` it subscribed 2,000 item effects to the collection at 1,000 items (Solid's HUGE_FAN_OUT on `items`), so any new `items` array notified every item.
 - `internals/composite/list/CompositeList.tsx:273` re-sorts all automatic items by document position on every registration batch, which mounting 1000 items at once pays in full.
 
 See [composite lists](../architecture/composite-lists.md), [floating](../architecture/floating.md), and the [optimization map](../perf/optimization-map.md).
