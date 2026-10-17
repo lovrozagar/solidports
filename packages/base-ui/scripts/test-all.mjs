@@ -62,7 +62,7 @@ export const suites = [
     name: 'eslint',
     cwd: baseUi,
     run: [
-      'bunx eslint packages/solid/src packages/solid/test docs/solid/src --report-unused-disable-directives --max-warnings 0',
+      'bunx eslint packages/solid/src packages/solid/test docs/solid/src test/perf-solid --report-unused-disable-directives --max-warnings 0',
     ],
   },
   { job: 'Linting', name: 'eslint-rule-tests', cwd: baseUi, run: ['bun run test:lint-rules'] },

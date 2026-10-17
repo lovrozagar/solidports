@@ -49,7 +49,7 @@ Workflow `.github/workflows/base-ui-tests.yml` runs on push to `main`, pull requ
 | --- | --- | --- |
 | `format` | Linting | `bun run fmt:check` (root; oxfmt ignores `packages/base-ui/**`) |
 | `oxlint` | Linting | `bun run lint` (root; lints `scripts/` only) |
-| `eslint` | Linting | `bunx eslint packages/solid/src packages/solid/test docs/solid/src --report-unused-disable-directives --max-warnings 0` |
+| `eslint` | Linting | `bunx eslint packages/solid/src packages/solid/test docs/solid/src test/perf-solid --report-unused-disable-directives --max-warnings 0` |
 | `eslint-rule-tests` | Linting | `bun run test:lint-rules` |
 | `stylelint` | Linting | `bunx stylelint ... 'docs/solid/**/*.css'` |
 | `vale` | Linting | `bun run valelint` (every tracked `.md`/`.mdx` outside `docs/docs-infra`) |
