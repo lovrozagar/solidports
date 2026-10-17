@@ -35,13 +35,23 @@ function GroupItem(props: { nativeButton: boolean }) {
 }
 
 export default defineSsrFixtures(import.meta.url, {
-  // The indicator's transition machinery is created on the first check (4.8a): an unchecked one
-  // that stays mounted renders its element with none.
+  // The indicator's transition machinery is created on the first check (4.8a): one that starts
+  // checked creates it while hydrating, in a lazy scope, so every later key still lines up.
+  'indicator-checked': () => (
+    <Checkbox.Root defaultChecked data-testid="checked">
+      <Checkbox.Indicator data-testid="indicator">✓</Checkbox.Indicator>
+    </Checkbox.Root>
+  ),
   'indicator-keepMounted': () => (
     <Checkbox.Root data-testid="unchecked">
       <Checkbox.Indicator keepMounted data-testid="indicator">
         ✓
       </Checkbox.Indicator>
+    </Checkbox.Root>
+  ),
+  'indicator-checked-keepMounted': () => (
+    <Checkbox.Root defaultChecked>
+      <Checkbox.Indicator keepMounted>✓</Checkbox.Indicator>
     </Checkbox.Root>
   ),
   'groupItem-nativeButton=false': () => <GroupItem nativeButton={false} />,

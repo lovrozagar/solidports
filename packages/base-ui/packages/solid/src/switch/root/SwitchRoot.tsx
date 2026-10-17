@@ -17,6 +17,7 @@ import {
 } from '../../internals/labelable-provider/LabelableContext';
 import { makeEventPreventable, mergeProps } from '../../merge-props';
 import { NOOP } from '../../utils/noop';
+import { setHiddenInputDefault } from '../../utils/hiddenInputDefault';
 import type {
   BaseUIEvent,
   BaseUIComponentProps,
@@ -163,6 +164,16 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     state: 'checked',
   });
 
+  // The hidden input takes the initial state as its default once, as React's first render does.
+  let inputDefaultSet = false;
+  const setInputRef = (element: HTMLInputElement) => {
+    if (!inputDefaultSet) {
+      inputDefaultSet = true;
+      setHiddenInputDefault(element, untrack(checked));
+    }
+    handleInputRef(element);
+  };
+
   useRegisterFieldControl(switchRef, id, checked, undefined, () => !disabled(), nameProp);
 
   // React sets `filled` from a layout effect; the field derives it from this source.
@@ -268,7 +279,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
       tabindex: -1,
       type: 'checkbox',
       'aria-hidden': 'true',
-      ref: handleInputRef,
+      ref: setInputRef,
       // Solid: React's checkbox `onChange` runs during the click, so it is handled here, where
       // canceling the click also reverts the native toggle.
       onClick(event) {
@@ -690,6 +701,7 @@ function NativeSwitchRoot(props: SwitchRoot.Props): JSX.Element {
 
   // The hidden input: literal attributes from the template, the rest in one render effect.
   const input = createNativeElement('input', HIDDEN_CHECKBOX_INPUT);
+  setHiddenInputDefault(input, untrack(checked));
   const hasValue = 'value' in props;
   const inputAttributes = (): Record<string, unknown> => {
     const target: Record<string, unknown> = {};
