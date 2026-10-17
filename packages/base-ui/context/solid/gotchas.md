@@ -1,7 +1,7 @@
 ---
 tags: [solid, gotchas, registry]
-sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts]
-verified: 2026-10-16
+sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts]
+verified: 2026-10-17
 ---
 
 # Solid gotchas
@@ -90,6 +90,11 @@ Rules for editing: never renumber. Add new entries at the end. When an entry sto
 
 - **Cause:** the server's owners are `solid-js`'s own and accept no `setContext`, so a native part renders the context's provider on the server. The hydrating client must create the owners that took hydration ids there: the provider's root, then its lazy children memo, both through `inheritId` (rc.15).
 - **Fix:** `hydrateProviderOwners` (`src/utils/native/context.ts`) rebuilds that root and children owner without the provider's two computations, and the Collapsible floor does the same. This couples the port to rc.15's provider internals: `src/utils/native/context.shape.test.tsx` compares the rebuilt ids with Solid's own provider and fails when a Solid release changes them.
+
+## GOTCHA-018: native server templates copy `@solidjs/web` server internals (rc-version-coupled)
+
+- **Cause:** the native kit writes a server element's markup itself instead of through `ssrElement` (`renderServerTemplate`, `src/utils/native/element.ts`). To give the same bytes it copies `@solidjs/web`'s rc.15 server internals: `isAttrName` (the `NOT_NAME` pattern), `isEventName`, the order and rules of `ssrElement`'s walk over a plain props object (own keys, `prop:`, `ref` and handlers skipped, `class`/`style` through `ssrClassName`/`ssrStyle`, booleans, `escape(value, true)`), the tags it shapes beyond attributes (void, form state, raw text, link claims), and the claims-mode check through `sharedConfig.context.claims` from `solid-js/internal`.
+- **Fix:** `test/ssr/server-template.test.ts` (588 rows) and `test/ssr/server-template-fixtures.test.ts` (every SSR fixture, three server renders) compare the template path with the real `ssrElement` byte for byte. On a Solid release, a failure there means re-syncing the copies with the new server build, not loosening the test.
 
 ## Retired
 
