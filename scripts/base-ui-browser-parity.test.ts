@@ -3,7 +3,13 @@ import { spawnSync } from "node:child_process"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { CONFIRM_RUNS, confirm } from "../packages/base-ui/scripts/browser-parity.mjs"
+import {
+	ALPHA,
+	CONFIRM_RUNS,
+	MAX_CONFIRM_RUNS,
+	confirm,
+	fisherOneSided,
+} from "../packages/base-ui/scripts/browser-parity.mjs"
 
 const SCRIPT = join(import.meta.dir, "../packages/base-ui/scripts/browser-parity.mjs")
 const temps: string[] = []
@@ -84,36 +90,62 @@ describe("confirming a Solid-only failure", () => {
 			(s) => new Map([[KEY, { file: "", status: (s === "f" ? "failed" : "passed") as Status, message: "" }]]),
 		)
 
-	test("confirms a deterministic Solid break on a test upstream fails in some reruns", () => {
-		// On CI's WebKit, upstream fails "contained triggers" in 10 of 27 runs: a Solid break there
-		// must still fail the check.
-		const { confirmed, unconfirmed } = confirm([entry], runs("ffffffffff"), runs("fpfffpffpf"))
-		expect(confirmed).toEqual([{ ...entry, solidFailed: 10, upstreamPassed: 3, runs: 10 }])
+	test("computes the one-sided Fisher exact p of Solid failing more than upstream", () => {
+		// Solid failed 10 of 10, upstream 7 of 10 (passed 3): 120 / 1140.
+		expect(fisherOneSided(10, 10, 7, 10)).toBeCloseTo(120 / 1140, 10)
+		expect(fisherOneSided(10, 10, 0, 10)).toBeCloseTo(1 / 184756, 12)
+		expect(fisherOneSided(5, 10, 5, 10)).toBeGreaterThan(0.5)
+	})
+
+	test("confirms a Solid break on a test upstream fails in some reruns when the gap is significant", () => {
+		const { confirmed, unconfirmed } = confirm([entry], runs("ffffffffff"), runs("fpppfpppfp"))
+		expect(confirmed.map((e) => [e.solidFailed, e.upstreamPassed, e.runs])).toEqual([[10, 7, 10]])
+		expect(confirmed[0].p).toBeLessThan(ALPHA)
 		expect(unconfirmed).toEqual([])
 	})
 
-	test("does not confirm a failure Solid passes in a rerun, and counts both sides", () => {
-		const { confirmed, unconfirmed } = confirm([entry], runs("fffffffffp"), runs("pppppppppp"))
+	test("leaves a gap that ten reruns cannot settle inconclusive, for ten more", () => {
+		// Popover's Enter-or-Space test at 75bdb4e3 on CI's WebKit: Solid failed 10 of 10, upstream
+		// passed 3 of 10. Both move focus one frame after the open, and WebKit's driver can press the
+		// next key in that frame, so upstream fails it most of the time too.
+		const { confirmed, unconfirmed } = confirm([entry], runs("ffffffffff"), runs("fpffpfffpf"))
 		expect(confirmed).toEqual([])
-		expect(unconfirmed).toEqual([{ ...entry, solidFailed: 9, upstreamPassed: 10, runs: 10 }])
+		expect(unconfirmed.map((e) => [e.solidFailed, e.upstreamPassed, e.inconclusive])).toEqual([[10, 3, true]])
 	})
 
-	test("does not confirm a failure upstream also has in every rerun", () => {
-		expect(confirm([entry], runs("ffffffffff"), runs("ffffffffff")).confirmed).toEqual([])
+	test("decides at twenty reruns", () => {
+		const solid = runs("f".repeat(20))
+		expect(confirm([entry], solid, runs("ffffffffffffpppppppp")).confirmed).toHaveLength(1)
+		const { unconfirmed } = confirm([entry], solid, runs("fffffffffffffffppppp"))
+		expect(unconfirmed[0].inconclusive).toBe(false)
+	})
+
+	test("does not confirm a failure Solid passes in a rerun", () => {
+		const { confirmed, unconfirmed } = confirm([entry], runs("fffffffffp"), runs("pppppppppp"))
+		expect(confirmed).toEqual([])
+		expect(unconfirmed[0].inconclusive).toBe(false)
 	})
 
 	test("confirms a failure of a test upstream does not have on Solid's reruns alone", () => {
 		const absent = { ...entry, upstream: "absent" }
-		expect(confirm([absent], runs("ffffffffff"), []).confirmed).toEqual([
-			{ ...absent, solidFailed: 10, upstreamPassed: 0, runs: 10 },
-		])
+		expect(confirm([absent], runs("ffffffffff"), []).confirmed).toHaveLength(1)
 	})
 
-	test("reruns often enough to hold both errors under 1% for a 60%-vs-37% test", () => {
-		// A Solid test failing 60% of runs fails every rerun by chance (a false red)...
+	test("holds a Solid flake's false red and a real break's miss under 1%", () => {
+		// A Solid test failing 60% of runs fails every one of ten reruns by chance.
 		expect(0.6 ** CONFIRM_RUNS).toBeLessThan(0.01)
-		// ...and a deterministic Solid break goes unconfirmed only if upstream, failing 37% of runs,
-		// fails every rerun too (a false green).
-		expect(0.37 ** CONFIRM_RUNS).toBeLessThan(0.01)
+		// A deterministic Solid break on a test upstream passes 63% of the time: at twenty reruns it
+		// is confirmed once upstream passes 7, which happens with probability over 99%.
+		expect(fisherOneSided(MAX_CONFIRM_RUNS, MAX_CONFIRM_RUNS, MAX_CONFIRM_RUNS - 7, MAX_CONFIRM_RUNS)).toBeLessThan(
+			ALPHA,
+		)
+		const binomial = (n: number, k: number, p: number) => {
+			let c = 1
+			for (let i = 0; i < k; i += 1) c = (c * (n - i)) / (i + 1)
+			return c * p ** k * (1 - p) ** (n - k)
+		}
+		let atLeastSeven = 0
+		for (let k = 7; k <= MAX_CONFIRM_RUNS; k += 1) atLeastSeven += binomial(MAX_CONFIRM_RUNS, k, 0.63)
+		expect(atLeastSeven).toBeGreaterThan(0.99)
 	})
 })
