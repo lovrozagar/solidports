@@ -3,7 +3,7 @@
 // Production builds: a server bundle per variant (`vite build --ssr`, framework packages external
 // so Node resolves their server builds) and a hydratable client bundle per variant.
 //
-// Usage (from packages/base-ui): node test/perf-solid/ssr/run.mjs [runs=20] [filter,...]
+// Usage (from packages/base-ui): node --expose-gc test/perf-solid/ssr/run.mjs [runs=20] [filter,...]
 //   filter: as `../run.mjs`, terms from `../shared/filter.mjs` (id prefix, component:, tag:, !)
 // Env:
 //   SSR_VARIANTS=name:lib[:solidSrc[:outDir]],...  default react:react,solid:solid; a Solid variant
@@ -13,6 +13,10 @@
 //   BUILD_ONLY=1 builds and exits. SERVER_ONLY=1 skips the browser (hydration) part.
 //   SSR_MINIFY=0 keeps the bundles readable (function names for profile.mjs).
 //   RESULTS_FILE=<path without extension>.
+//   SSR_REPEAT=name:N renders that variant's case N times per server render: a known slowdown, to
+//     check that the instrument sees it (`bench:component` never sets it).
+// Server ms: each sample is the mean of a batch of renders, the heap collected before each batch
+// (`sample.mjs` says why); `--expose-gc` is required.
 // Hydrate ms runs from the hydrate call to the commit: React's root layout effect (`hydrateRoot` is
 // concurrent, so its sync time is only scheduling), Solid's `hydrate` plus `flush`. Then the first
 // expanded trigger is clicked: first close ms runs from the click through two settled frames, and
@@ -29,6 +33,7 @@ import { build } from 'vite';
 import { matchesFilter, parseFilter } from '../shared/filter.mjs';
 import { assertScriptMetric, evaluateInTask } from '../shared/measure.mjs';
 import { median } from '../shared/regression.mjs';
+import { SERVER_SAMPLING, sampleServer } from './sample.mjs';
 import { mainThreadLines } from '../shared/report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -111,6 +116,16 @@ if (process.env.BUILD_ONLY) process.exit(0);
 
 // --- Server render (Node) ---
 const server = {};
+/** `SSR_REPEAT`: renders per server render, per variant (1 unless set). */
+const REPEAT = Object.fromEntries(
+  (process.env.SSR_REPEAT ?? '')
+    .split(',')
+    .filter(Boolean)
+    .map((entry) => {
+      const [name, count] = entry.split(':');
+      return [name, Number(count)];
+    }),
+);
 for (const name of NAMES) {
   const entry = path.join(outDir(name), 'server', 'entry-server.mjs');
   server[name] = await import(pathToFileURL(entry).href);
@@ -139,6 +154,8 @@ if (keys.length === 0) {
 }
 const results = {};
 const html = {};
+/** Renders per server sample, per case. */
+const serverBatch = {};
 for (const key of keys) {
   results[key] = {};
   for (const name of NAMES) {
@@ -159,17 +176,27 @@ for (const key of keys) {
       },
     };
   }
-  for (let run = 0; run < WARMUP + RUNS; run += 1) {
-    for (const name of NAMES) {
-      const start = performance.now();
-      const markup = server[name].render(key);
-      const elapsed = performance.now() - start;
-      if (run >= WARMUP) results[key][name].samples.serverMs.push(elapsed);
-      (html[name] ??= {})[key] = markup;
-    }
+  for (const name of NAMES) {
+    (html[name] ??= {})[key] = server[name].render(key);
   }
+  const sampled = sampleServer(
+    Object.fromEntries(
+      NAMES.map((name) => {
+        const repeat = REPEAT[name] ?? 1;
+        return [
+          name,
+          () => {
+            for (let i = 0; i < repeat; i += 1) server[name].render(key);
+          },
+        ];
+      }),
+    ),
+    { ...SERVER_SAMPLING, runs: RUNS, gc: globalThis.gc },
+  );
+  serverBatch[key] = sampled.batch;
   for (const name of NAMES) {
     const entry = results[key][name];
+    entry.samples.serverMs = sampled.samples[name];
     entry.serverMs = median(entry.samples.serverMs);
     entry.htmlBytes = Buffer.byteLength(html[name][key]);
   }
@@ -343,7 +370,7 @@ const withClose = (entry) => entry.hydrateScriptMs + (entry.firstCloseScriptMs ?
 const lines = [
   `# Base UI SSR bench ${new Date().toISOString()}`,
   '',
-  `runs ${RUNS} · warmup ${WARMUP} · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
+  `runs ${RUNS} · hydration warmup ${WARMUP} · server warmup ${SERVER_SAMPLING.warmup}, samples: batch means (${keys.map((key) => `${key} ×${serverBatch[key]}`).join(', ')}), GC before each batch · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
   '',
   `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate ms / hydrate script ms / first close ms / close script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate / hydrate+close script`).join(' | ')} |`,
   `|---|${NAMES.map(() => '---').join('|')}|${others.map(() => '---').join('|')}|`,

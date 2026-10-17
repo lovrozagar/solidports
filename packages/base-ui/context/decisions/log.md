@@ -127,3 +127,25 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
 - Engine and warning tooling (plan leaves 1.8 to 1.13) lands during the core phase, while Mac benches run, because the family exit bar includes zero new warnings and the all-engine milestone.
 - Learning loop: `workflows/port-a-component-native.md` is a living playbook. It is read before each family's leaves are written and updated after every unit with what worked, what failed and the recipes that came out of it. Each core unit also records its actual gain against the expected one, and the handoff tracks wall time per family.
 
+### D16 — The perf rule decides by rank test, interval margin and false discovery rate (2026-10-17)
+
+- Supersedes leaf 1.6's tolerance in `shared/regression.mjs`. The old rule flagged a shift that exceeded the summed p90 spreads of both sides. At ten samples p90 is the maximum, so one slow sample per side decided it: a collection pause or the first measured run, 50–60 ms on the Mac. At 597b2a75, progress/1000's server time halved (96.9 to 47.4 ms; samples cur [101.8, 46.3, …], base [115.0, 100.8, …]) and the rule said "same" with a 72.6 ms tolerance. On a simulated clock calibrated to those samples (`scripts/perf-noise-model.ts`), it called a 2x slowdown "same" for 20 of 20 seeds.
+- The rule now:
+  - A pair is regressed when a one-sided Mann–Whitney U test gives p < 0.01 and the bootstrap 95% interval of the median shift lies wholly above the minimum effect: the metric's absolute floor or 3% of the base median, whichever is larger. Improved is the mirror case. The margin applies to the interval, not the point estimate, because at the point estimate a true 1.03x shift flagged on 5 of 20 seeds.
+  - A `--compare` run judges all its pairs together (`judgeAll`, browser and SSR). The two-sided p values go through Benjamini–Hochberg at q = 0.05, and the report states the pair count and the threshold.
+- Samples:
+  - Browser: `bench:component` defaults to `--runs 12` (24 samples a side). At 16 a side, the rank test missed 14 of 100 true 2x regressions among 400 pairs at BH thresholds; at 24 it missed none.
+  - SSR: 20 runs, each sample the mean of a batch of renders sized to about 250 ms, with `gc()` before every batch (`ssr/sample.mjs`, `node --expose-gc`).
+  - The browser part of a run takes about 1.5x as long.
+- Simulated clock (20 seeds):
+  - 2x shifts: decided for at least 19 of 20 seeds.
+  - 1.03x shifts: "same" for all 20.
+  - A/A: "same" for at least 19 of 20.
+  - 400-pair A/A runs: at most one false regression on average. The measured count was none.
+  - Five true 2x regressions among 400 pairs: all flagged on every seed.
+- Real instrument on the Mac at 2d6e053c, eleven SSR cases (progress/1000, input/1000, checkbox/1000, accordion/300 and collapsible/300 with their open and floor twins):
+  - A copy of the same build slowed 2x (`SSR_REPEAT=cur:2`) read "regressed" on all 11, ratios 1.64 to 2.06, p 3.4e-8.
+  - A/A read "same" on all 11, ratios 0.98 to 1.02.
+  - The margin, not alpha alone, carries A/A: progress/1000's A/A pair had p 0.0036, below alpha, but its shift interval (−1.01 to −0.15 ms) stayed inside the 1.37 ms minimum effect, so it read "same".
+- Verdicts from runs before this entry are read as unjudged.
+

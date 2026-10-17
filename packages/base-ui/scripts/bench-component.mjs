@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // bench:component: one report per component across every perf instrument (plan 3, leaves 1.5–1.7).
 //
-//   bun run bench:component <name>[,...]|all [--runs 8] [--ssr-runs 10] [--filter <terms>]
+//   bun run bench:component <name>[,...]|all [--runs 12] [--ssr-runs 20] [--filter <terms>]
 //                           [--save-baseline <label> [--at <sha>]] [--compare <label>]
 //
 // Builds once, then runs the browser scenarios that list a component (`component:<name>` terms,
@@ -13,7 +13,7 @@
 // correctness failures block a baseline: exit-bar misses are recorded as targets. `--compare` builds the
 // labelled commit's library source (extracted with `git archive`, so it is the commit and nothing
 // else), caches that build by SHA and harness hash, runs it interleaved with the working tree and
-// React in one session, and fails on any regression under the 1.6 rule. Run with Bun: it imports
+// React in one session, and fails on any regression under the rule (`shared/regression.mjs`, D16). Run with Bun: it imports
 // the TypeScript manifests directly.
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -21,9 +21,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closest, matchesFilter, parseFilter } from '../test/perf-solid/shared/filter.mjs';
-import { compareVariants } from '../test/perf-solid/shared/report.mjs';
+import { judgeRun, variantPairs } from '../test/perf-solid/shared/report.mjs';
 import { EXCLUSIVE_LOCK, LOCK_TIMEOUT_SECONDS } from './test-all.mjs';
-import { EXIT_BAR, exitBar, GATED, judge } from '../test/perf-solid/shared/regression.mjs';
+import { EXIT_BAR, exitBar, FDR_Q, GATED } from '../test/perf-solid/shared/regression.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const baseUi = path.resolve(here, '..');
@@ -35,11 +35,17 @@ const USAGE =
   'bench:component <name>[,...]|all [--runs N] [--ssr-runs N] [--filter terms] [--save-baseline label [--at sha] | --compare label]';
 
 /** @param {string[]} argv */
+/**
+ * Browser runs per variant: two rounds give 24 samples a side, the fewest at which the rule
+ * (D16) flags five true 2x regressions among 400 judged pairs under the Mac's GC noise.
+ */
+export const DEFAULT_RUNS = 12;
+
 export function parseArgs(argv) {
   const options = {
     names: [],
-    runs: 8,
-    ssrRuns: 10,
+    runs: DEFAULT_RUNS,
+    ssrRuns: 20,
     filter: null,
     saveBaseline: null,
     at: null,
@@ -353,7 +359,9 @@ async function main() {
       env: { BUILD_ONLY: '1', SSR_VARIANTS: ssrVariants.join(',') },
     });
   }
-  const curBuildHash = measured?.buildHash ?? { browser: dirHash(path.join(builds, 'solid', 'dist')) };
+  const curBuildHash = measured?.buildHash ?? {
+    browser: dirHash(path.join(builds, 'solid', 'dist')),
+  };
 
   // --- Browser scenarios ---
   const browserFilter = [...components.map((c) => `component:${c}`), options.filter]
@@ -384,7 +392,8 @@ async function main() {
   if (ssrIds.length) {
     ssrExit = run(
       'node',
-      ['test/perf-solid/ssr/run.mjs', String(options.ssrRuns), ssrIds.join(',')],
+      // `--expose-gc`: the server sampler collects before each batch (`ssr/sample.mjs`).
+      ['--expose-gc', 'test/perf-solid/ssr/run.mjs', String(options.ssrRuns), ssrIds.join(',')],
       {
         env: { NO_BUILD: '1', SSR_VARIANTS: ssrVariants.join(','), RESULTS_FILE: `${out}-ssr` },
         allowFail: true,
@@ -438,22 +447,29 @@ async function main() {
     }
   }
 
-  // --- Verdicts (1.6) ---
+  // --- Verdicts (D16) ---
+  // Every comparison of the run is judged together: Benjamini–Hochberg across browser and SSR.
   const regressions = [];
-  const verdicts = { browser: [], ssr: [] };
+  const pairs = [];
   if (base && browser) {
-    verdicts.browser = compareVariants(browser.summary, 'base', 'cur', { raw: browser.raw });
+    pairs.push(...variantPairs(browser.summary, 'base', 'cur', { raw: browser.raw }));
   }
+  const browserPairCount = pairs.length;
   if (base && ssr) {
     for (const [key, row] of Object.entries(ssr.results)) {
       for (const metric of ['serverMs', 'hydrateSyncMs']) {
         const a = row.base?.samples[metric] ?? [];
         const b = row.cur?.samples[metric] ?? [];
-        if (a.length && b.length) verdicts.ssr.push({ key, metric, ...judge(a, b, GATED[metric]) });
+        if (a.length && b.length) pairs.push({ key, metric, base: a, cur: b, rule: GATED[metric] });
       }
     }
   }
-  for (const verdict of [...verdicts.browser, ...verdicts.ssr]) {
+  const judged = judgeRun(pairs);
+  const verdicts = {
+    browser: judged.verdicts.slice(0, browserPairCount),
+    ssr: judged.verdicts.slice(browserPairCount),
+  };
+  for (const verdict of judged.verdicts) {
     if (verdict.verdict === 'regressed') regressions.push(verdict);
   }
   // Plan 3's exit bar on production builds: every SSR case with a floor twin.
@@ -476,7 +492,7 @@ async function main() {
       ),
     ...regressions.map(
       (r) =>
-        `regressed: ${r.key} ${r.metric} ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (tolerance ${r.tolerance.toFixed(2)})`,
+        `regressed: ${r.key} ${r.metric} ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (95% CI of the shift ${r.ci[0].toFixed(2)} to ${r.ci[1].toFixed(2)}, minimum effect ${r.minEffect.toFixed(2)}, p ${r.p.toExponential(1)})`,
     ),
   ];
   const result = {
@@ -536,14 +552,16 @@ async function main() {
   if (base) {
     md.push(
       '',
-      '## cur vs base (1.6 rule)',
+      '## cur vs base (Mann–Whitney, D16)',
       '',
-      '| key | metric | base | cur | delta | tolerance | verdict |',
-      '|---|---|---|---|---|---|---|',
+      `${judged.pairs} pairs judged together; Benjamini–Hochberg at q = ${FDR_Q} sets the two-sided p threshold to ${judged.threshold ? judged.threshold.toExponential(2) : 'none (no pair passes)'}, then the 95% CI of the median shift must clear the minimum effect.`,
+      '',
+      '| key | metric | base | cur | delta | 95% CI | min effect | p | verdict |',
+      '|---|---|---|---|---|---|---|---|---|',
     );
     for (const v of [...verdicts.browser, ...verdicts.ssr]) {
       md.push(
-        `| ${v.key} | ${v.metric} | ${fmt(v.base)} | ${fmt(v.cur)} | ${fmt(v.delta)} | ${fmt(v.tolerance)} | ${v.verdict} |`,
+        `| ${v.key} | ${v.metric} | ${fmt(v.base)} | ${fmt(v.cur)} | ${fmt(v.delta)} | ${fmt(v.ci[0])} to ${fmt(v.ci[1])} | ${fmt(v.minEffect)} | ${v.p.toExponential(1)} | ${v.verdict} |`,
       );
     }
   }
