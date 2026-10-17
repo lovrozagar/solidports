@@ -17,11 +17,13 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
 	FLOCK_SHIM,
+	isLinkFailure,
 	lockedRun,
 	parseArgs,
 	quote,
 	remoteScript,
 	TIMEOUT_SHIM,
+	withLink,
 } from "../packages/base-ui/scripts/remote-mac.mjs"
 
 const temps: string[] = []
@@ -401,4 +403,64 @@ describe("queued Mac runs", () => {
 		expect(readFileSync(join(home, ".gates/remote-mac-out/x/out/r.json"), "utf8")).toBe("result\n")
 		expect(await new Response(run.stdout).text()).toContain("remote-mac: could not collect missing.json")
 	}, 30_000)
+})
+
+// One dropped link (a Tailscale blip) failed nine queued runs in seconds: each run's first scp
+// exited 255 with "Connection closed". A step that fails on the link waits for it and retries,
+// within a budget; anything else is the run's own failure and is returned as it is.
+describe("the link to the Mac", () => {
+	test("a connection error with ssh's exit code 255 is a lost link, anything else is not", () => {
+		expect(isLinkFailure(255, "scp: Connection closed")).toBe(true)
+		expect(isLinkFailure(255, "Timeout, server lovros-macbook-air not responding.")).toBe(true)
+		expect(isLinkFailure(255, "ssh: connect to host mac port 22: Connection timed out")).toBe(true)
+		expect(isLinkFailure(1, "scp: Connection closed")).toBe(false)
+		expect(isLinkFailure(255, "bench: 3 problems")).toBe(false)
+		expect(isLinkFailure(0, "")).toBe(false)
+	})
+
+	const fakes = () => {
+		const waits: number[] = []
+		return { waits, wait: async (ms: number) => void waits.push(ms) }
+	}
+
+	test("retries a step that lost the link once the link answers again", async () => {
+		const { waits, wait } = fakes()
+		const results = [
+			{ status: 255, stderr: "scp: Connection closed" },
+			{ status: 0, stderr: "" },
+		]
+		let probes = 0
+		const result = await withLink(async () => results.shift()!, {
+			probe: async () => (probes += 1) > 1,
+			wait,
+			delaysMs: [10, 20],
+			probeMs: 5,
+			budgetMs: 1000,
+		})
+		expect(result.status).toBe(0)
+		expect(waits).toEqual([10, 5])
+	})
+
+	test("returns a step's own failure at once", async () => {
+		const { waits, wait } = fakes()
+		const result = await withLink(async () => ({ status: 2, stderr: "remote run failed" }), {
+			probe: async () => true,
+			wait,
+		})
+		expect(result.status).toBe(2)
+		expect(waits).toEqual([])
+	})
+
+	test("gives up once the link stays down past the budget", async () => {
+		const { wait } = fakes()
+		await expect(
+			withLink(async () => ({ status: 255, stderr: "Connection closed" }), {
+				probe: async () => false,
+				wait,
+				delaysMs: [10],
+				probeMs: 10,
+				budgetMs: 50,
+			}),
+		).rejects.toThrow(/link to the Mac stayed down/)
+	})
 })

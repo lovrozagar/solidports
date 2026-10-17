@@ -225,6 +225,75 @@ exit $code
 `;
 }
 
+/** ssh's own exit code: the remote command never ran or the session died, never the command's. */
+const SSH_FAILED = 255;
+const LINK_ERROR = new RegExp(
+  [
+    'Connection (closed|timed out|refused|reset)',
+    'not responding',
+    'Could not resolve',
+    'Network is unreachable',
+    'No route to host',
+    'Broken pipe',
+  ].join('|'),
+);
+
+/** Whether a step failed on the link to the Mac (ssh or scp's 255 with a connection error). */
+export function isLinkFailure(status, stderr) {
+  return status === SSH_FAILED && LINK_ERROR.test(stderr ?? '');
+}
+
+/** How long a run waits for a lost link before it fails: a blip must not cost a night's queue. */
+export const LINK_BUDGET_MS = 15 * 60 * 1000;
+const LINK_DELAYS_MS = [10_000, 30_000, 60_000, 120_000];
+const PROBE_MS = 30_000;
+
+/**
+ * Runs `step` (resolving `{ status, stderr }`) and, while it fails on the link, waits (the backoff
+ * in `delaysMs`, then `probe` until the Mac answers) and runs it again, up to `budgetMs` of
+ * waiting.
+ * Any other result, success or the step's own failure, is returned as it is.
+ */
+export async function withLink(
+  step,
+  {
+    probe,
+    wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    delaysMs = LINK_DELAYS_MS,
+    probeMs = PROBE_MS,
+    budgetMs = LINK_BUDGET_MS,
+    log = () => {},
+  },
+) {
+  let waited = 0;
+  const pause = async (ms) => {
+    if (waited + ms > budgetMs) {
+      throw new Error(
+        `remote-mac: the link to the Mac stayed down for ${Math.round(waited / 1000)} s; giving up`,
+      );
+    }
+    await wait(ms);
+    waited += ms;
+  };
+  for (let attempt = 0; ; attempt += 1) {
+    const result = await step();
+    if (!isLinkFailure(result.status, result.stderr)) {
+      return result;
+    }
+    const delay = delaysMs[Math.min(attempt, delaysMs.length - 1)];
+    const reason = result.stderr.trim().split('\n').pop();
+    log(`remote-mac: lost the link (${reason}); retrying in ${delay / 1000} s`);
+    await pause(delay);
+    while (!(await probe())) {
+      await pause(probeMs);
+    }
+  }
+}
+
+/** Whether the Mac answers an ssh round trip within ten seconds. */
+const probeLink = async () =>
+  spawnSync('ssh', ['-o', 'ConnectTimeout=10', '-o', 'BatchMode=yes', HOST, 'true']).status === 0;
+
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: root, encoding: 'utf8', ...options });
   if (result.status !== 0) {
@@ -253,7 +322,16 @@ async function main() {
   const remoteBundle = `solidports-remote-${stamp}.bundle`;
   const outDir = `.gates/remote-mac-out/${stamp}`;
   const heartbeat = `.gates/remote-mac-heartbeat/${stamp}`;
-  run('scp', ['-q', bundle, `${HOST}:${remoteBundle}`]);
+  const copied = await withLink(
+    async () =>
+      spawnSync('scp', ['-q', '-o', 'ConnectTimeout=15', bundle, `${HOST}:${remoteBundle}`], {
+        encoding: 'utf8',
+      }),
+    { probe: probeLink, log: console.error },
+  );
+  if (copied.status !== 0) {
+    throw new Error(`scp ${bundle} exited ${copied.status}: ${copied.stderr}`);
+  }
   fs.rmSync(bundle);
 
   const log = path.join(root, `.tmp/grunt/remote-mac/${stamp}.log`);
@@ -264,19 +342,27 @@ async function main() {
   const beat = setInterval(() => {
     spawn('ssh', [HOST, `touch ${heartbeat}`], { stdio: 'ignore' }).on('error', () => {});
   }, HEARTBEAT_SECONDS * 1000);
-  const code = await new Promise((resolve) => {
-    const child = spawn('ssh', [HOST, 'bash -s'], { stdio: ['pipe', 'pipe', 'pipe'] });
-    child.stdout.on('data', (chunk) => {
-      process.stdout.write(chunk);
-      out.write(chunk);
+  // A session the link dropped runs again from its start (the run there stops itself once the
+  // heartbeat goes stale, and the next one queues on the lock); a run's own exit code is final.
+  const session = () =>
+    new Promise((resolve) => {
+      let stderr = '';
+      const child = spawn('ssh', ['-o', 'ConnectTimeout=15', HOST, 'bash -s'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      child.stdout.on('data', (chunk) => {
+        process.stdout.write(chunk);
+        out.write(chunk);
+      });
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk;
+        process.stderr.write(chunk);
+        out.write(chunk);
+      });
+      child.on('close', (status) => resolve({ status, stderr }));
+      child.stdin.end(remoteScript({ ...options, bundle: remoteBundle, ref, outDir, heartbeat }));
     });
-    child.stderr.on('data', (chunk) => {
-      process.stderr.write(chunk);
-      out.write(chunk);
-    });
-    child.on('close', resolve);
-    child.stdin.end(remoteScript({ ...options, bundle: remoteBundle, ref, outDir, heartbeat }));
-  });
+  const { status: code } = await withLink(session, { probe: probeLink, log: console.error });
   clearInterval(beat);
   out.end();
   for (const file of options.fetch) {
