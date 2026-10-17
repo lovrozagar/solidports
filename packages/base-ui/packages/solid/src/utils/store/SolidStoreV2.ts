@@ -537,7 +537,8 @@ export function createStoreState<State extends object>(
   const bindings = new Map<PropertyKey, Binding>();
 
   // The last value of a key unbound before anything read it: kept here, not in a new slot, as the
-  // keys a closed popup root binds and never reads are all unbound when it unmounts.
+  // keys a closed popup root binds and never reads are all unbound when it unmounts. At most one
+  // entry a key, until the key's slot takes the value over; it lives as long as the store.
   const unboundValues = new Map<PropertyKey, unknown>();
 
   /** What a key's slot starts out holding: its binding if bound before its first read. */
@@ -565,6 +566,8 @@ export function createStoreState<State extends object>(
         ),
       ) as Signal<{ value: unknown }>;
       slots.set(key, current);
+      // The kept value moved into the signal.
+      unboundValues.delete(key);
     }
     return current;
   }
