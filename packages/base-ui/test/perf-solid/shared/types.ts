@@ -24,6 +24,11 @@ export interface Step {
   /** Waits three frames after the step (positioning, animations-finished checks). */
   settle?: boolean;
   /**
+   * An input the engine must provide: where it is missing (Firefox's desktop build has no `Touch`)
+   * the step is skipped and reports no sample, as an engine's unmeasured columns do.
+   */
+  requires?: 'touch';
+  /**
    * Waits after settling, untimed, until this holds; the step fails if it does not within
    * `UNTIL_TIMEOUT_MS`. For end states a library reaches on its own timer (a hover close on
    * safePolygon's 40 ms timeout), which a fixed frame count races.

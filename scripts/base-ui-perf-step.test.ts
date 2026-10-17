@@ -120,3 +120,35 @@ describe("perf harness step", () => {
 		expect({ constructed, settled: result.settled }).toEqual({ constructed: 0, settled: null })
 	})
 })
+
+// A step can need an input an engine lacks: Firefox has no `Touch` (desktop), so the context menu's
+// long press threw there. Such a step is skipped where the input is missing and reports no sample,
+// as an engine's unmeasured columns do; where it exists, the step runs as any other.
+describe("a step that requires touch", () => {
+	const touchStep = (ran: { count: number }): Step => ({
+		name: "long-press open",
+		requires: "touch",
+		run: () => {
+			ran.count += 1
+		},
+	})
+
+	test("is skipped, not run, on an engine without Touch", async () => {
+		const ran = { count: 0 }
+		const result = await runStep(touchStep(ran), ctx)
+		expect(ran.count).toBe(0)
+		expect(result).toMatchObject({ skipped: "needs Touch", error: null })
+	})
+
+	test("runs where Touch exists", async () => {
+		const ran = { count: 0 }
+		Object.assign(globalThis, { Touch: class {} })
+		try {
+			const result = await runStep(touchStep(ran), ctx)
+			expect(ran.count).toBe(1)
+			expect(result.skipped).toBe(null)
+		} finally {
+			delete (globalThis as { Touch?: unknown }).Touch
+		}
+	})
+})

@@ -20,6 +20,11 @@ function contextMenuAt(element: Element) {
   element.dispatchEvent(new MouseEvent('contextmenu', init));
 }
 
+/**
+ * Dispatches one touch event. Only steps that declare `requires: 'touch'` call it, and the runner
+ * skips those where the engine has no `Touch` (`shared/step.ts`).
+ */
+/* eslint-disable compat/compat -- guarded: its steps declare `requires: 'touch'` */
 function touch(type: string, element: Element) {
   const rect = element.getBoundingClientRect();
   const point = new Touch({
@@ -39,6 +44,7 @@ function touch(type: string, element: Element) {
     }),
   );
 }
+/* eslint-enable compat/compat */
 
 const wait = (ms: number) =>
   new Promise((resolve) => {
@@ -89,6 +95,7 @@ const scenarios: Scenario[] = [
       },
       {
         name: 'long-press open',
+        requires: 'touch',
         run: async (ctx) => {
           touch('touchstart', target(50));
           ctx.lib.flush();

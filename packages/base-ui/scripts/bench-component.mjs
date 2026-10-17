@@ -21,7 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closest, matchesFilter, parseFilter } from '../test/perf-solid/shared/filter.mjs';
-import { judgeRun, variantPairs } from '../test/perf-solid/shared/report.mjs';
+import { judgeRun, unmeasuredPairs, variantPairs } from '../test/perf-solid/shared/report.mjs';
 import { EXCLUSIVE_LOCK, LOCK_TIMEOUT_SECONDS } from './test-all.mjs';
 import { EXIT_BAR, exitBar, FDR_Q, GATED } from '../test/perf-solid/shared/regression.mjs';
 
@@ -481,16 +481,23 @@ export async function main(argv, deps = {}) {
     pairs.push(...variantPairs(browser.summary, 'base', 'cur', { raw: browser.raw }));
   }
   const browserPairCount = pairs.length;
+  const ssrUnmeasured = [];
   if (base && ssr) {
     for (const [key, row] of Object.entries(ssr.results)) {
       for (const metric of ['serverMs', 'hydrateSyncMs']) {
         const a = row.base?.samples[metric] ?? [];
         const b = row.cur?.samples[metric] ?? [];
         if (a.length && b.length) pairs.push({ key, metric, base: a, cur: b, rule: GATED[metric] });
+        else if (a.length || b.length) ssrUnmeasured.push(`${key} ${metric}: measured by ${a.length ? 'base' : 'cur'} only`);
       }
     }
   }
   const judged = judgeRun(pairs);
+  // What neither side's verdict covers: steps this engine skipped, and metrics one side measured.
+  const notMeasured = [
+    ...Object.entries(browser?.notMeasured ?? {}).map(([key, reason]) => `${key}: ${reason}`),
+    ...(base && browser ? unmeasuredPairs(browser.summary, 'base', 'cur') : []),
+  ];
   const verdicts = {
     browser: judged.verdicts.slice(0, browserPairCount),
     ssr: judged.verdicts.slice(browserPairCount),
@@ -590,6 +597,10 @@ export async function main(argv, deps = {}) {
         `| ${v.key} | ${v.metric} | ${fmt(v.base)} | ${fmt(v.cur)} | ${fmt(v.delta)} | ${fmt(v.ci[0])} to ${fmt(v.ci[1])} | ${fmt(v.minEffect)} | ${v.p.toExponential(1)} | ${v.verdict} |`,
       );
     }
+  }
+  const unmeasured = [...notMeasured, ...ssrUnmeasured];
+  if (unmeasured.length) {
+    md.push('', '## Not measured (no verdict)', '', ...unmeasured.map((line) => `- ${line}`));
   }
   if (failures.length) md.push('', '## Failures', '', ...failures.map((f) => `- ${f}`));
   fs.writeFileSync(`${out}.md`, md.join('\n'));
