@@ -44,6 +44,31 @@ describe('warning census', () => {
       expect(originOf(stack(frame('node_modules/solid-js/dist/dev.js')))).toBe('dependency');
     });
 
+    it('reads Firefox and WebKit stacks: `fn@location` frames, the first line a frame', () => {
+      const url = (path: string) => `http://127.0.0.1:63315/repo/${path}?import:10:5`;
+      // No `Error` line: the first line is the logging frame itself.
+      expect(
+        originOf(
+          [
+            `warn@${url('packages/base-ui/packages/solid/src/utils/warn.ts')}`,
+            `@${url('packages/base-ui/packages/solid/src/menu/root/MenuRoot.tsx')}`,
+          ].join('\n'),
+        ),
+      ).toBe('library');
+      expect(
+        originOf(
+          [
+            `runUpdates@${url('node_modules/@solidjs/signals/dist/dev.js')}`,
+            `fireEvent@${url('node_modules/@solidjs/testing-library/dist/index.js')}`,
+            `@[native code]`,
+          ].join('\n'),
+        ),
+      ).toBe('harness');
+      expect(originOf(`async*@${url('packages/base-ui/packages/solid/src/x.test.tsx')}`)).toBe(
+        'test',
+      );
+    });
+
     it('skips its own frames', () => {
       expect(
         originOf(
