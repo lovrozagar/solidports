@@ -5,10 +5,11 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import {
 	ALPHA,
-	CONFIRM_RUNS,
-	MAX_CONFIRM_RUNS,
 	confirm,
+	CONFIRM_RUNS,
+	describeCounts,
 	fisherOneSided,
+	MAX_CONFIRM_RUNS,
 } from "../packages/base-ui/scripts/browser-parity.mjs"
 
 const SCRIPT = join(import.meta.dir, "../packages/base-ui/scripts/browser-parity.mjs")
@@ -147,5 +148,18 @@ describe("confirming a Solid-only failure", () => {
 		let atLeastSeven = 0
 		for (let k = 7; k <= MAX_CONFIRM_RUNS; k += 1) atLeastSeven += binomial(MAX_CONFIRM_RUNS, k, 0.63)
 		expect(atLeastSeven).toBeGreaterThan(0.99)
+	})
+})
+
+describe("printing a rerun result", () => {
+	test("gives both counts and p, or says upstream has no such test", () => {
+		expect(describeCounts({ solidFailed: 7, upstreamPassed: 5, runs: 10, p: 0.3204, upstream: "passed" })).toBe(
+			" (Solid failed 7/10, upstream passed 5/10, p 0.32)",
+		)
+		// A Solid-only test file: no upstream reruns, so no upstream count and no p.
+		expect(describeCounts({ solidFailed: 0, upstreamPassed: 0, runs: 10, p: 0, upstream: "absent" })).toBe(
+			" (Solid failed 0/10, upstream absent)",
+		)
+		expect(describeCounts({ upstream: "passed" })).toBe("")
 	})
 })
