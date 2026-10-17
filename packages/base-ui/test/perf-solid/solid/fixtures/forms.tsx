@@ -83,11 +83,15 @@ function NumberFields() {
 function otp(length: number) {
   return function OTP() {
     return (
-      <OTPField.Root data-testid="otp" length={length} validationType="alphanumeric">
-        <For each={range(length)}>
-          {(i) => <OTPField.Input aria-label={`Character ${i + 1}`} />}
-        </For>
-      </OTPField.Root>
+      // The label names the field through its first input, which ignores `aria-label`.
+      <label>
+        One-time code
+        <OTPField.Root data-testid="otp" length={length} validationType="alphanumeric">
+          <For each={range(length)}>
+            {(i) => <OTPField.Input aria-label={i === 0 ? undefined : `Character ${i + 1}`} />}
+          </For>
+        </OTPField.Root>
+      </label>
     );
   };
 }
