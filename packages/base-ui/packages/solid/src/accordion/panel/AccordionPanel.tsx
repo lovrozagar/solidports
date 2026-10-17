@@ -193,7 +193,8 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
   // measurement and transition machinery and the panel's state are created when the panel first
   // renders and kept for the part's lifetime, owned by the part.
   const initialOpen = untrack(() => root.open());
-  const shouldRender = () => keepMounted() || hiddenUntilFound() || root.mounted() || root.open();
+  const shouldRender = () =>
+    keepMounted() || hiddenUntilFound() || root.open() || root.mountedWhileClosed();
   let rendered: ReturnType<typeof createRenderedPanel> | undefined;
 
   return createNativeConditional(owner, shouldRender, () => {

@@ -18,7 +18,19 @@ const slot = (key: Key) => (typeof key === 'number' ? `n${key}` : `s${key}`);
  * compared by identity against `values` itself. The projection exists on both sides (hydration ids
  * align); the server reads `values` directly.
  */
-export function createKeyedSelector(values: Accessor<readonly unknown[]>): (key: unknown) => boolean {
+export interface KeyedSelector {
+  /** Whether `key` is in the values (tracked): one projection lookup by the key's slot. */
+  (key: unknown): boolean;
+  /**
+   * The same read bound to one key: the slot's name is computed once, so each read is a single
+   * projection lookup with no string built (a reader that reads many times, an Accordion item's
+   * parts, binds at setup; the read itself is a proxy access, about 8x a signal's, and Solid 2 has
+   * no public handle to a store key's node).
+   */
+  forKey(key: unknown): () => boolean;
+}
+
+export function createKeyedSelector(values: Accessor<readonly unknown[]>): KeyedSelector {
   const membership = createProjection<Record<string, true>>((draft) => {
     const selected = new Set<string>();
     for (const value of values()) {
@@ -45,7 +57,7 @@ export function createKeyedSelector(values: Accessor<readonly unknown[]>): (key:
     // `includes` does (SameValueZero).
     let last: readonly unknown[] | undefined;
     let members: ReadonlySet<unknown> = new Set();
-    return (key) => {
+    const isMember = (key: unknown) => {
       const current = values();
       if (current !== last) {
         last = current;
@@ -53,6 +65,17 @@ export function createKeyedSelector(values: Accessor<readonly unknown[]>): (key:
       }
       return members.has(key);
     };
+    return Object.assign(isMember, { forKey: (key: unknown) => () => isMember(key) });
   }
-  return (key) => (isKey(key) ? membership[slot(key)] === true : values().includes(key));
+  const isSelected = (key: unknown) =>
+    isKey(key) ? membership[slot(key)] === true : values().includes(key);
+  return Object.assign(isSelected, {
+    forKey: (key: unknown) => {
+      if (!isKey(key)) {
+        return () => values().includes(key);
+      }
+      const name = slot(key);
+      return () => membership[name] === true;
+    },
+  });
 }

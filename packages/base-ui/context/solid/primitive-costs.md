@@ -43,6 +43,13 @@ Selection over 2000 rows, 50 changes, with one render effect per row:
 
 The port's compat `createSelector` (`solid-1-compat.ts:143`) is the predicate shape and has no call sites.
 
+A projection read is a proxy access: inside a tracking computation, about 126–170 ns per read against a plain signal's 16 (Node microbench, 300 keys × 14 reads, 2026-10-17; 170 ns when the slot name is built per read, 126 when it is bound once). Solid 2 exposes no public handle to a store key's node, so the read cannot be bound to the signal behind it. The keyed selector (`createKeyedSelector`) stays a projection anyway:
+
+- Per-key plain signals written by one root effect read at signal speed, but they tear. The writer applies in the effect phase, after a reader that re-runs for another source in the same batch has already read the old membership, so that reader shows a mixed pair for one pass (`second:open` before `second:closed`). A projection is pulled and never does; `createKeyedSelector.test.ts` pins it.
+- A per-key memo is a node per key, and one root memo of the set re-runs every reader per change.
+
+What helps instead: bind the read once per key (`isSelected.forKey(key)`, about 26% less per read), and cut how many reads a part makes (an Accordion item read its membership 14 times at mount, 10 since plan 3 leaf 5.1.4).
+
 ## Composite primitives
 
 | Construct | Source | What it creates |

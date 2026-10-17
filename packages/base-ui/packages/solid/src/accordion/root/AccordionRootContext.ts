@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { AccordionRoot } from './AccordionRoot';
+import type { KeyedSelector } from '../../utils/createKeyedSelector';
 
 export interface AccordionRootContext<Value = any> {
   disabled: Accessor<boolean>;
@@ -11,7 +12,8 @@ export interface AccordionRootContext<Value = any> {
   ) => void;
   hiddenUntilFound: Accessor<boolean>;
   /** Whether the item with `value` is open; reads only that item's membership. */
-  isOpen: (value: AccordionRoot.Value<Value>[number]) => boolean;
+  /** Membership in the root's value; `isOpen.forKey(value)` binds the read to one value. */
+  isOpen: KeyedSelector;
   keepMounted: Accessor<boolean>;
   state: AccordionRoot.State<Value>;
   value: Accessor<AccordionRoot.Value<Value>>;
