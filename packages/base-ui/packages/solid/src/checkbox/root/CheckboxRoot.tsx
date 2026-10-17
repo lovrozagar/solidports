@@ -17,6 +17,7 @@ import {
   useLabelableContext,
 } from '../../internals/labelable-provider/LabelableContext';
 import { NOOP } from '../../utils/noop';
+import { setHiddenInputDefault } from '../../utils/hiddenInputDefault';
 import {
   attachNativeAttributes,
   canRenderNative,
@@ -266,7 +267,12 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
       return validation.registerInput(element, { controlRef, value: inputValue }) ?? undefined;
     },
   );
+  let inputDefaultSet = false;
   const setInputRef = (element: HTMLInputElement | null | undefined) => {
+    if (element && !inputDefaultSet) {
+      inputDefaultSet = true;
+      setHiddenInputDefault(element, untrack(checked));
+    }
     inputRef.current = element;
     setInputElement(element);
     const inputRefProp = untrack(() => componentProps.inputRef);
@@ -1093,6 +1099,7 @@ function NativeCheckboxRoot(props: CheckboxRoot.Props): JSX.Element {
   // The hidden input: literal attributes from the template, the rest in one render effect that
   // also re-asserts `indeterminate` (a native click resets it).
   const input = createNativeElement('input', HIDDEN_CHECKBOX_INPUT);
+  setHiddenInputDefault(input, untrack(checked));
   const hasValue = 'value' in props;
   const inputAttributes = (): Record<string, unknown> => {
     const target: Record<string, unknown> = {

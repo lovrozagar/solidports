@@ -48,6 +48,7 @@ import {
   stateAttr,
 } from '../../utils/native';
 import type { CompositeItemRegistration, NativeLayout } from '../../utils/native';
+import { setHiddenInputDefault } from '../../utils/hiddenInputDefault';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';
@@ -156,7 +157,12 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
 
   // Solid: refs return no cleanup, so the merged ref's cleanups run when the radio unmounts.
   let inputRefCleanups: Array<void | (() => void)> = [];
+  let inputDefaultSet = false;
   const mergedInputRef = (element: HTMLInputElement) => {
+    if (!inputDefaultSet) {
+      inputDefaultSet = true;
+      setHiddenInputDefault(element, untrack(checked));
+    }
     const inputRefProp = untrack(() => local.inputRef);
     if (typeof inputRefProp === 'function') {
       inputRefProp(element);
@@ -759,6 +765,7 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
 
   // The hidden input: literal attributes from the template, the rest in one render effect.
   const input = createNativeElement('input', HIDDEN_RADIO_INPUT);
+  setHiddenInputDefault(input, untrack(checked));
   const inputAttributes = (): Record<string, unknown> => {
     const target: Record<string, unknown> = {
       form: groupContext?.form(),
