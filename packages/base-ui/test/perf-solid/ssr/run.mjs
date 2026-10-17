@@ -29,6 +29,7 @@ import { build } from 'vite';
 import { matchesFilter, parseFilter } from '../shared/filter.mjs';
 import { assertScriptMetric, evaluateInTask } from '../shared/measure.mjs';
 import { median } from '../shared/regression.mjs';
+import { mainThreadLines } from '../shared/report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packages = path.resolve(here, '../../../packages');
@@ -359,23 +360,7 @@ for (const key of keys) {
   );
   lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
 }
-lines.push(
-  '',
-  '## Main thread while hydrating',
-  '',
-  'CDP `TaskDuration`, `LayoutDuration` and `RecalcStyleDuration` ms and `LayoutCount` / `RecalcStyleCount`, medians: up to the commit (a layout there is forced by script), then over the two settled frames.',
-  '',
-  `| fixture | ${NAMES.map((n) => `${n} to commit: task ms / layout ms / style ms / layouts / recalcs · settle: task ms / layout ms / style ms`).join(' | ')} |`,
-  `|---|${NAMES.map(() => '---').join('|')}|`,
-);
-for (const key of keys) {
-  const row = results[key];
-  const cells = NAMES.map(
-    (n) =>
-      `${fmt(row[n].commitTaskMs)} / ${fmt(row[n].commitLayoutMs)} / ${fmt(row[n].commitStyleMs)} / ${row[n].commitLayouts} / ${row[n].commitStyles} · ${fmt(row[n].settleTaskMs)} / ${fmt(row[n].settleLayoutMs)} / ${fmt(row[n].settleStyleMs)}`,
-  );
-  lines.push(`| ${key} | ${cells.join(' | ')} |`);
-}
+lines.push(...mainThreadLines(keys, results, NAMES));
 if (problems.length) lines.push('', '## Problems', '', ...problems.map((p) => `- ${p}`));
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const out = process.env.RESULTS_FILE ?? path.join(resultsDir, `ssr-${stamp}`);

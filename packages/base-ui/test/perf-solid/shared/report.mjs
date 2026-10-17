@@ -76,3 +76,37 @@ export function compareVariants(summary, base, cur, options = {}) {
   }
   return verdicts;
 }
+
+const fmtMs = (n) => (n == null ? '-' : n.toFixed(2));
+
+/**
+ * The SSR bench's main-thread table: CDP task, layout and style per hydration step, by fixture
+ * (`results[key][variant]` medians). No lines when no variant hydrated (`SERVER_ONLY`).
+ */
+export function mainThreadLines(keys, results, names) {
+  const hydrated = keys.some((key) =>
+    names.some((name) => typeof results[key]?.[name]?.commitTaskMs === 'number'),
+  );
+  if (!hydrated) {
+    return [];
+  }
+  const lines = [
+    '',
+    '## Main thread while hydrating',
+    '',
+    'CDP `TaskDuration`, `LayoutDuration` and `RecalcStyleDuration` ms and `LayoutCount` / `RecalcStyleCount`, medians: up to the commit (a layout there is forced by script), then over the two settled frames.',
+    '',
+    `| fixture | ${names.map((n) => `${n} to commit: task ms / layout ms / style ms / layouts / recalcs · settle: task ms / layout ms / style ms`).join(' | ')} |`,
+    `|---|${names.map(() => '---').join('|')}|`,
+  ];
+  for (const key of keys) {
+    const row = results[key];
+    const cells = names.map(
+      (n) =>
+        `${fmtMs(row[n].commitTaskMs)} / ${fmtMs(row[n].commitLayoutMs)} / ${fmtMs(row[n].commitStyleMs)} / ${row[n].commitLayouts} / ${row[n].commitStyles} · ${fmtMs(row[n].settleTaskMs)} / ${fmtMs(row[n].settleLayoutMs)} / ${fmtMs(row[n].settleStyleMs)}`,
+    );
+    lines.push(`| ${key} | ${cells.join(' | ')} |`);
+  }
+  return lines;
+}
+
