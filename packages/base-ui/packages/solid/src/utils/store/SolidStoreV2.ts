@@ -536,12 +536,23 @@ export function createStoreState<State extends object>(
   // Keys derived from a source accessor (`useSyncedValue`): a writable memo per key.
   const bindings = new Map<PropertyKey, Binding>();
 
+  // The last value of a key unbound before anything read it: kept here, not in a new slot, as the
+  // keys a closed popup root binds and never reads are all unbound when it unmounts.
+  const unboundValues = new Map<PropertyKey, unknown>();
+
   /** What a key's slot starts out holding: its binding if bound before its first read. */
-  const unslotted = (key: PropertyKey) =>
-    bindings.get(key) ??
-    (Object.hasOwn(initialState, key)
+  const unslotted = (key: PropertyKey) => {
+    const binding = bindings.get(key);
+    if (binding) {
+      return binding;
+    }
+    if (unboundValues.has(key)) {
+      return unboundValues.get(key);
+    }
+    return Object.hasOwn(initialState, key)
       ? (initialState as Record<PropertyKey, unknown>)[key]
-      : undefined);
+      : undefined;
+  };
 
   function slot(key: PropertyKey) {
     let current = slots.get(key);
@@ -834,7 +845,12 @@ export function createStoreState<State extends object>(
       }
       bindings.delete(key);
       written.set(key, last);
-      writeSlot(key, last);
+      if (slots.has(key) || isServer) {
+        writeSlot(key, last);
+      } else {
+        // Nothing read the key: the value waits for its first reader without a signal.
+        unboundValues.set(key, last);
+      }
       if (clearOnCleanup) {
         notify();
       }

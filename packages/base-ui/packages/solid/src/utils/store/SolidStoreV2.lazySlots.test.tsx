@@ -44,6 +44,28 @@ describe('SolidStore signals', () => {
     dispose();
   });
 
+  it('unbinding a key nothing read creates no signal and keeps its last value', () => {
+    // Unmounting 500 closed Menu roots unbound about 20 keys each; creating a signal for each to
+    // hold its last value made unmount 7% slower than before slots were lazy.
+    const store = SolidStore({ open: false, label: 'a' });
+    const [source] = createSignal(true);
+    const [, dispose] = inRoot(() => store.useSyncedValue('open', source));
+    created = 0;
+    hooks.onGraph = counting;
+    dispose();
+    flush();
+    hooks.onGraph = undefined;
+    expect(created).toBe(0);
+    expect(untrack(() => store.state.open)).toBe(true);
+    // A reader after the unbind subscribes to the kept value.
+    const [read, disposeRead] = inRoot(() => createMemo(() => store.state.open));
+    expect(read()).toBe(true);
+    store.set('open', false);
+    flush();
+    expect(read()).toBe(false);
+    disposeRead();
+  });
+
   it('an untracked read of a key nothing subscribes to returns its value and creates no signal', () => {
     const store = SolidStore({ open: false, label: 'a' });
     created = 0;
