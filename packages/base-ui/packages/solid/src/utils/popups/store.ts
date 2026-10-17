@@ -4,7 +4,7 @@ import type { Accessor } from 'solid-js';
 import type { FloatingRootContext } from '../../floating-ui-solid';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../constants';
-import { createStoreState } from '../store/SolidStoreV2';
+import { createStoreState, keyedSelector } from '../store/SolidStoreV2';
 import type { SolidStore } from '../store/SolidStoreV2';
 import type { HTMLProps } from '../types';
 import type { TransitionStatus } from '../useTransitionStatus';
@@ -199,18 +199,19 @@ export const popupStoreSelectors = {
   /**
    * Whether the trigger with the given ID was used to open the popup.
    */
-  isTriggerActive: (state: S, triggerId: Accessor<string | undefined>) =>
-    triggerId() !== undefined && activeTriggerIdSelector(state) === triggerId(),
+  // Solid: keyed, so a change of the active trigger re-runs only the old and the new trigger's
+  // readers, not every detached trigger's. The three trigger selectors share the active trigger id
+  // as their key, so they share one projection; `open` and `mounted` are read by the active
+  // trigger's readers only.
+  isTriggerActive: keyedSelector(activeTriggerIdSelector),
   /**
    * Whether the popup is open and was activated by a trigger with the given ID.
    */
-  isOpenedByTrigger: (state: S, triggerId: Accessor<string | undefined>) =>
-    triggerOwnsOpenPopup(state, triggerId()),
+  isOpenedByTrigger: keyedSelector(activeTriggerIdSelector, openSelector),
   /**
    * Whether the popup is mounted and was activated by a trigger with the given ID.
    */
-  isMountedByTrigger: (state: S, triggerId: Accessor<string | undefined>) =>
-    triggerId() !== undefined && activeTriggerIdSelector(state) === triggerId() && state.mounted,
+  isMountedByTrigger: keyedSelector(activeTriggerIdSelector, (state: S) => state.mounted),
   triggerProps: (state: S, isActive: Accessor<boolean>) =>
     isActive() ? state.activeTriggerProps : state.inactiveTriggerProps,
   /**
