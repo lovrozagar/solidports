@@ -1,6 +1,7 @@
 // Collapsible and Accordion over the coverage matrix's remaining axes (plan 3, leaf 1.13): one
-// instance with literal props, 1000 instances, a `{...props}` wrapper, and render functions with
-// and without state. Same markup as `react/fixtures/disclosure-coverage.tsx`.
+// instance with literal props, 1000 instances, a `{...props}` wrapper, a render function with
+// state, and the element form (a `{ component }` config, React's `render={<section />}`). Same
+// markup as `react/fixtures/disclosure-coverage.tsx`.
 import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Accordion } from '@solidports/base-ui/accordion';
@@ -88,10 +89,10 @@ function CollapsiblesRenderElement() {
       <For each={range(size(300))}>
         {(i) => (
           <Collapsible.Root open={open()}>
-            <Collapsible.Trigger render={(props) => <button type="button" {...props} />}>
+            <Collapsible.Trigger render={{ component: 'button', type: 'button' }}>
               Trigger {i}
             </Collapsible.Trigger>
-            <Collapsible.Panel render={(props) => <section {...props} />}>Panel {i}</Collapsible.Panel>
+            <Collapsible.Panel render={{ component: 'section' }}>Panel {i}</Collapsible.Panel>
           </Collapsible.Root>
         )}
       </For>
@@ -171,11 +172,11 @@ export const fixtures: Record<string, () => unknown> = {
   'accordion/render-element-300': controlledAccordion(300, (it) => (
     <Accordion.Item value={it.value}>
       <Accordion.Header>
-        <Accordion.Trigger render={(props) => <button type="button" {...props} />}>
+        <Accordion.Trigger render={{ component: 'button', type: 'button' }}>
           {it.label}
         </Accordion.Trigger>
       </Accordion.Header>
-      <Accordion.Panel render={(props) => <section {...props} />}>Content {it.label}</Accordion.Panel>
+      <Accordion.Panel render={{ component: 'section' }}>Content {it.label}</Accordion.Panel>
     </Accordion.Item>
   )),
 };
