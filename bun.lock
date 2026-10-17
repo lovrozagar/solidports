@@ -26,6 +26,7 @@
         "@guidepup/guidepup": "catalog:",
         "@guidepup/playwright": "catalog:",
         "@guidepup/setup": "catalog:",
+        "@jridgewell/trace-mapping": "0.3.31",
         "@mui/internal-code-infra": "catalog:",
         "@mui/internal-netlify-cache": "catalog:",
         "@mui/internal-test-utils": "catalog:",
