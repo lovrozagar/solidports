@@ -536,15 +536,17 @@ export function createStoreState<State extends object>(
   // Keys derived from a source accessor (`useSyncedValue`): a writable memo per key.
   const bindings = new Map<PropertyKey, Binding>();
 
+  /** What a key's slot starts out holding: its binding if bound before its first read. */
+  const unslotted = (key: PropertyKey) =>
+    bindings.get(key) ??
+    (Object.hasOwn(initialState, key)
+      ? (initialState as Record<PropertyKey, unknown>)[key]
+      : undefined);
+
   function slot(key: PropertyKey) {
     let current = slots.get(key);
     if (!current) {
-      // A key bound before its first read starts out holding its binding.
-      const initial =
-        bindings.get(key) ??
-        (Object.hasOwn(initialState, key)
-          ? (initialState as Record<PropertyKey, unknown>)[key]
-          : undefined);
+      const initial = unslotted(key);
       current = runWithOwner(null, () =>
         createSignal(
           { value: initial },
@@ -557,6 +559,14 @@ export function createStoreState<State extends object>(
   }
 
   const readSlot = (key: PropertyKey) => slot(key)[0]().value;
+  /**
+   * A key's committed value without creating its slot: a slot is created for a subscriber or a
+   * write, never for an untracked read (a closed popup root binds about 20 keys nothing reads).
+   */
+  const peekSlot = (key: PropertyKey) => {
+    const existing = slots.get(key);
+    return existing ? untrack(existing[0]).value : unslotted(key);
+  };
 
   function writeSlot(key: PropertyKey, value: unknown) {
     if (isServer) {
@@ -592,7 +602,7 @@ export function createStoreState<State extends object>(
         return getter.call(state);
       }
       const binding = bindings.get(key);
-      const value = binding ? binding.value() : readSlot(key);
+      const value = binding ? binding.value() : peekSlot(key);
       return isBinding(value) ? value.value() : value;
     });
   };
@@ -1025,4 +1035,3 @@ export declare class SolidStoreInstance<
     statePart: Accessor<Pick<State, Keys>> | { [Key in Keys]: MaybeAccessor<State[Key]> },
   ): void;
 }
-
