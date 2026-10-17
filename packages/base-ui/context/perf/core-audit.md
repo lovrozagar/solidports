@@ -17,7 +17,7 @@ Measurements are dev runtime, jsdom, Solid 2.0.0-rc.15, nodes beyond a plain ele
 - The slow path (`useRenderElement`) costs 9–13 extra nodes per element, mounts about 5x slower and updates 4–7x slower than native.
 - `{...props}` wrappers: on rc.15 a pure spread stays native (4 nodes). Only a spread merged with another prop (a `merge` proxy) falls back, at 12 nodes. Optimization-map item 2 shrinks to "accept `merge` proxies".
 - Context: a JSX provider or `provideContext` adds 5 nodes, three nested add 13. A transparent owner adds 1 node however many contexts it carries. Merging contexts into one record is not faster.
-- `createDepsEffect` and `createDepsRenderEffect` cost 2 nodes at 107 sites; `createEffectGroup` gives the same semantics in 1.
+- `createDepsEffect` and `createDepsRenderEffect` cost 2 nodes at 107 sites. One node changes cross-component effect order, so they stay at 2 (S3 parked, D10).
 - Selection: the compat `createSelector` reruns all n readers per change (13.3 ms per 50 changes at 1000 readers); a `createProjection`-keyed selector reruns 2 (1.7 ms).
 - Closed transitions: a closed element costs 2 computeds plus 1 eager `useOpenChangeComplete` effect, 3 nodes that should be 0 (about 900 for a 300-item Accordion).
 - `SolidStore` reads are optimal. Writes cost about 40x a plain signal (2.09 vs 0.05 ms per 1000), and derived selectors create one memo per call site instead of one per store.
@@ -46,7 +46,7 @@ The server and hydration render the context's provider instead (D5). The server'
 
 ### S3. Effects in one node
 
-`createDepsEffect` and `createDepsRenderEffect` are rebuilt on `createEffectGroup`, same semantics. Multi-effect hooks use one `createEffectGroup`.
+Parked ([D10](../decisions/log.md)). One node per deps effect changes the order of a parent's effect against its children's effects within a flush. Solid applies a flush's user effects by reactive height, React runs children's first, and Solid 2 has no public one-node way to keep React's order, so `createDepsEffect` and `createDepsRenderEffect` keep their memo.
 
 ### S4. `createKeyedSelector(source)`
 
