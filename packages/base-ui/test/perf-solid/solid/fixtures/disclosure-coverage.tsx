@@ -1,7 +1,8 @@
 // Collapsible and Accordion over the coverage matrix's remaining axes (plan 3, leaf 1.13): one
 // instance with literal props, 1000 instances, a `{...props}` wrapper, a render function with
-// state, and the element form (a `{ component }` config, React's `render={<section />}`). Same
-// markup as `react/fixtures/disclosure-coverage.tsx`.
+// state, the element form (a `{ component }` config, React's `render={<section />}`), and a
+// consumer component that forwards its props and ref to a tag. Same markup as
+// `react/fixtures/disclosure-coverage.tsx`.
 import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Accordion } from '@solidports/base-ui/accordion';
@@ -100,6 +101,32 @@ function CollapsiblesRenderElement() {
   );
 }
 
+/** A consumer's design-system button: forwards every prop, the ref included, to a tag. */
+function AppButton(props: JSX.HTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" {...props} />;
+}
+
+/** A consumer's panel element, forwarding the same way. */
+function AppSection(props: JSX.HTMLAttributes<HTMLElement>) {
+  return <section {...props} />;
+}
+
+function CollapsiblesRenderComponent() {
+  const open = useExposed('open', false);
+  return (
+    <div>
+      <For each={range(size(300))}>
+        {(i) => (
+          <Collapsible.Root open={open()}>
+            <Collapsible.Trigger render={{ component: AppButton }}>Trigger {i}</Collapsible.Trigger>
+            <Collapsible.Panel render={{ component: AppSection }}>Panel {i}</Collapsible.Panel>
+          </Collapsible.Root>
+        )}
+      </For>
+    </div>
+  );
+}
+
 function AccordionOne() {
   return (
     <Accordion.Root>
@@ -145,6 +172,7 @@ export const fixtures: Record<string, () => unknown> = {
   'collapsible/wrapper-300': CollapsiblesWrapped,
   'collapsible/render-fn-300': CollapsiblesRenderFn,
   'collapsible/render-element-300': CollapsiblesRenderElement,
+  'collapsible/render-component-300': CollapsiblesRenderComponent,
   'accordion/1': AccordionOne,
   'accordion/1000': controlledAccordion(1000, plainItem),
   'accordion/wrapper-300': controlledAccordion(300, (it) => (
@@ -177,6 +205,14 @@ export const fixtures: Record<string, () => unknown> = {
         </Accordion.Trigger>
       </Accordion.Header>
       <Accordion.Panel render={{ component: 'section' }}>Content {it.label}</Accordion.Panel>
+    </Accordion.Item>
+  )),
+  'accordion/render-component-300': controlledAccordion(300, (it) => (
+    <Accordion.Item value={it.value}>
+      <Accordion.Header>
+        <Accordion.Trigger render={{ component: AppButton }}>{it.label}</Accordion.Trigger>
+      </Accordion.Header>
+      <Accordion.Panel render={{ component: AppSection }}>Content {it.label}</Accordion.Panel>
     </Accordion.Item>
   )),
 };

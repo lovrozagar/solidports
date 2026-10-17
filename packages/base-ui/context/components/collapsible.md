@@ -24,8 +24,10 @@ Collapsible renders all three parts natively when props are plain; the panel's m
 
 Yes, per part, chosen once at setup, on the client, the server and while hydrating:
 
-- Root (`CollapsibleRoot.tsx:25`) and Panel (`CollapsiblePanel.tsx:44`): `canRenderNative(props, [], { ssr: true })` (`packages/base-ui/packages/solid/src/utils/native/index.ts:66`): no store proxy from `{...props}`, no `render`, static `ref`.
-- Trigger (`CollapsibleTrigger.tsx:53`): the same plus a static `nativeButton` that resolves to `true`.
+- Root (`CollapsibleRoot.tsx`): `canRenderNative(props, undefined, true)` (`packages/base-ui/packages/solid/src/utils/native/index.ts`): no store proxy from `{...props}`, no `render`, static `ref`.
+- Panel (`CollapsiblePanel.tsx`): the same, and a static `render` of any form (`isNativeRender`): a tag or tag config renders its own element by that tag, a component config or a render function renders the consumer's element from one plain props object ([render pipeline](../architecture/render-pipeline.md#render-forms-on-the-native-path-plan-3-leaf-512)).
+- Trigger (`CollapsibleTrigger.tsx`): the Panel's checks with the tag kept to `button` (`isNativeButtonRender`), plus a static `nativeButton` that resolves to `true`.
+- A reactive `render` (any expression but a literal or an identifier, such as `render={pick()}`) keeps the slow path. Cost of a render function beyond its own element: the Trigger 2 nodes (its memo, and the parent insert's computation for an accessor child), the Panel 1 (its memo); the other forms cost the plain part (`collapsible.cost.test.tsx`).
 - Context: on the client a transparent owner; on the server and while hydrating the context's provider, since the server's owners are not `@solidjs/signals`'s (D5 in [the decision log](../decisions/log.md)).
 - A closed panel allocates only its render condition; the machinery and state are created on first render.
 - Security note: from b4d74b10 (2026-10-16) to ae146fd7 (2026-10-17), the native server path wrote a part's text children unescaped, so a consumer's text with markup characters became markup in server-rendered HTML. No release contained it (base-ui-v1.9.0-13 is at b9b813c9, before b4d74b10). `serverEscape.test.tsx` holds the fix.

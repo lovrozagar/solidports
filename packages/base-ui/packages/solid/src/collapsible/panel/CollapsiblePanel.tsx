@@ -23,7 +23,7 @@ import {
   writeCollapsibleState,
 } from '../root/stateAttributesMapping';
 import { canRenderNative } from '../../utils/native';
-import { renderNativeElement } from '../../utils/native/element';
+import { isNativeRender, renderNativeElement } from '../../utils/native/element';
 import type { SetAttribute, StateWriter } from '../../utils/native/element';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { createIdRegistration } from '../../utils/native/registration';
@@ -41,7 +41,7 @@ import { runInLazyScope } from '../../utils/runInLazyScope';
 export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; the panel's measurement machinery is created when the panel first renders.
-  if (canRenderNative(componentProps, undefined, true)) {
+  if (canRenderNative(componentProps, undefined, true, isNativeRender)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeCollapsiblePanel(componentProps);
   }

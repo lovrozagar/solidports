@@ -11,7 +11,11 @@ import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { accordionStateAttributesMapping } from '../item/stateAttributesMapping';
 import { canRenderNative } from '../../utils/native';
-import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import {
+  compileStateWriter,
+  isNativeButtonRender,
+  renderNativeElement,
+} from '../../utils/native/element';
 import { createIdRegistration } from '../../utils/native/registration';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -53,7 +57,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
   // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined.
   if (
-    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true) &&
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true, isNativeButtonRender) &&
     // Static once `canRenderNative` passes: a plain value, read without tracking anything.
     (componentProps.nativeButton ?? true) === true
   ) {

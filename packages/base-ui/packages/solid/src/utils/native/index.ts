@@ -62,14 +62,17 @@ const NO_KEYS: readonly string[] = [];
 /**
  * Whether a part may render its element natively for these props. Decided once at setup from
  * static information: a client render that is not hydrating (unless the part's native path renders
- * on the server and hydrates, `ssr`), no `render` key at all, a props object that is not a
- * Solid proxy (its key set could change), a static `ref`, and static `staticKeys` (props the part
- * reads once, as the slow path does). Anything else keeps `useRenderElement`.
+ * on the server and hydrates, `ssr`), a props object that is not a Solid proxy (its key set could
+ * change), a static `ref`, and static `staticKeys` (props the part reads once, as the slow path
+ * does). A `render` key keeps `useRenderElement` unless the part passes `render`, a check of the
+ * value (`isNativeRender`), and the value is static: a reactive `render` always takes the slow path.
+ * Anything else keeps `useRenderElement`.
  */
 export function canRenderNative(
   props: object,
   staticKeys: readonly string[] = NO_KEYS,
   ssr = false,
+  render?: (value: unknown) => boolean,
 ): boolean {
   if (!ssr && (isServer || isHydrating())) {
     return false;
@@ -77,7 +80,15 @@ export function canRenderNative(
   if ((props as Record<PropertyKey, unknown>)[$PROXY]) {
     return false;
   }
-  if ('render' in props || !isStatic(props, 'ref')) {
+  if (!isStatic(props, 'ref')) {
+    return false;
+  }
+  if (
+    'render' in props &&
+    (render === undefined ||
+      !isStatic(props, 'render') ||
+      !render((props as { render?: unknown }).render))
+  ) {
     return false;
   }
   for (const key of staticKeys) {

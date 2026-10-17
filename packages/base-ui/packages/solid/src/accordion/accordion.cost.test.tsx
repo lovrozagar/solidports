@@ -156,8 +156,7 @@ describe('accordion cost against the hand-written floor', () => {
   for (const [name, shape, below] of parts) {
     it(`${name} costs at most the floor's plus 25%`, () => {
       const cost =
-        perItem(partRoot(false), part[shape]) -
-        (below ? perItem(partRoot(false), part[below]) : 0);
+        perItem(partRoot(false), part[shape]) - (below ? perItem(partRoot(false), part[below]) : 0);
       const budget =
         perItem(floorRoot(false), floor[shape]) -
         (below ? perItem(floorRoot(false), floor[below]) : 0);
@@ -174,4 +173,119 @@ describe('accordion cost against the hand-written floor', () => {
       Math.floor(budget * 1.25),
     );
   });
+
+  // The `render` values the port takes (`validateRenderProp`): a tag, a `{ component }` config
+  // naming a tag or a consumer component, and a render function. Each renders natively at the plain
+  // part's cost; a component or a function adds only its own nodes beyond a plain tag (plan 3 leaf
+  // 5.1.2).
+  const perCopy = (shape: () => JSX.Element) =>
+    nodes(() => (
+      <div>
+        {shape()}
+        {shape()}
+      </div>
+    )) - nodes(() => <div>{shape()}</div>);
+  const triggerFn = (props: object) => <button {...props} />;
+  const panelFn = (props: object) => <section {...props} />;
+  /** A consumer component in `render`: forwards every prop, the ref included, to a tag. */
+  const AppButton = (props: JSX.HTMLAttributes<HTMLButtonElement>) => <button {...props} />;
+  const AppSection = (props: JSX.HTMLAttributes<HTMLElement>) => <section {...props} />;
+  const forms = [
+    { name: 'a tag', trigger: 'button', panel: 'section', own: () => 0 },
+    {
+      name: 'a component config',
+      trigger: { component: 'button' },
+      panel: { component: 'section' },
+      own: () => 0,
+    },
+    {
+      name: 'a consumer component',
+      trigger: { component: AppButton },
+      panel: { component: AppSection },
+      own: (tag: 'trigger' | 'panel') =>
+        tag === 'trigger'
+          ? perCopy(() => <AppButton />) - perCopy(() => <button />)
+          : perCopy(() => <AppSection />) - perCopy(() => <section />),
+    },
+    {
+      name: 'a render function',
+      trigger: triggerFn,
+      panel: panelFn,
+      // Beyond its own element, a render function runs in its own memo, so its top-level reads
+      // re-render it and nothing else does: a parent resolves all its children in one computation.
+      // Measured without the memo (2026-10-17, the function called from the resolving computation):
+      // beside a sibling Trigger whose function read a signal at its top level, a function with
+      // only an inner read ran 2 times to the slow path's 1 when that signal changed, and a Panel
+      // beside it ran 2 times with a new element; while hydrating, the Panel's element went
+      // unclaimed. A part that returns the memo as an accessor gets one more computation from the
+      // parent's insert, as any function child does; a panel's own conditional already resolves it.
+      own: (tag: 'trigger' | 'panel') =>
+        tag === 'trigger'
+          ? perCopy(() => triggerFn({})) - perCopy(() => <button />) + 2
+          : perCopy(() => panelFn({})) - perCopy(() => <section />) + 1,
+    },
+  ] as const;
+
+  // A tag or a config naming one renders the part's own element: the part returns that element,
+  // not an accessor, so its parent's insert has nothing more to resolve.
+  it('a Trigger with a tag or a tag config costs exactly the plain Trigger', () => {
+    const plain = perItem(partRoot(false), part.trigger);
+    const tag = 'button';
+    const config = { component: 'button' };
+    const shape = (render: Accordion.Trigger.Props['render']) => () => (
+      <Accordion.Item value="a">
+        <Accordion.Header>
+          <Accordion.Trigger render={render}>Toggle</Accordion.Trigger>
+        </Accordion.Header>
+      </Accordion.Item>
+    );
+    const asTag = perItem(partRoot(false), shape(tag));
+    const asConfig = perItem(partRoot(false), shape(config));
+    expect([asTag, asConfig], `plain ${plain}`).toEqual([plain, plain]);
+  });
+
+  for (const form of forms) {
+    // Plain identifiers, which the compiler passes as static props: `render={triggerRender}` would
+    // compile to a getter, a reactive `render`, which keeps the slow path.
+    const { trigger: triggerRender, panel: panelRender } = form;
+    describe(`with ${form.name} as render`, () => {
+      it('a Trigger costs at most the plain Trigger plus its own element', () => {
+        const cost =
+          perItem(partRoot(false), () => (
+            <Accordion.Item value="a">
+              <Accordion.Header>
+                <Accordion.Trigger render={triggerRender}>Toggle</Accordion.Trigger>
+              </Accordion.Header>
+            </Accordion.Item>
+          )) - perItem(partRoot(false), part.header);
+        const budget =
+          perItem(partRoot(false), part.trigger) -
+          perItem(partRoot(false), part.header) +
+          form.own('trigger');
+        expect(cost, `Trigger ${cost} nodes, native ${budget}`).toBeLessThanOrEqual(budget);
+      });
+
+      for (const open of [false, true]) {
+        const state = open ? 'open' : 'closed';
+        it(`${open ? 'an' : 'a'} ${state} Panel costs at most the plain ${state} Panel${open ? ' plus its own element' : ''}`, () => {
+          const cost =
+            perItem(partRoot(open), () => (
+              <Accordion.Item value="a">
+                <Accordion.Header>
+                  <Accordion.Trigger>Toggle</Accordion.Trigger>
+                </Accordion.Header>
+                <Accordion.Panel render={panelRender}>Content</Accordion.Panel>
+              </Accordion.Item>
+            )) - perItem(partRoot(open), part.trigger);
+          const budget =
+            perItem(partRoot(open), part.full) -
+            perItem(partRoot(open), part.trigger) +
+            (open ? form.own('panel') : 0);
+          expect(cost, `${state} Panel ${cost} nodes, native ${budget}`).toBeLessThanOrEqual(
+            budget,
+          );
+        });
+      }
+    });
+  }
 });

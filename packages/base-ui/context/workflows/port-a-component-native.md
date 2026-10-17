@@ -32,6 +32,7 @@ Popup families carry a heap gap the core phase does not close: 500 closed Toolti
 - Static styles in JSX: a literal object compiles into the template string at no cost; an identifier (`style={visuallyHidden}`) costs a render effect per element.
 - Owned children (a part that renders its own nodes after the consumer's): `children: () => [props.children, (cached ??= hint())]`, created once and in document order for hydration.
 - Fixtures write props out: a spread makes the props a proxy, which silently takes the slow path (the path assertions catch it).
+- Render forms (5.1.2): pass `isNativeRender` (or `isNativeButtonRender`) to `canRenderNative` and render through `renderNativeElement` unchanged; the kit handles a tag, a config and a function. A fixture or test that must take the slow path passes a reactive `render` (`render={slowRender()}`), and a test that must take the native path passes an identifier or a literal: `render={form.trigger}` compiles to a getter, which is reactive.
 
 ## Pitfalls
 
@@ -42,6 +43,7 @@ Popup families carry a heap gap the core phase does not close: 500 closed Toolti
 - Pin a cost's mechanism with a direct probe before designing its fix: untrack one candidate input at a time and count recomputes (4.3a found the trigger this way after two guesses from the profile were wrong). Reading the profile alone named the symptom, not the source.
 - A cache in front of the props view's per-key reads (4.3b) made every key's read depend on the whole key layout, so adding one attribute re-read every other prop, against `useRenderElement.reactivity`. Per-key granularity needs a projection, which takes a hydration id and so a node on every view. The per-key contract already stops each read at its winning source, so the gain was small, not the estimated half of the read path.
 - A generic native lane inside `useRenderElement` breaks its per-key and dynamic-key contracts (D14): port per part.
+- A function a part returns for its parent to call (a thunk) is resolved in the parent's one computation for all its children: a sibling's top-level read re-runs it and re-creates its element, and while hydrating it runs under another owner path. A part's own reactive output needs its own memo (5.1.2 measured both).
 - Before D16 the rule's tolerance was the summed p90 spreads, which one slow sample per side decides at ten samples: a 2x server drop at 597b2a75 (96.9 to 47.4 ms) read "same". Read verdicts from runs before D16 as unjudged.
 
 ## Log
@@ -52,4 +54,5 @@ One row per unit. A shared-core unit fills Expected with the profiling pass's es
 | :--- | :--- | ---: | :--- | :--- |
 | 2026-10-17 | Separator, Progress and Meter Tracks and Indicators | 75 min to the gate | – | 11–15 nodes to 1–2; progress-meter-1000 mount 6.73x to 4.36x React, heap 25.2 to 14.2 MB; one chromium-only test bug (`toHaveStyle`) caught by the gate |
 | 2026-10-17 | 4.3a: `useInteractions` lists compared by entry | 3 h (two wrong guesses before the probe) | 350 ms target, 505 ms bound (both families) | select script −146 ms, sync −613 ms (open/close x20 sync 1066 to 533 ms); combobox unchanged. 42% of target: the target assumed both families shared the mechanism, but no Combobox step moved, so its lists did not re-merge its items on the measured steps. Probe each family a unit's target counts on |
+| 2026-10-17 | 5.1.2: render forms on the native path | 4 h (the thunk variant measured and dropped) | Tag, config and component forms at the plain part's cost; a render function at its own element's (the reviewer's first target), then base+1 Trigger and base Panel (the thunk) | Tag, tag config and component config at the plain part's cost (exactly, for a tag); a render function base+2 Trigger, base+1 Panel: the thunk failed sibling isolation (a sibling's top-level read re-ran it, 2 runs to the slow path's 1, and re-created a Panel) and hydration claims, so it keeps a memo. Mac bench pending |
 | 2026-10-17 | 4.7: native kit, measured and closed | 1 h (two probes) | 185 ms (checkbox 34, progress 32, accordion 28, radio 23) | 0: the kit's grouped attribute effect is 2% of a 1000-Checkbox mount, the rest DOM writes and the part's own setup (phase 5); dispatch tuples under that, skipped; Collapsible's fan-out is the fixture's one shared signal, and a memo per root would only add work |

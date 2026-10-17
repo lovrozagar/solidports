@@ -7,6 +7,7 @@
  * the one attribute effect (when needed) and the children insert.
  */
 import {
+  createMemo,
   createRenderEffect,
   getOwner,
   isHydrating,
@@ -15,9 +16,19 @@ import {
   runWithOwner,
   untrack,
 } from 'solid-js';
-import { assign, escape, insert, isServer, ssrElement } from '@solidjs/web';
+import {
+  assign,
+  createComponent,
+  escape,
+  getNextElement,
+  insert,
+  isServer,
+  ssrElement,
+} from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
+import { markRenderPath } from '../renderPath';
+import { isHandlerKey as isConsumerHandlerKey } from './consumer';
 import { serverElement } from './serverElement';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
 import { warn } from '../warn';
@@ -431,6 +442,7 @@ function renderServerElement<State extends object>(
   element: Element | NativeElementTemplate,
   props: object,
   spec: NativeElementSpec<State>,
+  top?: Record<string, unknown>,
 ): Element {
   if (!isTemplate(element)) {
     throw new Error(
@@ -439,7 +451,8 @@ function renderServerElement<State extends object>(
   }
   const source = props as Record<string, any>;
   const consumer = classifyConsumerProps(props, spec.own);
-  const keys = consumer.keys;
+  const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
+  const reactive = top ? consumer.reactive.filter((key) => !(key in top)) : consumer.reactive;
 
   const previousObject = serverObject;
   const previousShared = serverObjectShared;
@@ -466,8 +479,11 @@ function renderServerElement<State extends object>(
         ownServerObject()[key] = consumerLiteral[key];
       }
     }
-    if (consumer.reactive.length > 0) {
-      readReactiveProps(props, consumer.reactive, ownServerObject());
+    if (reactive.length > 0) {
+      readReactiveProps(props, reactive, ownServerObject());
+    }
+    if (top) {
+      Object.assign(ownServerObject(), top);
     }
 
     stateWriterOf(spec)?.(writtenStateOf(spec), setServerAttribute);
@@ -539,25 +555,298 @@ export function renderNativeElement<State extends object>(
   props: object,
   spec: NativeElementSpec<State>,
 ): Element {
+  // A static `render` the part let through `canRenderNative` (`isNativeRender`).
+  const render = (props as { render?: unknown }).render;
+  if (render != null) {
+    return renderWithRender(element as NativeElementTemplate, props, spec, render);
+  }
   // Separate functions: the client's writers live in a closure context that V8 allocates on entry.
   return isServer
     ? renderServerElement(element, props, spec)
     : renderClientElement(element, props, spec);
 }
 
-function renderClientElement<State extends object>(
-  element: Element | NativeElementTemplate,
+type RenderFunction = (props: Record<string, unknown>, state: unknown) => JSX.Element;
+type RenderConfig = { component: string | ((props: any) => JSX.Element) } & Record<string, unknown>;
+
+/**
+ * Whether the native path renders this static `render` value as the slow path would: a tag, a
+ * `{ component, ...props }` config whose own props are plain attributes (the slow path chains a
+ * config's handlers and refs and inserts its children, which this path does not), or a render
+ * function. `tag` limits a tag (and a config's string `component`) to the part's own, for a part
+ * whose element semantics depend on it (a trigger's `<button>`).
+ */
+export function isNativeRender(render: unknown, tag?: string): boolean {
+  if (render == null || typeof render === 'function') {
+    return true;
+  }
+  if (typeof render === 'string') {
+    return tag === undefined || render === tag;
+  }
+  if (typeof render !== 'object' || Array.isArray(render) || !('component' in render)) {
+    return false;
+  }
+  const config = render as Record<string, unknown>;
+  for (const key of Object.keys(config)) {
+    if (key === 'ref' || key === 'children' || isConsumerHandlerKey(key)) {
+      return false;
+    }
+    if (Object.getOwnPropertyDescriptor(config, key)?.get) {
+      return false;
+    }
+  }
+  const component = config.component;
+  if (typeof component === 'string') {
+    return tag === undefined || component === tag;
+  }
+  return typeof component === 'function';
+}
+
+/** `isNativeRender` for a trigger: its native path renders a `<button>`'s semantics. */
+export const isNativeButtonRender = (render: unknown) => isNativeRender(render, 'button');
+
+/**
+ * The part's element for a static `render`: a tag (or a config naming one) is the part's element
+ * created by that tag, rendered as without `render`; a component (in a config) or a render
+ * function renders the consumer's element from the part's props (`renderConsumerElement`).
+ */
+function renderWithRender<State extends object>(
+  template: NativeElementTemplate,
   props: object,
   spec: NativeElementSpec<State>,
+  render: unknown,
 ): Element {
-  // The body runs untracked (`createComponent`): reads here subscribe to nothing.
-  const owner = getOwner();
+  if (typeof render === 'function') {
+    return renderConsumerElement(template, props, spec, render as RenderFunction, true);
+  }
+  let element = template;
+  let elementProps = props;
+  let top: Record<string, unknown> | undefined;
+  let component: RenderConfig['component'] | undefined;
+  if (typeof render === 'string') {
+    component = render;
+  } else {
+    component = (render as RenderConfig).component;
+    [elementProps, top] = withRenderConfig(props, render as RenderConfig);
+  }
+  if (typeof component !== 'string') {
+    const Component = component;
+    return renderConsumerElement(
+      template,
+      elementProps,
+      spec,
+      (view) => createComponent(Component, view) as JSX.Element,
+      false,
+      top,
+    );
+  }
+  if (component !== template.tag || isServer) {
+    element = tagTemplate(component, template);
+  }
+  return isServer
+    ? renderServerElement(element, elementProps, spec, top)
+    : renderClientElement(element, elementProps, spec, top);
+}
+
+/**
+ * `template` for another tag: the element is created by tag (claimed from the server's markup
+ * while hydrating, one hydration key as a compiled template takes) with the template's attributes.
+ */
+function tagTemplate(tag: string, template: NativeElementTemplate): NativeElementTemplate {
+  const attributes = template.attributes;
+  return {
+    tag,
+    attributes,
+    create: () => {
+      if (isHydrating()) {
+        return getNextElement() as Element;
+      }
+      const el = document.createElement(tag);
+      if (attributes) {
+        for (const key of Object.keys(attributes)) {
+          el.setAttribute(key, String(attributes[key]));
+        }
+      }
+      return el;
+    },
+  };
+}
+
+/**
+ * A render config's own props as the slow path merges them: its attributes win over the part's
+ * and the consumer's (React merges `render.props` last), returned as the top layer; its `class`
+ * comes after the consumer's resolved class and its `style` sits below the consumer's, merged into
+ * the consumer's props.
+ */
+function withRenderConfig(
+  props: object,
+  config: RenderConfig,
+): [object, Record<string, unknown> | undefined] {
+  const source = props as Record<string, any>;
+  let merged: Record<string, unknown> | undefined;
+  let top: Record<string, unknown> | undefined;
+  for (const key in config) {
+    if (key === 'component') {
+      continue;
+    }
+    const value = config[key];
+    if (key === 'class' || key === 'style') {
+      merged ??= Object.defineProperties({}, Object.getOwnPropertyDescriptors(props));
+      if (!(key in source)) {
+        merged[key] = value;
+      } else if (key === 'class') {
+        merged.class = (state: unknown) => {
+          const own = resolveClass(source.class, state);
+          return own ? `${own} ${value}` : value;
+        };
+      } else {
+        merged.style = (state: unknown) => {
+          const own = resolveStyle(source.style, state);
+          return own ? combineStyle(value as never, own as never) : value;
+        };
+      }
+    } else {
+      (top ??= {})[key] = value;
+    }
+  }
+  return [merged ?? props, top];
+}
+
+/**
+ * The part's element rendered by the consumer: `make` (a render function, or a config's component)
+ * receives one plain props object and creates the element itself, so the part binds through what
+ * the consumer spreads, as the slow path and React do: attributes and handlers in the props, the
+ * ref only as the ref. A consumer that drops the ref still gets every attribute.
+ *
+ * Literal attributes are data properties; everything that can change reads one transparent memo
+ * holding the part's write, which takes the place of the part's attribute effect (the consumer's
+ * spread is the only binding). A render function runs in its own memo, so state or a signal read
+ * at its top level re-renders it, as the slow path's branch does, and nothing else does; reads
+ * inside its JSX update in place. The server passes the same props, written once.
+ */
+function renderConsumerElement<State extends object>(
+  template: NativeElementTemplate,
+  props: object,
+  spec: NativeElementSpec<State>,
+  make: RenderFunction,
+  isFunction: boolean,
+  top?: Record<string, unknown>,
+): Element {
+  const source = props as Record<string, any>;
+  const { literal, write, needsEffect } = createClientWriter(props, spec, template.attributes, top);
+  const view: Record<string, unknown> = Object.assign({}, literal);
+  if (!needsEffect || isServer) {
+    write(view, false);
+  } else {
+    let defined: Set<string> | undefined;
+    const current = createMemo(
+      () => {
+        const next = write({}, true);
+        for (const key in next) {
+          if (!defined?.has(key)) {
+            (defined ??= new Set()).add(key);
+            Object.defineProperty(view, key, {
+              get: () => current()[key],
+              enumerable: true,
+              configurable: true,
+            });
+          }
+        }
+        return next;
+      },
+      { transparent: true },
+    );
+    untrack(current);
+  }
+
+  if (spec.children) {
+    const children = spec.children;
+    Object.defineProperty(view, 'children', { get: children, enumerable: true });
+  } else if (spec.consumerChildren !== false && 'children' in props) {
+    if (isStatic(props, 'children')) {
+      view.children = source.children;
+    } else {
+      Object.defineProperty(view, 'children', {
+        get: () => source.children,
+        enumerable: true,
+      });
+    }
+  }
+
+  if (!isServer) {
+    const refs = spec.refs;
+    const hasPartRefs = refs !== undefined && refs.length > 0;
+    let attached: Element | undefined;
+    if (hasPartRefs || source.ref != null) {
+      view.ref = (el: Element) => {
+        attached = el;
+        if (process.env.NODE_ENV !== 'production') {
+          markRenderPath(el, 'native');
+        }
+        if (source.ref != null) {
+          applyRefs(el, source.ref);
+        }
+        if (hasPartRefs) {
+          applyRefs(el, ...refs);
+        }
+      };
+    } else if (process.env.NODE_ENV !== 'production') {
+      view.ref = (el: Element) => markRenderPath(el, 'native');
+    }
+    if (hasPartRefs) {
+      void onCleanup(() => {
+        if (attached) {
+          releasePartRefs(attached, ...refs);
+        }
+      });
+    }
+  }
+
+  if (!isFunction) {
+    return make(view, undefined) as unknown as Element;
+  }
+  const state = partState(spec);
+  if (isServer) {
+    return make(view, state) as unknown as Element;
+  }
+  // Its own transparent memo (no hydration id), created in the part's scope as the server called
+  // it: the computation that resolves the part's output resolves its siblings' too (a parent's
+  // children are one array), so a thunk would re-run for a sibling's reads and re-create this
+  // element; while hydrating, it would also run under another owner path and miss its element.
+  return createMemo(() => make(view, state), { transparent: true }) as unknown as Element;
+}
+
+/**
+ * The client's attribute writer for one element: the attributes written once (`literal`) and
+ * `write`, which writes everything that can change into the object it is given. `needsEffect` says
+ * whether anything can change. Shared by the part's own element and a consumer's element.
+ */
+interface ClientWriter {
+  literal: Record<string, unknown>;
+  write: (into: Record<string, unknown>, keepUndefined: boolean) => Record<string, unknown>;
+  needsEffect: boolean;
+}
+
+function createClientWriter<State extends object>(
+  props: object,
+  spec: NativeElementSpec<State>,
+  base?: Record<string, unknown>,
+  top?: Record<string, unknown>,
+): ClientWriter {
   const source = props as Record<string, any>;
   const wrap = spec.wrapHandler;
   const consumer = classifyConsumerProps(props, spec.own, wrap);
-  const keys = consumer.keys;
+  const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
+  const reactive = top ? consumer.reactive.filter((key) => !(key in top)) : consumer.reactive;
 
   const literal: Record<string, unknown> = {};
+  if (base) {
+    for (const key in base) {
+      if (!keys.has(key)) {
+        literal[key] = base[key];
+      }
+    }
+  }
   const partLiteral = spec.literal;
   if (partLiteral) {
     for (const key in partLiteral) {
@@ -566,7 +855,7 @@ function renderClientElement<State extends object>(
       }
     }
   }
-  Object.assign(literal, consumer.literal);
+  Object.assign(literal, consumer.literal, top);
   if (wrap && spec.handlerKeys) {
     for (const key of spec.handlerKeys) {
       if (!keys.has(key)) {
@@ -588,7 +877,7 @@ function renderClientElement<State extends object>(
     spec.reactive ||
     styleOverride !== undefined ||
     partStyle !== undefined ||
-    consumer.reactive.length > 0 ||
+    reactive.length > 0 ||
     (hasClass && (!isStatic(props, 'class') || typeof source.class === 'function')) ||
     (hasStyle && (!isStatic(props, 'style') || typeof source.style === 'function'));
 
@@ -609,7 +898,7 @@ function renderClientElement<State extends object>(
     const set = keepUndefined ? setKeep : setDefined;
     writeState?.(writtenState!, set);
     spec.attributes?.(set);
-    readReactiveProps(props, consumer.reactive, target);
+    readReactiveProps(props, reactive, target);
     if (hasClass) {
       const value = resolveClass(source.class, consumerState(spec, source.class));
       if (keepUndefined || value !== undefined) {
@@ -630,7 +919,28 @@ function renderClientElement<State extends object>(
     }
     return target;
   };
+  return { literal, write, needsEffect };
+}
 
+/** `keys` with `extra`'s keys added (a render config's attributes, which the part must not write). */
+function withKeys(keys: ReadonlySet<string>, extra: Record<string, unknown>): ReadonlySet<string> {
+  const all = new Set(keys);
+  for (const key of Object.keys(extra)) {
+    all.add(key);
+  }
+  return all;
+}
+
+function renderClientElement<State extends object>(
+  element: Element | NativeElementTemplate,
+  props: object,
+  spec: NativeElementSpec<State>,
+  top?: Record<string, unknown>,
+): Element {
+  // The body runs untracked (`createComponent`): reads here subscribe to nothing.
+  const owner = getOwner();
+  const source = props as Record<string, any>;
+  const { literal, write, needsEffect } = createClientWriter(props, spec, undefined, top);
   const consumerChildren = spec.consumerChildren !== false && 'children' in props;
 
   const el = isTemplate(element) ? element.create() : element;

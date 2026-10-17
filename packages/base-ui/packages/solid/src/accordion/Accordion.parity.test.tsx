@@ -1,14 +1,15 @@
 /* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
  * Native vs slow path parity for Accordion: the same tree through the native
- * fast paths and through `useRenderElement` (`render="<tag>"` on every part) must produce
+ * fast paths and through `useRenderElement` (a reactive `render` on every part) must produce
  * identical DOM after mount and after every interaction, and call handlers in the same order.
  */
 import { createRenderer } from '#test-utils';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { fireEvent } from '@solidjs/testing-library';
-import { createSignal, flush } from 'solid-js';
+import { createSignal, flush, omit } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
+import type { JSX } from '@solidjs/web';
 import { part, mountParity } from '../../test/parityHarness';
 
 describe('native parity: Accordion', () => {
@@ -217,5 +218,192 @@ describe('native parity: Accordion', () => {
     };
     expect(run(false)).toEqual(['DIV', 'DIV', 'H3', 'BUTTON', 'DIV']);
     expect(run(false)).toEqual(run(true));
+  });
+
+  /** A consumer component in `render`: forwards every prop, the ref included, to a tag. */
+  const AppButton = (props: JSX.HTMLAttributes<HTMLButtonElement>) => <button {...props} />;
+  const AppSection = (props: JSX.HTMLAttributes<HTMLElement>) => <section {...props} />;
+
+  // The static `render` values the port takes (plan 3 leaf 5.1.2): the native side gets them as
+  // written, the slow side the same value behind a getter. The config carries props of its own
+  // and the consumer passes the same keys, so the merge order shows in the DOM.
+  const forms = {
+    tag: { trigger: 'button', panel: 'section' },
+    config: {
+      trigger: { component: 'button', class: 'from-config', 'data-source': 'config' },
+      panel: { component: 'section', id: 'config-panel', 'data-source': 'config' },
+    },
+    component: {
+      trigger: { component: AppButton },
+      panel: { component: AppSection },
+    },
+    function: {
+      trigger: (props: object, state: Accordion.Trigger.State) => (
+        <button {...props} data-render-open={String(state.open)} />
+      ),
+      panel: (props: object, state: Accordion.Panel.State) => (
+        <section {...props} data-render-open={String(state.open)} />
+      ),
+    },
+  } as const;
+
+  for (const [name, form] of Object.entries(forms)) {
+    describe(`with a ${name} as render`, () => {
+      const formItems = (slow: boolean, panelProps: object = {}) =>
+        [0, 1].map((index) =>
+          part(Accordion.Item, slow, 'div', {
+            value: `item-${index}`,
+            get children() {
+              return [
+                part(Accordion.Header, slow, 'h3', {
+                  get children() {
+                    return part(Accordion.Trigger, slow, 'button', {
+                      render: form.trigger,
+                      children: `Trigger ${index}`,
+                      class: 'from-consumer',
+                      'data-source': 'consumer',
+                    });
+                  },
+                }),
+                part(Accordion.Panel, slow, 'div', {
+                  render: form.panel,
+                  children: `Content ${index}`,
+                  'data-source': 'consumer',
+                  ...panelProps,
+                }),
+              ];
+            },
+          }),
+        );
+
+      it('renders and toggles identically, with consumer props', () => {
+        const pair = mountParity(render, (slow) =>
+          part(Accordion.Root, slow, 'div', {
+            get children() {
+              return formItems(slow);
+            },
+          }),
+        );
+        pair.same();
+        expect(pair.fast.querySelector('section')).toBe(null);
+        pair.both((root) => fireEvent.click(triggers(root)[1]));
+        expect(pair.fast.querySelector('section[role="region"]')).not.toBe(null);
+        pair.both((root) => fireEvent.click(triggers(root)[0]));
+        pair.both((root) => fireEvent.click(triggers(root)[0]));
+        pair.unmount();
+      });
+
+      it('keeps mounted panels and their state identical (controlled, multiple)', () => {
+        const [value, setValue] = createSignal<string[]>(['item-0']);
+        const pair = mountParity(render, (slow) =>
+          part(Accordion.Root, slow, 'div', {
+            multiple: true,
+            get value() {
+              return value();
+            },
+            onValueChange: (next: string[]) => setValue(next),
+            get children() {
+              return formItems(slow, { keepMounted: true });
+            },
+          }),
+        );
+        pair.same();
+        expect(pair.fast.querySelectorAll('section').length).toBe(2);
+        pair.both(() => setValue(['item-1']));
+        pair.both(() => setValue(['item-0', 'item-1']));
+        pair.both(() => setValue([]));
+        pair.unmount();
+      });
+
+      it('applies refs to the rendered element the same way', () => {
+        const run = (slow: boolean) => {
+          const triggerRef = vi.fn();
+          const panelRef = vi.fn();
+          const view = render(() =>
+            part(Accordion.Root, slow, 'div', {
+              defaultValue: ['a'],
+              get children() {
+                return part(Accordion.Item, slow, 'div', {
+                  value: 'a',
+                  get children() {
+                    return [
+                      part(Accordion.Header, slow, 'h3', {
+                        get children() {
+                          return part(Accordion.Trigger, slow, 'button', {
+                            render: form.trigger,
+                            children: 'Trigger',
+                            ref: triggerRef,
+                          });
+                        },
+                      }),
+                      part(Accordion.Panel, slow, 'div', {
+                        render: form.panel,
+                        children: 'Content',
+                        ref: panelRef,
+                      }),
+                    ];
+                  },
+                });
+              },
+            }),
+          );
+          const elements = [
+            view.container.querySelector('button'),
+            view.container.querySelector('section'),
+          ];
+          const refs = [
+            triggerRef.mock.calls.map((call) => call[0] === elements[0]).join(),
+            panelRef.mock.calls.map((call) => call[0] === elements[1]).join(),
+          ];
+          view.unmount();
+          return refs;
+        };
+        expect(run(false)).toEqual(['true', 'true']);
+        expect(run(false)).toEqual(run(true));
+      });
+    });
+  }
+
+  // A consumer component that drops the ref: the part cannot reach the element through it, so a
+  // native path must fall back for it, and both paths still render and toggle the same DOM.
+  it('renders and toggles a component that drops the ref identically', () => {
+    const NoRefButton = (props: JSX.HTMLAttributes<HTMLButtonElement>) => (
+      <button {...omit(props, 'ref')} />
+    );
+    const NoRefSection = (props: JSX.HTMLAttributes<HTMLElement>) => (
+      <section {...omit(props, 'ref')} />
+    );
+    const pair = mountParity(render, (slow) =>
+      part(Accordion.Root, slow, 'div', {
+        get children() {
+          return part(Accordion.Item, slow, 'div', {
+            value: 'a',
+            get children() {
+              return [
+                part(Accordion.Header, slow, 'h3', {
+                  get children() {
+                    return part(Accordion.Trigger, slow, 'button', {
+                      render: { component: NoRefButton },
+                      children: 'Trigger',
+                    });
+                  },
+                }),
+                part(Accordion.Panel, slow, 'div', {
+                  render: { component: NoRefSection },
+                  children: 'Content',
+                }),
+              ];
+            },
+          });
+        },
+      }),
+    );
+    pair.same();
+    pair.both((root) => fireEvent.click(triggers(root)[0]));
+    expect(triggers(pair.fast)[0]).toHaveAttribute('aria-expanded', 'true');
+    expect(pair.fast.querySelector('section')).toHaveAttribute('data-open');
+    pair.both((root) => fireEvent.click(triggers(root)[0]));
+    expect(triggers(pair.fast)[0]).toHaveAttribute('aria-expanded', 'false');
+    pair.unmount();
   });
 });

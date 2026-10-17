@@ -73,6 +73,8 @@ export const PENDING_COVERAGE: Partial<Record<ComponentName, string>> = {};
  * - `static-props`, `reactive-props`: whether the steps write props the parts read.
  * - `wrapper`: parts rendered through a `{...props}` user component.
  * - `render-fn`, `render-element`: the `render` prop as a function or an element/tag.
+ * - `render-component`: the `render` prop as a consumer component that forwards its props and
+ *   ref to a tag (Solid `{ component: AppButton }`, React `render={<AppButton />}`).
  * - `open`, `close`, `toggle-all`: disclosure and popup transitions, one or all at once.
  * - `keyboard`, `pointer`, `typing`: the input the steps dispatch.
  * - `animated`: the fixture runs CSS transitions.
@@ -92,6 +94,7 @@ export const SCENARIO_TAGS = [
   'wrapper',
   'render-fn',
   'render-element',
+  'render-component',
   'open',
   'close',
   'toggle-all',
@@ -123,6 +126,20 @@ const RADIO =
 const RADIO_INDICATOR =
   'native toggles cost > an unchecked Radio.Indicator: ≤ 7 nodes beyond its root, its transition machinery not yet made';
 
+/** Plan 3 leaf 5.1.2's budgets for each `render` value on a family's Trigger and Panel. */
+const renderFormCosts = (family: 'accordion' | 'collapsible') =>
+  ['a tag', 'a component config', 'a consumer component', 'a render function'].flatMap((form) =>
+    [
+      'a Trigger costs at most the plain Trigger plus its own element',
+      'a closed Panel costs at most the plain closed Panel',
+      'an open Panel costs at most the plain open Panel plus its own element',
+    ].map(
+      (test) => `${family} cost against the hand-written floor > with ${form} as render > ${test}`,
+    ),
+  ).concat(
+    `${family} cost against the hand-written floor > a Trigger with a tag or a tag config costs exactly the plain Trigger`,
+  );
+
 /**
  * The `*.cost.test.tsx` tests each component owns, by full name (`describe > it`, as `vitest list`
  * prints it). `bench:component` runs exactly these; the manifest test checks every name exists.
@@ -139,6 +156,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     "accordion cost against the hand-written floor > a Trigger costs at most the floor's plus 25%",
     "accordion cost against the hand-written floor > a closed Panel costs at most the floor's plus 25%",
     'accordion cost against the hand-written floor > an open item costs at most the open floor item plus 25%',
+    ...renderFormCosts('accordion'),
   ],
   'alert-dialog': [closedRoot('AlertDialog')],
   button: [
@@ -163,6 +181,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'collapsible cost against the hand-written floor > Trigger costs at most the floor trigger plus 25%',
     'collapsible cost against the hand-written floor > a closed Panel costs at most the floor closed panel plus 25%',
     'collapsible cost against the hand-written floor > an open Collapsible costs at most the open floor plus 25%',
+    ...renderFormCosts('collapsible'),
   ],
   combobox: [closedRoot('Combobox'), 'render core cost > Combobox.Item costs at most 23 reactive nodes'],
   'context-menu': [closedRoot('ContextMenu')],

@@ -2,29 +2,34 @@ import { Accordion } from '@solidports/base-ui/accordion';
 import { Collapsible } from '@solidports/base-ui/collapsible';
 import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
 
-/** Slow-path panels (a `render` prop or spread props), open and closed, for `slowPanel.hydration.test.tsx`. */
+/** Slow-path panels (a reactive `render` prop or spread props), open and closed, for `slowPanel.hydration.test.tsx`. */
 const renderDiv = (props: object) => <div {...props} />;
+/**
+ * A call, which the compiler passes as a getter: a reactive `render`, which keeps the slow path (a
+ * static render function renders natively).
+ */
+const slowRender = () => renderDiv;
 /** Consumer attributes as a spread: the props become a proxy, which takes the slow path. */
 const literals = (testId: string) => ({ 'data-testid': testId, 'aria-label': 'Panel' });
 
 export default defineSsrFixtures(import.meta.url, {
   collapsibleOpen: () => (
     <Collapsible.Root defaultOpen>
-      <Collapsible.Panel data-testid="panel" render={renderDiv}>
+      <Collapsible.Panel data-testid="panel" render={slowRender()}>
         Content
       </Collapsible.Panel>
     </Collapsible.Root>
   ),
   collapsibleKeepMountedClosed: () => (
     <Collapsible.Root>
-      <Collapsible.Panel data-testid="panel" keepMounted render={renderDiv}>
+      <Collapsible.Panel data-testid="panel" keepMounted render={slowRender()}>
         Content
       </Collapsible.Panel>
     </Collapsible.Root>
   ),
   collapsibleHiddenUntilFoundClosed: () => (
     <Collapsible.Root>
-      <Collapsible.Panel data-testid="panel" hiddenUntilFound render={renderDiv}>
+      <Collapsible.Panel data-testid="panel" hiddenUntilFound render={slowRender()}>
         Content
       </Collapsible.Panel>
     </Collapsible.Root>
@@ -32,7 +37,7 @@ export default defineSsrFixtures(import.meta.url, {
   accordionOpen: () => (
     <Accordion.Root defaultValue={['one']}>
       <Accordion.Item value="one">
-        <Accordion.Panel data-testid="panel" render={renderDiv}>
+        <Accordion.Panel data-testid="panel" render={slowRender()}>
           Content
         </Accordion.Panel>
       </Accordion.Item>
@@ -41,7 +46,7 @@ export default defineSsrFixtures(import.meta.url, {
   accordionKeepMountedClosed: () => (
     <Accordion.Root>
       <Accordion.Item value="one">
-        <Accordion.Panel data-testid="panel" keepMounted render={renderDiv}>
+        <Accordion.Panel data-testid="panel" keepMounted render={slowRender()}>
           Content
         </Accordion.Panel>
       </Accordion.Item>
@@ -50,7 +55,7 @@ export default defineSsrFixtures(import.meta.url, {
   accordionHiddenUntilFoundClosed: () => (
     <Accordion.Root>
       <Accordion.Item value="one">
-        <Accordion.Panel data-testid="panel" hiddenUntilFound render={renderDiv}>
+        <Accordion.Panel data-testid="panel" hiddenUntilFound render={slowRender()}>
           Content
         </Accordion.Panel>
       </Accordion.Item>
