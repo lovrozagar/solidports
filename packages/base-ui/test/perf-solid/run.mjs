@@ -7,6 +7,8 @@
 //   node test/perf-solid/run.mjs [runs=8] [filter,...]     filter: `shared/filter.mjs` terms
 //   (id prefix, component:<name>, tag:<tag>, ! to exclude)
 // Env: VARIANTS=name:lib:dir,...  THROTTLE=4  SIZE=large  WARMUP=2  HEAP_RUNS=6
+//   ENGINE=chromium|firefox|webkit (`shared/engines.mjs`): Firefox and WebKit time steps in the
+//   page only; script, layout, style and heap are CDP's and Chromium's, reported as not measured.
 // Exit code 1 when a step errors, a page logs a console warning or error that
 // `known-warnings.json` does not list (`shared/console.mjs`), or a variant's DOM summary differs
 // from the first variant's.
@@ -14,10 +16,11 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import { matchConsole } from './shared/console.mjs';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
 import { heapCycle, timingCycle } from './shared/cycles.mjs';
+import { engineSpec, measuredColumns } from './shared/engines.mjs';
 import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
 import { summarize } from './shared/report.mjs';
 
@@ -29,6 +32,12 @@ const WARMUP = Number(process.env.WARMUP ?? 2);
 const HEAP_RUNS = Number(process.env.HEAP_RUNS ?? 6);
 const THROTTLE = Number(process.env.THROTTLE ?? 1);
 const QUERY = process.env.SIZE === 'large' ? '?size=large' : '';
+const ENGINE = engineSpec(process.env.ENGINE);
+const COLUMNS = measuredColumns(ENGINE);
+if (THROTTLE > 1 && !ENGINE.cdp) {
+  console.error(`bench: THROTTLE needs CDP, which ${ENGINE.name} does not have.`);
+  process.exit(1);
+}
 const VARIANTS = Object.fromEntries(
   (process.env.VARIANTS ?? 'react:react:dist,solid:solid:dist').split(',').map((entry) => {
     const [name, lib, dir] = entry.split(':');
@@ -72,26 +81,31 @@ async function openPage(browser, name) {
       });
     }
   });
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Performance.enable');
-  if (THROTTLE > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+  const cdp = ENGINE.cdp ? await page.context().newCDPSession(page) : null;
+  if (cdp) {
+    await cdp.send('Performance.enable');
+    if (THROTTLE > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+  }
   await page.goto(`http://localhost:${port}/${name}/${QUERY}`);
   await page.waitForFunction(() => 'bench' in window);
   return { page, cdp, errors, logs };
 }
 
 async function metrics(cdp) {
+  if (!cdp) {
+    return null;
+  }
   const { metrics: list } = await cdp.send('Performance.getMetrics');
   return Object.fromEntries(
     list.filter((m) => METRICS.includes(m.name)).map((m) => [m.name, m.value]),
   );
 }
 
-const browser = await chromium.launch({
-  args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
-});
+const browser = await { chromium, firefox, webkit }[ENGINE.name].launch({ args: ENGINE.launchArgs });
 const probe = await openPage(browser, NAMES[0]);
-await assertScriptMetric(probe.page, probe.cdp);
+if (probe.cdp) {
+  await assertScriptMetric(probe.page, probe.cdp);
+}
 const all = await probe.page.evaluate(() => window.bench.list());
 const vocab = await probe.page.evaluate(() => window.bench.vocab);
 let FILTER;
@@ -122,7 +136,8 @@ for (const { id, steps } of list) {
     for (const name of NAMES) {
       const { page, cdp, errors, logs } = await openPage(browser, name);
       const entry = (results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], errors: [] });
-      const collect = () => collectGarbage(cdp);
+      // Without CDP there is no forced full collection: the cycles skip it.
+      const collect = cdp ? () => collectGarbage(cdp) : async () => {};
       const readHeap = () => page.evaluate('performance.memory.usedJSHeapSize');
       const runStep = async (index) => {
         const before = await metrics(cdp);
@@ -152,13 +167,15 @@ for (const { id, steps } of list) {
           });
           step.sync.push(result.sync);
           step.paint.push(result.paint);
-          step.script.push((after.ScriptDuration - before.ScriptDuration) * 1000);
-          step.layout.push((after.LayoutDuration - before.LayoutDuration) * 1000);
-          step.style.push((after.RecalcStyleDuration - before.RecalcStyleDuration) * 1000);
+          if (before && after) {
+            step.script.push((after.ScriptDuration - before.ScriptDuration) * 1000);
+            step.layout.push((after.LayoutDuration - before.LayoutDuration) * 1000);
+            step.style.push((after.RecalcStyleDuration - before.RecalcStyleDuration) * 1000);
+          }
           if (result.settled !== null) step.settled.push(result.settled);
         });
       }
-      for (let run = 0; run < HEAP_RUNS; run += 1) {
+      for (let run = 0; ENGINE.heap && run < HEAP_RUNS; run += 1) {
         entry.heapKB.push(await heapCycle({ collect, readHeap, runStep, stepCount }));
       }
       entry.errors.push(...errors);
@@ -206,12 +223,17 @@ for (const entry of consoleCheck.unknown) {
 }
 
 const fmt = (n) => (n == null ? '-' : n.toFixed(1));
+// A ratio of a column the engine does not measure is `-`, not `NaNx`.
+const ratio = (n) => (Number.isFinite(n) ? `${n.toFixed(2)}x` : '-');
 const summary = summarize(results, NAMES, timers);
 const ratioNames = NAMES.slice(1).map((name) => `${name}/${NAMES[0]}`);
 const lines = [
   `# Base UI bench ${new Date().toISOString()}`,
   '',
   `runs ${RUNS} · warmup ${WARMUP} · throttle ${THROTTLE}x · size ${process.env.SIZE ?? 'default'} · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
+  ENGINE.cdp
+    ? `engine ${ENGINE.name}`
+    : `engine ${ENGINE.name}: script, layout, style and heap are not measured (CDP and \`performance.memory\` are Chromium's); \`-\` marks them`,
   '',
   "settled: ms from step start until `until` held, minus the step's `timerMs` (steps with `until` only).",
   '',
@@ -230,7 +252,7 @@ for (const [key, entry] of Object.entries(summary)) {
     return `${fmt(v.sync)} / ${fmt(v.paint)} / ${fmt(v.script)} / ${fmt(v.settled)}`;
   });
   const ratios = ratioNames.map(
-    (r) => `${entry.ratios[r].sync.toFixed(2)}x / ${entry.ratios[r].script.toFixed(2)}x`,
+    (r) => `${ratio(entry.ratios[r].sync)} / ${ratio(entry.ratios[r].script)}`,
   );
   lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
 }
@@ -268,6 +290,8 @@ fs.writeFileSync(
   JSON.stringify(
     {
       variants: NAMES,
+      engine: ENGINE.name,
+      columns: COLUMNS,
       runs: RUNS,
       filter: process.argv[3] ?? null,
       raw: list.filter((scenario) => scenario.tags.includes('raw')).map((scenario) => scenario.id),
