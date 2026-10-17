@@ -305,6 +305,14 @@ export function useCollapsiblePanel(
       : dimensionsRef;
   }
 
+  // The inputs of the last measuring pass that reached the element. Solid: a native panel's element
+  // dependency is computed before its ref attaches, so the element's arrival re-runs the pass with
+  // nothing it reads changed; that pass would only repeat the layout reads.
+  let lastPassPanel: HTMLDivElement | null = null;
+  let lastPassOpen: boolean | undefined;
+  let lastPassStatus: TransitionStatus | null = null;
+  let lastPassPrevent: boolean | undefined;
+
   let dimensionWriteScheduled = false;
   function writeDimensions() {
     dimensionWriteScheduled = false;
@@ -417,6 +425,26 @@ export function useCollapsiblePanel(
           restorePendingTemporaryStyle();
         }
 
+        if (
+          panel === lastPassPanel &&
+          isOpen === lastPassOpen &&
+          status === lastPassStatus &&
+          preventOpenAnimation === lastPassPrevent
+        ) {
+          return undefined;
+        }
+        lastPassPanel = panel;
+        lastPassOpen = isOpen;
+        lastPassStatus = status;
+        lastPassPrevent = preventOpenAnimation;
+
+        // An open panel past its opening pass needs the animation type only to cache an initially
+        // open keyframe panel's size (below): every other branch is an opening or a close. React
+        // reads it on every pass; skipping it keeps an open to one computed-style read (D19).
+        if (isOpen && status !== 'starting' && !untrack(openAnimationSuppressed)) {
+          return undefined;
+        }
+
         const animationType = getAnimationType(panel, preventOpenAnimation);
         animationTypeRef = animationType;
 
@@ -442,7 +470,9 @@ export function useCollapsiblePanel(
           shouldSkipNextOpenRef = false;
 
           if (animationType === 'none') {
-            setDimensions(getDimensions(panel));
+            // React measures here too, but the forced idle releases the size to `auto` before
+            // paint, so the measurement is a layout read nothing observes (D19): skip it.
+            setDimensions(EMPTY_DIMENSIONS, false);
             setForcePanelIdle(true);
             return undefined;
           }

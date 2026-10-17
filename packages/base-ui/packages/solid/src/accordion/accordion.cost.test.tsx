@@ -17,6 +17,7 @@ import {
   FloorAccordionTrigger,
 } from '../../test/floor/accordion';
 import { startingTimeline, withoutSizes } from '../../test/floor/startingTimeline';
+import { panelReads } from '../../test/floor/panelReads';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
 const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
@@ -261,6 +262,33 @@ describe('accordion cost against the hand-written floor', () => {
     });
     expect(await timeline(controlled.floor, true)).toEqual(part);
   });
+
+  // An open's layout reads on its panel (D19): the floor's 1/0/0 without motion and 1/1/1 with it
+  // (React reads 2/1/1 on both). The part may match the floor's count, not exceed it.
+  for (const motion of [false, true]) {
+    it(`a panel's open reads its layout at most as often as the floor's, ${motion ? 'with' : 'without'} motion`, async () => {
+      const reads = async (make: (open: () => boolean) => JSX.Element) => {
+        const [open, setOpen] = createSignal(false);
+        const view = render(() => make(open));
+        flush();
+        const counted = await panelReads(view.container, () => setOpen(true), motion);
+        view.unmount();
+        return counted;
+      };
+      const floor = await reads(controlled.floor);
+      expect(floor).toEqual(
+        motion
+          ? { getComputedStyle: 1, scrollHeight: 1, scrollWidth: 1 }
+          : { getComputedStyle: 1, scrollHeight: 0, scrollWidth: 0 },
+      );
+      const part = await reads(controlled.part);
+      for (const key of ['getComputedStyle', 'scrollHeight', 'scrollWidth'] as const) {
+        expect(part[key], `${key}: part ${part[key]}, floor ${floor[key]}`).toBeLessThanOrEqual(
+          floor[key],
+        );
+      }
+    });
+  }
 
   it('an open item costs at most the open floor item plus 25%', () => {
     const cost = perItem(partRoot(true), part.full);
