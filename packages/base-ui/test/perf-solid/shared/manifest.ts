@@ -122,7 +122,7 @@ const staticPart = (name: string) => `native static part cost > ${name} (dev)`;
 const GROUPED_TOGGLE =
   'native toggles cost > Toggle in a ToggleGroup: ≤ 5 nodes beyond a hand-written grouped toggle';
 const RADIO =
-  'native toggles cost > Radio.Root + Indicator in a RadioGroup: ≤ 13 nodes beyond a hand-written radio';
+  'native toggles cost > Radio.Root + Indicator in a RadioGroup: ≤ 10 nodes beyond a hand-written radio';
 const RADIO_INDICATOR =
   'native toggles cost > an unchecked Radio.Indicator: ≤ 7 nodes beyond its root, its transition machinery not yet made';
 
@@ -148,9 +148,9 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'render core cost > Button costs at most 3 reactive nodes',
   ],
   checkbox: [
-    'native toggles cost > Checkbox.Root + Indicator: ≤ 13 nodes beyond a hand-written checkbox',
+    'native toggles cost > Checkbox.Root + Indicator: ≤ 10 nodes beyond a hand-written checkbox',
     'native toggles cost > an unchecked Checkbox.Indicator: ≤ 7 nodes beyond its root, its transition machinery not yet made',
-    'render core cost > Checkbox.Root costs at most 10 reactive nodes',
+    'render core cost > Checkbox.Root costs at most 7 reactive nodes',
   ],
   collapsible: [
     'native disclosure part cost > a closed Collapsible (Root + Trigger + Panel) costs at most 12 nodes (dev)',
@@ -165,7 +165,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'collapsible cost against the hand-written floor > a closed Panel costs at most the floor closed panel plus 25%',
     'collapsible cost against the hand-written floor > an open Collapsible costs at most the open floor plus 25%',
   ],
-  combobox: [closedRoot('Combobox')],
+  combobox: [closedRoot('Combobox'), 'render core cost > Combobox.Item costs at most 23 reactive nodes'],
   'context-menu': [closedRoot('ContextMenu')],
   dialog: [closedRoot('Dialog')],
   drawer: [closedRoot('Drawer')],
@@ -183,12 +183,12 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   ],
   radio: [RADIO, RADIO_INDICATOR],
   'radio-group': [RADIO],
-  select: [closedRoot('Select'), 'render core cost > Select.Item costs at most 26 reactive nodes'],
+  select: [closedRoot('Select'), 'render core cost > Select.Item costs at most 23 reactive nodes'],
   separator: [
     staticPart('a Separator with a literal orientation costs at most 1 node'),
     staticPart('a Separator with a reactive orientation costs at most 2 nodes'),
   ],
-  switch: ['native toggles cost > Switch.Root + Thumb: ≤ 10 nodes beyond a hand-written switch'],
+  switch: ['native toggles cost > Switch.Root + Thumb: ≤ 6 nodes beyond a hand-written switch'],
   tabs: [
     'native disclosure part cost > a Tab and its hidden Panel cost at most 4 nodes together (dev)',
   ],

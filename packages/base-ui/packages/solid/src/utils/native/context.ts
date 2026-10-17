@@ -1,8 +1,8 @@
 /*
- * Context provision for native parts. A `<Provider>` costs a root, a lazy
- * children memo and (through `provideContext`) a keep-alive render effect per part; a native part
- * provides its context on one plain owner instead and renders its children under it. The server
- * renders the provider; hydration rebuilds the provider's owners without its computations.
+ * Context provision for native parts. On the client after hydration it is `provideContext`'s: one
+ * transparent owner that carries the context (`createContextOwner`). The server renders the
+ * provider, and hydration rebuilds the provider's owners without its computations, where
+ * `provideContext` renders the provider itself.
  */
 import { createOwner, isHydrating, runWithOwner } from 'solid-js';
 import type { Context, Owner } from 'solid-js';
@@ -11,20 +11,7 @@ import type { JSX } from '@solidjs/web';
 // `solid-js` does not re-export `setContext`; `@solidjs/signals` is a peer pinned to the solid-js
 // range, so this is the same core solid-js runs on in the browser.
 import { setContext } from '@solidjs/signals';
-import { provideContext } from '../../solid-helpers';
-
-const TRANSPARENT = { transparent: true };
-
-/**
- * An owner, child of the current one, that carries `context = value` for everything created under
- * it. Transparent: it takes no hydration id of its own, so its children consume ids from the
- * nearest id-carrying ancestor, as without it. Client only, outside hydration.
- */
-export function createContextOwner<T>(context: Context<T>, value: T): Owner {
-  const owner = createOwner(TRANSPARENT);
-  setContext(context, value, owner);
-  return owner;
-}
+import { createContextOwner, provideContext } from '../../solid-helpers';
 
 /**
  * While hydrating, the owners the server's `<Provider>` created that hydration ids depend on,

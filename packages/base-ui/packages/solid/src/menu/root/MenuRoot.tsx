@@ -880,11 +880,10 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
     syncHighlightedItem,
   };
 
-  const content = () => (
-    <MenuRootContext value={context as MenuRootContext}>
+  const content = () =>
+    provideContext(MenuRootContext, context as MenuRootContext, () => (
       <ComponentWithPayload payload={payload} children={props.children} />
-    </MenuRootContext>
-  );
+    ));
 
   return (
     <Show

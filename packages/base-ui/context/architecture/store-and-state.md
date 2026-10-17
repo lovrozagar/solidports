@@ -49,14 +49,14 @@ Each tracked read pays a Proxy trap plus Map lookups. Repeated `createMemo(() =>
 | `createDepsRenderEffect` | Same, layout timing | memo + render effect | 35 |
 | `createLayoutEffect` | Render effect; on the server the node exists (ids align) but the apply does not run | render effect | 64 |
 | `createDepsMemo` | `shallowEqual` memo | memo | 4 |
-| `provideContext` | Client: calls the Provider directly, runs `render` once untracked, and keeps the lazy children memo alive with a no-op render effect. Server or hydrating: `<Provider>` JSX so owners match. | Provider + 1 render effect | 41 |
+| `provideContext` | Client after hydration: runs `render` once untracked under one transparent owner that carries the context (`createContextOwner`, S2). Server or hydrating: `<Provider>` JSX so owners match (D5). | 1 owner (client) | 50 |
 | `useRef(v)` | `{ current: v }`, not reactive | None | 154 |
 | `omitComponentProps` | Solid `omit` view without `class`, `render`, own keys | Proxy | 17 |
 | `defaultProps` | Compat `mergeProps(defaults, props)` | Proxy | 17 |
 
 - `MaybeAccessor<T>` is `T | Accessor<T>`; `access` calls any zero-arity function, so never pass a zero-arity callback as a plain value.
 - `live(read)` tracks inside computations and reads untracked elsewhere.
-- Native parts replace `provideContext` with one transparent owner (`createContextOwner`); see [render pipeline](render-pipeline.md).
+- Native parts provide the same way on the client and rebuild the provider's owners without its computations while hydrating (`provideNativeContext`); see [render pipeline](render-pipeline.md). `test/ssr/production-client.test.ts` runs a late consumer through the production client runtime, where the provider's unobserved children memo used to be disposed.
 - Non-test source has 1111 `.current` occurrences.
 
 ## `solid-1-compat.ts`

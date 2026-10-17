@@ -2,7 +2,7 @@ import { createEffect, onSettled, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { FloatingTree, useDismiss } from '../../floating-ui-solid';
-import { ComponentWithPayload, isAbsentProp } from '../../solid-helpers';
+import { ComponentWithPayload, isAbsentProp, provideContext } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -101,14 +101,15 @@ function PopoverRootComponent<Payload>(
     createHandleAttachment(() => props.handle, store);
   }
 
-  const renderContent = () => (
-    <PopoverRootContext value={{ store } as PopoverRootContext<unknown>}>
-      <Show when={shouldRenderInteractions()}>
-        <PopoverInteractions store={store} modal={modal()} />
-      </Show>
-      <ComponentWithPayload payload={payload} children={props.children} />
-    </PopoverRootContext>
-  );
+  const renderContent = () =>
+    provideContext(PopoverRootContext, { store } as PopoverRootContext<unknown>, () => (
+      <>
+        <Show when={shouldRenderInteractions()}>
+          <PopoverInteractions store={store} modal={modal()} />
+        </Show>
+        <ComponentWithPayload payload={payload} children={props.children} />
+      </>
+    ));
 
   if (props.nestedInPopoverRoot) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime

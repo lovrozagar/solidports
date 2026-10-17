@@ -16,7 +16,7 @@ Solid 2 already has the primitives this needs. The mount and SSR gaps in [baseli
 - Native kit: `utils/native/*` renders direct DOM for 25 files in 11 families (Accordion, Button, Checkbox, CheckboxGroup, Collapsible, Radio, RadioGroup, Switch, Tabs, Toggle, ToggleGroup). 150 of the 172 files calling `useRenderElement` never touch the kit.
 - `canRenderNative` (`utils/native/index.ts:65`) refuses the server, hydration, Solid proxies (any `{...props}` wrapper), a `render` key, a non-static `ref`, and non-static `staticKeys`. Design-system wrappers and every SSR app therefore take the slow path.
 - The kit creates elements with `document.createElement` (`:791`) and binds them with a plain, non-transparent `createRenderEffect` (`:224`), which takes hydration ids; that is why it must refuse hydration.
-- Context: `provideContext` (`solid-helpers.tsx:263`, 41 call sites) builds an owner, a lazy memo and a keep-alive effect per provider; `utils/native/context.ts` already does the same with one transparent `createOwner` plus `setContext`.
+- Context: `provideContext` (`solid-helpers.tsx`) provides on one transparent `createOwner` plus `setContext` on the client (S2, plan 3 leaf 4.10), as `utils/native/context.ts` does; JSX providers still cost a provider root and two lazy memos each.
 - `createSelector` (`solid-1-compat.ts:142`) is a Solid 1 shim: every key reader re-runs on any source change (O(n) per change).
 
 Details: [render pipeline](../architecture/render-pipeline.md), [primitive costs](../solid/primitive-costs.md).

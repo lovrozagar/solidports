@@ -79,7 +79,7 @@ describe('native toggles cost', () => {
     );
   }
 
-  it('Checkbox.Root + Indicator: ≤ 13 nodes beyond a hand-written checkbox', () => {
+  it('Checkbox.Root + Indicator: ≤ 10 nodes beyond a hand-written checkbox', () => {
     const raw = perPart(() => <RawCheckbox />);
     const part = perPart(() => (
       <Checkbox.Root>
@@ -94,7 +94,7 @@ describe('native toggles cost', () => {
     expect(
       part - raw,
       `Checkbox: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
-    ).toBeLessThanOrEqual(13);
+    ).toBeLessThanOrEqual(10);
   });
 
   it('an unchecked Checkbox.Indicator: ≤ 7 nodes beyond its root, its transition machinery not yet made', () => {
@@ -130,7 +130,7 @@ describe('native toggles cost', () => {
     );
   });
 
-  it('Switch.Root + Thumb: ≤ 10 nodes beyond a hand-written switch', () => {
+  it('Switch.Root + Thumb: ≤ 6 nodes beyond a hand-written switch', () => {
     const raw = perPart(() => <RawCheckbox />);
     const part = perPart(() => (
       <Switch.Root>
@@ -140,7 +140,7 @@ describe('native toggles cost', () => {
     expect(
       part - raw,
       `Switch: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
-    ).toBeLessThanOrEqual(10);
+    ).toBeLessThanOrEqual(6);
   });
 
   it('Toggle: ≤ 5 nodes beyond a hand-written toggle button', () => {
@@ -189,7 +189,7 @@ describe('native toggles cost', () => {
     ).toBeLessThanOrEqual(5);
   });
 
-  it('Radio.Root + Indicator in a RadioGroup: ≤ 13 nodes beyond a hand-written radio', () => {
+  it('Radio.Root + Indicator in a RadioGroup: ≤ 10 nodes beyond a hand-written radio', () => {
     const [value, setValue] = createSignal('a');
     const raw = perPart(
       () => (
@@ -218,6 +218,6 @@ describe('native toggles cost', () => {
     expect(
       part - raw,
       `Radio: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
-    ).toBeLessThanOrEqual(13);
+    ).toBeLessThanOrEqual(10);
   });
 });

@@ -7,6 +7,7 @@ import { DEV, flush } from 'solid-js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Button } from '@solidports/base-ui/button';
 import { Checkbox } from '@solidports/base-ui/checkbox';
+import { Combobox } from '@solidports/base-ui/combobox';
 import { Select } from '@solidports/base-ui/select';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
@@ -58,12 +59,12 @@ describe('render core cost', () => {
     expect(cost, `Button: ${cost} nodes`).toBeLessThanOrEqual(3);
   });
 
-  it('Checkbox.Root costs at most 10 reactive nodes', () => {
+  it('Checkbox.Root costs at most 7 reactive nodes', () => {
     const cost = perPart(() => <Checkbox.Root />);
-    expect(cost, `Checkbox.Root: ${cost} nodes`).toBeLessThanOrEqual(10);
+    expect(cost, `Checkbox.Root: ${cost} nodes`).toBeLessThanOrEqual(7);
   });
 
-  it('Select.Item costs at most 26 reactive nodes', () => {
+  it('Select.Item costs at most 23 reactive nodes', () => {
     const list = (items: string[]) => () => (
       <Select.Root defaultOpen>
         <Select.Trigger>
@@ -81,7 +82,26 @@ describe('render core cost', () => {
       </Select.Root>
     );
     const cost = nodes(list(['a', 'b'])) - nodes(list(['a']));
-    expect(cost, `Select.Item: ${cost} nodes`).toBeLessThanOrEqual(26);
+    expect(cost, `Select.Item: ${cost} nodes`).toBeLessThanOrEqual(23);
+  });
+
+  it('Combobox.Item costs at most 23 reactive nodes', () => {
+    const list = (items: string[]) => () => (
+      <Combobox.Root items={items} defaultOpen>
+        <Combobox.Input />
+        <Combobox.Portal>
+          <Combobox.Positioner>
+            <Combobox.Popup>
+              <Combobox.List>
+                {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+    );
+    const cost = nodes(list(['a', 'b'])) - nodes(list(['a']));
+    expect(cost, `Combobox.Item: ${cost} nodes`).toBeLessThanOrEqual(23);
   });
 
   it('static attributes create no reactive nodes', () => {
