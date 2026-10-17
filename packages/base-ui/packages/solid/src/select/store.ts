@@ -3,6 +3,7 @@ import type { JSX } from '@solidjs/web';
 import { compareItemEquality } from '../utils/itemEquality';
 import { hasNullItemLabel, stringifyAsValue } from '../utils/resolveValueLabel';
 import type { Group } from '../utils/resolveValueLabel';
+import { keyedSelector } from '../utils/store/SolidStoreV2';
 import type { SolidStore } from '../utils/store/SolidStoreV2';
 import type { HTMLProps } from '../utils/types';
 import type { InteractionType } from '../utils/useEnhancedClickHandler';
@@ -77,7 +78,8 @@ export const selectors = {
     return stringifyAsValue(state.value, state.itemToStringValue) !== '';
   },
   id: (state: State) => state.id,
-  isActive: (state: State, index: Accessor<number>) => state.activeIndex === index(),
+  // Keyed: a highlight move re-runs the old and the new item's readers, not every item's.
+  isActive: keyedSelector((state: State) => state.activeIndex),
   isItemEqualToValue: (state: State) => state.isItemEqualToValue,
 
   isSelected: (state: State, itemValue: Accessor<any>) => {
@@ -97,9 +99,7 @@ export const selectors = {
     return compareItemEquality(itemValue(), storeValue, comparer);
   },
 
-  isSelectedByFocus: (state: State, index: Accessor<number>) => {
-    return state.selectedIndex === index();
-  },
+  isSelectedByFocus: keyedSelector((state: State) => state.selectedIndex),
 
   itemToStringLabel: (state: State) => state.itemToStringLabel,
 

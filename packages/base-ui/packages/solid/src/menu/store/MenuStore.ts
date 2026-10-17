@@ -12,7 +12,7 @@ import {
   popupStoreSelectors,
   PopupTriggerMap,
 } from '../../utils/popups';
-import { SolidStore } from '../../utils/store/SolidStoreV2';
+import { keyedSelector, SolidStore } from '../../utils/store/SolidStoreV2';
 import type { HTMLProps } from '../../utils/types';
 import type { InteractionType } from '../../utils/useEnhancedClickHandler';
 import type { MenuParent, MenuRoot } from '../root/MenuRoot';
@@ -117,8 +117,8 @@ const selectors = {
   webkitAriaSelected: (state: State<unknown>, highlighted: () => boolean) =>
     platform.engine.webkit && state.inputFocused && highlighted() ? true : undefined,
   highlightedItemId: (state: State<unknown>) => state.highlightedItem?.id || undefined,
-  // Solid: selector args are accessors.
-  isActive: (state: State<unknown>, itemIndex: () => number) => state.activeIndex === itemIndex(),
+  // Keyed: a highlight move re-runs the old and the new item's readers, not every item's.
+  isActive: keyedSelector((state: State<unknown>) => state.activeIndex),
   hoverEnabled: (state: State<unknown>) => state.hoverEnabled,
   // `trigger-change` describes a popup moving between triggers, which only has
   // meaning while it is open. Dropping it once closed keeps a late or stale

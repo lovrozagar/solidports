@@ -4,6 +4,7 @@ import type { TransitionStatus } from '../utils/useTransitionStatus';
 import type { HTMLProps } from '../utils/types';
 import type { Side } from '../utils/useAnchorPositioning';
 import type { ReactLikeRef } from '../solid-helpers';
+import { keyedSelector } from '../utils/store/SolidStoreV2';
 import type { SolidStore } from '../utils/store/SolidStoreV2';
 import { compareItemEquality } from '../utils/itemEquality';
 import { hasNullItemLabel } from '../utils/resolveValueLabel';
@@ -162,7 +163,8 @@ export const selectors = {
 
   activeIndex: (state: State) => state.activeIndex,
   selectedIndex: (state: State) => state.selectedIndex,
-  isActive: (state: State, index: Accessor<number>) => state.activeIndex === index(),
+  // Keyed: a highlight move re-runs the old and the new item's readers, not every item's.
+  isActive: keyedSelector((state: State) => state.activeIndex),
   isSelected: (state: State, itemValue: Accessor<any>) => {
     const comparer = state.isItemEqualToValue;
     const selectedValue = state.selectedValue;
