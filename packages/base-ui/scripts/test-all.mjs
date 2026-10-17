@@ -85,6 +85,15 @@ export const suites = [
     unavailable: hasCommand('pnpm') ? null : 'needs pnpm (code-infra lists the workspace with it)',
   },
   {
+    // docs/solid is generated from docs/react (`scripts/docs`): a generator change or a docs sync
+    // that is not regenerated leaves it stale, which nothing else would catch.
+    job: 'Generated files',
+    name: 'docs-generate',
+    cwd: baseUi,
+    generated: ['packages/base-ui/docs/solid'],
+    run: ['bun run docs:generate'],
+  },
+  {
     job: 'Generated files',
     name: 'inline-scripts',
     cwd: baseUi,

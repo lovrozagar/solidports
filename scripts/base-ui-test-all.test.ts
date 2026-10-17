@@ -118,3 +118,19 @@ describe("test:base-ui:all on a machine without pnpm", () => {
 		)
 	})
 })
+
+describe("test:base-ui:all generated Solid docs", () => {
+	// docs/solid is generated from docs/react; nothing re-ran the generator, so its error codes
+	// went stale for two commits without failing a gate.
+	test("a suite regenerates docs/solid and fails when that changes the tree, as the workflow does", () => {
+		const suite = suites.find((s: { name: string }) => s.name === "docs-generate") as
+			| { job: string; generated?: string[]; run: string[] }
+			| undefined
+		expect(suite).toBeDefined()
+		expect(suite?.job).toBe("Generated files")
+		expect(suite?.generated).toEqual(["packages/base-ui/docs/solid"])
+		expect(suite?.run).toEqual(["bun run docs:generate"])
+		const workflow = readFileSync(resolve(import.meta.dir, "../.github/workflows/base-ui-tests.yml"), "utf8")
+		expect(workflow).toMatch(/bun run docs:generate\n\s+git diff --exit-code -- docs\/solid/)
+	})
+})

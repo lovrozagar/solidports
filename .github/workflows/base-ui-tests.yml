@@ -184,6 +184,14 @@ jobs:
         run: |
           bun run extract-error-codes
           git diff --exit-code
+      # Solid only: docs/solid is generated from docs/react; a stale page or error-code copy fails.
+      - name: generated Solid docs
+        if: ${{ !cancelled() }}
+        working-directory: packages/base-ui
+        run: |
+          git checkout -- .
+          bun run docs:generate
+          git diff --exit-code -- docs/solid
       - name: inline scripts
         if: ${{ !cancelled() }}
         working-directory: packages/base-ui

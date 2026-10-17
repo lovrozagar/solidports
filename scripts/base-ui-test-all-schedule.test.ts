@@ -48,6 +48,7 @@ describe("test:base-ui:all plan", () => {
 		})
 		expect(Object.fromEntries(suites.filter((s) => s.generated).map((s) => [s.name, s.generated]))).toEqual({
 			"error-codes": ["packages/base-ui/docs/react/src/error-codes.json"],
+			"docs-generate": ["packages/base-ui/docs/solid"],
 			"inline-scripts": ["packages/base-ui/packages/react/src", "packages/base-ui/packages/solid/src"],
 			"docs-validate": ["packages/base-ui/docs"],
 		})
