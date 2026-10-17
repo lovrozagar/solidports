@@ -144,8 +144,11 @@ listed to pass:
   tracked 3–4 sources per slow-path row. Fixed by plan 3's 4.3d (c996546d): 1 per row, and the
   render-function scenario no longer warns. `static/use-render-1000` still tracks 2 per row because
   its fixture wraps `element()` in a fragment of its own.
-- `HUGE_FAN_OUT` in `collapsible/300`: the shared controlled `open` is read about 13 times per root.
-  Goes to 4.7 (the root reads its controlled prop once).
+- `HUGE_FAN_OUT` in `collapsible/300`: a fixture artifact, not a library cost. The fixture drives
+  300 roots from one controlled `open` signal, and each root has 8–9 computations reading it, so
+  the one signal has thousands of subscribers; in real use each root has its own `open`, about 9
+  subscribers a signal. A memo per root would not cut a re-run, as every root flips together, and
+  would add a node and a recompute per root (4.7's probe, 2026-10-17), so none was added.
 - `HUGE_FAN_OUT` in `checkbox/controlled-1000`, `static/avatar-1000`, `radio/300` and
   `combobox/full-1000`: fan-out over one shared value. Goes to keyed selection (4.4b's mechanism,
   then 4.11) and per-part read reduction.
