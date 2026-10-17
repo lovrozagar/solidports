@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import { CONFIRM_RUNS, confirm } from "../packages/base-ui/scripts/browser-parity.mjs"
 
 const SCRIPT = join(import.meta.dir, "../packages/base-ui/scripts/browser-parity.mjs")
 const temps: string[] = []
@@ -71,5 +72,48 @@ describe("browser parity", () => {
 		)
 		expect(result.status).toBe(1)
 		expect(result.stderr).toContain("Solid ran tests in 1 of 2 test files under packages/solid/src")
+	})
+})
+
+describe("confirming a Solid-only failure", () => {
+	type Status = "passed" | "failed"
+	const KEY = "popover/root/PopoverRoot :: opens"
+	const entry = { key: KEY, message: "", upstream: "passed" }
+	const runs = (statuses: string) =>
+		[...statuses].map(
+			(s) => new Map([[KEY, { file: "", status: (s === "f" ? "failed" : "passed") as Status, message: "" }]]),
+		)
+
+	test("confirms a deterministic Solid break on a test upstream fails in some reruns", () => {
+		// On CI's WebKit, upstream fails "contained triggers" in 10 of 27 runs: a Solid break there
+		// must still fail the check.
+		const { confirmed, unconfirmed } = confirm([entry], runs("ffffffffff"), runs("fpfffpffpf"))
+		expect(confirmed).toEqual([{ ...entry, solidFailed: 10, upstreamPassed: 3, runs: 10 }])
+		expect(unconfirmed).toEqual([])
+	})
+
+	test("does not confirm a failure Solid passes in a rerun, and counts both sides", () => {
+		const { confirmed, unconfirmed } = confirm([entry], runs("fffffffffp"), runs("pppppppppp"))
+		expect(confirmed).toEqual([])
+		expect(unconfirmed).toEqual([{ ...entry, solidFailed: 9, upstreamPassed: 10, runs: 10 }])
+	})
+
+	test("does not confirm a failure upstream also has in every rerun", () => {
+		expect(confirm([entry], runs("ffffffffff"), runs("ffffffffff")).confirmed).toEqual([])
+	})
+
+	test("confirms a failure of a test upstream does not have on Solid's reruns alone", () => {
+		const absent = { ...entry, upstream: "absent" }
+		expect(confirm([absent], runs("ffffffffff"), []).confirmed).toEqual([
+			{ ...absent, solidFailed: 10, upstreamPassed: 0, runs: 10 },
+		])
+	})
+
+	test("reruns often enough to hold both errors under 1% for a 60%-vs-37% test", () => {
+		// A Solid test failing 60% of runs fails every rerun by chance (a false red)...
+		expect(0.6 ** CONFIRM_RUNS).toBeLessThan(0.01)
+		// ...and a deterministic Solid break goes unconfirmed only if upstream, failing 37% of runs,
+		// fails every rerun too (a false green).
+		expect(0.37 ** CONFIRM_RUNS).toBeLessThan(0.01)
 	})
 })
