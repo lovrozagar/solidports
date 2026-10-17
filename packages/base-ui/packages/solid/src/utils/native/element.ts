@@ -330,7 +330,9 @@ function partState<State extends object>(spec: NativeElementSpec<State>): State 
 }
 
 /** The writer of the part's state attributes, if it writes any. */
-function stateWriterOf<State extends object>(spec: NativeElementSpec<State>): StateWriter | undefined {
+function stateWriterOf<State extends object>(
+  spec: NativeElementSpec<State>,
+): StateWriter | undefined {
   if (spec.state === undefined || spec.stateAttributes === false) {
     return undefined;
   }
@@ -555,6 +557,9 @@ export function renderNativeElement<State extends object>(
   props: object,
   spec: NativeElementSpec<State>,
 ): Element {
+  if ('render' in props && !isStatic(props, 'render')) {
+    return renderDynamicRender(element, props, spec);
+  }
   // A static `render` the part let through `canRenderNative` (`isNativeRender`).
   const render = (props as { render?: unknown }).render;
   if (render != null) {
@@ -564,6 +569,45 @@ export function renderNativeElement<State extends object>(
   return isServer
     ? renderServerElement(element, props, spec)
     : renderClientElement(element, props, spec);
+}
+
+/**
+ * A reactive `render` (a getter, as a wrapper forwarding `render={props.render}` passes) that the
+ * part let through `canRenderNative` with `dynamicRender`: the server renders its value once; the
+ * client renders it under one transparent branch memo (no hydration id, so the element claims the
+ * server's as without it), which re-renders the element when the getter's value changes, the
+ * element swapping between forms (a function, a tag, a config) as the slow path's branch does.
+ */
+function renderDynamicRender<State extends object>(
+  element: Element | NativeElementTemplate,
+  props: object,
+  spec: NativeElementSpec<State>,
+): Element {
+  const source = props as { render?: unknown };
+  const renderValue = (value: unknown) => {
+    if (process.env.NODE_ENV !== 'production' && value != null && !isNativeRender(value)) {
+      warn(
+        'A reactive `render` changed to a form the native path does not render (a config with handlers, a ref, children or getters).',
+        'Pass that `render` statically, or as a function, so the part renders it.',
+      );
+    }
+    if (value != null) {
+      return renderWithRender(element as NativeElementTemplate, props, spec, value);
+    }
+    return isServer
+      ? renderServerElement(element, props, spec)
+      : renderClientElement(element, props, spec);
+  };
+  if (isServer) {
+    return renderValue(source.render);
+  }
+  return createMemo(
+    () => {
+      const value = source.render;
+      return untrack(() => renderValue(value));
+    },
+    { transparent: true },
+  ) as unknown as Element;
 }
 
 type RenderFunction = (props: Record<string, unknown>, state: unknown) => JSX.Element;

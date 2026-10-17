@@ -182,6 +182,38 @@ function AccordionMotion() {
   );
 }
 
+// A consumer's wrappers forwarding `render` (`render={props.render}`) with a stable function, the
+// common real case (plan 3 leaf 5.1.2b).
+const forwardButton = (props: object) => <button type="button" {...props} />;
+const forwardSection = (props: object) => <section {...props} />;
+
+function ForwardCollapsibleTrigger(props: Collapsible.Trigger.Props) {
+  return <Collapsible.Trigger render={props.render}>{props.children}</Collapsible.Trigger>;
+}
+function ForwardCollapsiblePanel(props: Collapsible.Panel.Props) {
+  return <Collapsible.Panel render={props.render}>{props.children}</Collapsible.Panel>;
+}
+function ForwardAccordionTrigger(props: Accordion.Trigger.Props) {
+  return <Accordion.Trigger render={props.render}>{props.children}</Accordion.Trigger>;
+}
+function ForwardAccordionPanel(props: Accordion.Panel.Props) {
+  return <Accordion.Panel render={props.render}>{props.children}</Accordion.Panel>;
+}
+
+function CollapsiblesRenderForward() {
+  const open = useExposed('open', false);
+  return (
+    <div>
+      {range(size(300)).map((i) => (
+        <Collapsible.Root key={i} open={open}>
+          <ForwardCollapsibleTrigger render={forwardButton}>Trigger {i}</ForwardCollapsibleTrigger>
+          <ForwardCollapsiblePanel render={forwardSection}>Panel {i}</ForwardCollapsiblePanel>
+        </Collapsible.Root>
+      ))}
+    </div>
+  );
+}
+
 export const fixtures: Record<string, React.FC> = {
   'collapsible/1': CollapsibleOne,
   'collapsible/1000': Collapsibles1000,
@@ -189,6 +221,7 @@ export const fixtures: Record<string, React.FC> = {
   'collapsible/render-fn-300': CollapsiblesRenderFn,
   'collapsible/render-element-300': CollapsiblesRenderElement,
   'collapsible/render-component-300': CollapsiblesRenderComponent,
+  'collapsible/render-forward-300': CollapsiblesRenderForward,
   'accordion/1': AccordionOne,
   'accordion/1000': controlledAccordion(1000, plainItem),
   'accordion/motion-300': AccordionMotion,
@@ -223,6 +256,14 @@ export const fixtures: Record<string, React.FC> = {
         <Accordion.Trigger render={<button type="button" />}>{it.label}</Accordion.Trigger>
       </Accordion.Header>
       <Accordion.Panel render={<section />}>Content {it.label}</Accordion.Panel>
+    </Accordion.Item>
+  )),
+  'accordion/render-forward-300': controlledAccordion(300, (it) => (
+    <Accordion.Item key={it.value} value={it.value}>
+      <Accordion.Header>
+        <ForwardAccordionTrigger render={forwardButton}>{it.label}</ForwardAccordionTrigger>
+      </Accordion.Header>
+      <ForwardAccordionPanel render={forwardSection}>Content {it.label}</ForwardAccordionPanel>
     </Accordion.Item>
   )),
   'accordion/render-component-300': controlledAccordion(300, (it) => (

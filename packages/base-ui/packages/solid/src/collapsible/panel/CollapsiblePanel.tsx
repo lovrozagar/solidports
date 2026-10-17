@@ -41,7 +41,7 @@ import { runInLazyScope } from '../../utils/runInLazyScope';
 export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; the panel's measurement machinery is created when the panel first renders.
-  if (canRenderNative(componentProps, undefined, true, isNativeRender)) {
+  if (canRenderNative(componentProps, undefined, true, isNativeRender, true)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeCollapsiblePanel(componentProps);
   }

@@ -47,7 +47,7 @@ Input: Vitest JSON reports of upstream's suite and the Solid suite in one browse
 
 | pattern | count | what it checks |
 | --- | --- | --- |
-| `*.parity.test.tsx` | 7 (Accordion, Checkbox, Collapsible, Radio, Switch, Tabs, Toggle) plus `utils/native/parity.test.tsx` | native fast path and slow path give identical normalized DOM, handler order and state changes; the harness (`packages/solid/test/parityHarness.tsx`) forces the slow side with a reactive `render` (a getter returning the case's form or the part's tag), since a static `render` may render natively (plan 3 leaf 5.1.2); the suites that build trees by hand keep `render="<same tag>"`, which stays slow for parts without a `render` check |
+| `*.parity.test.tsx` | 7 (Accordion, Checkbox, Collapsible, Radio, Switch, Tabs, Toggle) plus `utils/native/parity.test.tsx` | native fast path and slow path give identical normalized DOM, handler order and state changes; the harness (`packages/solid/test/parityHarness.tsx`) forces the slow side with a reactive `ref` and a reactive `render` (getters built with `defineProperty`, since a JSX `ref` always compiles to a static function). A reactive `render` alone no longer forces it in the disclosure parts (plan 3 leaf 5.1.2b). `mountParity` asserts that the slow tree rendered nothing natively and that the fast tree rendered something natively, so a forcing that stops working fails instead of comparing the native path with itself. The suites that build trees by hand keep `render="<same tag>"`, which stays slow for parts without a `render` check. JSX fixtures that must stay slow (`slowPanel.ssr-fixtures.tsx`, `CollapsiblePanel.deferred.test.tsx`, the slow variant of the race test) spread an object, which makes the props a proxy |
 | `*.cost.test.tsx` | 5 under `src/utils` | reactive-node budgets; see [perf method](../perf/method.md) |
 | `*.stale-closure.test.tsx` | 5 (AlertDialog, Dialog, Menu, PreviewCard, Tooltip roots) | a swapped callback prop (`onOpenChange`) is the one invoked |
 
@@ -62,7 +62,7 @@ The perf rewrite has one hard rule: every suite passes at every step.
 - Lowering a cost budget is the expected outcome of a perf step; raising one needs a reason.
 - One mirrored test is split by render path (2026-10-17, plan 3 leaf 5.1.2's fallout). In `CollapsiblePanel.test.tsx`, "keeps the measured size when an open animation finishes during a close commit" mocks `getAnimations` and requires an initially open panel to call it at mount. Upstream's mount-time `useOpenChangeComplete` makes that call.
   - A static render function now takes the native path. There the panel builds no open-complete watcher until its root's state first changes (5.1.2's mount win), so the call does not exist.
-  - The upstream title keeps the original body, precondition included, on the slow path: `render={slow.render}`, whose getter keeps the slow path.
+  - The upstream title keeps the original body, precondition included, on the slow path: the panel's `ref` and `render` arrive through a spread (`{...slow}`), whose proxy keeps the slow path.
   - "keeps the measured size when a natively rendered panel created open closes" asserts the native path's outcome (px height after the close) and that nothing reads the animations at mount.
   - Building the watcher at mount was rejected: a frame and a `getAnimations` per initially open panel is the cost 5.1.2 removed, and nothing observable needs it.
 - Never add `.skip`, `.todo`, `.fails` or a new `skipIf` to make a step pass; `test-parity.mjs` fails on them.

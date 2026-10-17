@@ -401,6 +401,68 @@ describe('collapsible cost against the hand-written floor', () => {
         const budget = perCopy(part.open) - perCopy(openRootTrigger) + form.own('panel');
         expect(cost, `open Panel ${cost} nodes, native ${budget}`).toBeLessThanOrEqual(budget);
       });
+
+      // A wrapper forwarding its `render` (`render={props.render}`) hands the part a getter. It
+      // costs at most the direct form plus the wrapper itself (measured with a wrapper that passes
+      // no `render`) and one branch memo that re-branches when the value changes (plan 3 leaf
+      // 5.1.2b): not the slow path's 9 to 13 nodes.
+      describe('forwarded through a wrapper', () => {
+        function ForwardTrigger(props: { render?: unknown; children?: JSX.Element }) {
+          return (
+            <Collapsible.Trigger render={props.render as never}>
+              {props.children}
+            </Collapsible.Trigger>
+          );
+        }
+        function ForwardPanel(props: { render?: unknown; children?: JSX.Element }) {
+          return (
+            <Collapsible.Panel render={props.render as never}>{props.children}</Collapsible.Panel>
+          );
+        }
+        const direct = (open: boolean) =>
+          perCopy(() => (
+            <Collapsible.Root defaultOpen={open}>
+              <Collapsible.Trigger render={triggerRender}>Toggle</Collapsible.Trigger>
+              <Collapsible.Panel render={panelRender}>Content</Collapsible.Panel>
+            </Collapsible.Root>
+          ));
+        // The wrappers' own nodes: wrappers of the same shape that pass no `render` key.
+        function PlainTrigger(props: { children?: JSX.Element }) {
+          return <Collapsible.Trigger>{props.children}</Collapsible.Trigger>;
+        }
+        function PlainPanel(props: { children?: JSX.Element }) {
+          return <Collapsible.Panel>{props.children}</Collapsible.Panel>;
+        }
+        const wrappers = (open: boolean) =>
+          perCopy(() => (
+            <Collapsible.Root defaultOpen={open}>
+              <PlainTrigger>Toggle</PlainTrigger>
+              <PlainPanel>Content</PlainPanel>
+            </Collapsible.Root>
+          )) -
+          perCopy(() => (
+            <Collapsible.Root defaultOpen={open}>
+              <Collapsible.Trigger>Toggle</Collapsible.Trigger>
+              <Collapsible.Panel>Content</Collapsible.Panel>
+            </Collapsible.Root>
+          ));
+
+        for (const open of [false, true]) {
+          it(`${open ? 'an open' : 'a closed'} Trigger and Panel cost at most the direct form plus the wrappers and a memo each`, () => {
+            const cost = perCopy(() => (
+              <Collapsible.Root defaultOpen={open}>
+                <ForwardTrigger render={triggerRender}>Toggle</ForwardTrigger>
+                <ForwardPanel render={panelRender}>Content</ForwardPanel>
+              </Collapsible.Root>
+            ));
+            const budget = direct(open) + wrappers(open) + 2;
+            expect(
+              cost,
+              `forwarded ${cost} nodes, direct + wrappers + 2 = ${budget}`,
+            ).toBeLessThanOrEqual(budget);
+          });
+        }
+      });
     });
   }
 });

@@ -134,6 +134,15 @@ const renderFormCosts = (family: 'accordion' | 'collapsible') =>
         'a Trigger costs at most the plain Trigger plus its own element',
         'a closed Panel costs at most the plain closed Panel',
         'an open Panel costs at most the plain open Panel plus its own element',
+        ...(family === 'collapsible'
+          ? ['a closed', 'an open'].map(
+              (open) =>
+                `forwarded through a wrapper > ${open} Trigger and Panel cost at most the direct form plus the wrappers and a memo each`,
+            )
+          : ['a closed', 'an open'].map(
+              (open) =>
+                `forwarded through a wrapper > ${open} item's Trigger and Panel cost at most the direct form plus a memo each and the Header's insert`,
+            )),
       ].map(
         (test) =>
           `${family} cost against the hand-written floor > with ${form} as render > ${test}`,

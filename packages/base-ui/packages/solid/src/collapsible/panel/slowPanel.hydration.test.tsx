@@ -1,6 +1,7 @@
 /*
- * A slow-path panel (a reactive `render` prop, or props made a proxy by a spread) and a native
- * panel the consumer renders (a static render function or component, plan 3 leaf 5.1.2) hydrate to
+ * A slow-path panel (props made a proxy by a spread), a native panel the consumer renders (a
+ * static render function or component, plan 3 leaf 5.1.2) and a native panel whose `render` a
+ * wrapper forwards (a getter, plan 3 leaf 5.1.2b) hydrate to
  * the attributes the same panel rendered on the client has: the server renders the dimension
  * variables at `auto`, and hydration must not drop what the client keeps.
  */
@@ -11,6 +12,7 @@ import { createRenderer, expectNativePath, expectSlowPath } from '#test-utils';
 import { renderServer } from '../../../test/ssrFixtures';
 import renderFixtures from './renderPanel.ssr-fixtures';
 import slowFixtures from './slowPanel.ssr-fixtures';
+import forwardFixtures from './forwardPanel.ssr-fixtures';
 
 /** The panel's attributes: hydration keys and generated ids left out, style declarations sorted. */
 function attributesOf(element: Element) {
@@ -42,6 +44,7 @@ const settle = async () => {
 describe.each([
   ['a slow-path panel', slowFixtures, expectSlowPath],
   ['a native panel the consumer renders', renderFixtures, expectNativePath],
+  ['a native panel whose render a wrapper forwards', forwardFixtures, expectNativePath],
 ] as const)('%s after hydration', (_, fixtures, expectPath) => {
   const { render } = createRenderer();
 
