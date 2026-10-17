@@ -10,6 +10,7 @@ import {
 	dirHash,
 	gitProvenance,
 	lockedCommand,
+	benchTimeoutSeconds,
 	parseArgs,
 	resolveComponents,
 	treeHash,
@@ -141,6 +142,15 @@ describe("bench:component driver", () => {
 			"flock",
 			["/l.lock", "timeout", "-k", "30", "1200", "node", "run.mjs", "8"],
 		])
+	})
+
+	test("a bench's timeout scales with its work, so every family at 12 runs is not cut off at 20 minutes", () => {
+		// The browser bench: 600 s a family at 12 runs. Every family once timed out at the 1200 s
+		// gate timeout and saved no baseline.
+		expect(benchTimeoutSeconds(42 * 12, 50)).toBe(25200)
+		expect(benchTimeoutSeconds(1 * 12, 50)).toBe(1200)
+		// SSR: 10 s a case and run.
+		expect(benchTimeoutSeconds(16 * 20, 10)).toBe(3200)
 	})
 
 	test("treeHash covers tracked and untracked file contents under the given paths", () => {

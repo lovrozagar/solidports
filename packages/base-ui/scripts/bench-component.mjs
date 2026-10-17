@@ -225,12 +225,25 @@ export function lockedCommand(command, args, { lock, timeoutSeconds }) {
   return ['flock', [lock, 'timeout', '-k', '30', String(timeoutSeconds), command, ...args]];
 }
 
-function run(command, args, { env = {}, cwd = baseUi, allowFail = false, locked = false } = {}) {
+/**
+ * A locked run's timeout: `units` of work at `secondsPerUnit` each, never below the gate timeout.
+ * The timeout only stops a hung run from holding the lock, so it must outlast an honest one: every
+ * family at 12 runs takes over an hour on the Mac, and the gate timeout alone cut it off.
+ */
+export function benchTimeoutSeconds(units, secondsPerUnit) {
+  return Math.max(LOCK_TIMEOUT_SECONDS, units * secondsPerUnit);
+}
+
+function run(
+  command,
+  args,
+  { env = {}, cwd = baseUi, allowFail = false, locked = false, timeoutSeconds } = {},
+) {
   if (locked) {
     fs.mkdirSync(path.dirname(EXCLUSIVE_LOCK), { recursive: true });
     [command, args] = lockedCommand(command, args, {
       lock: EXCLUSIVE_LOCK,
-      timeoutSeconds: LOCK_TIMEOUT_SECONDS,
+      timeoutSeconds: timeoutSeconds ?? LOCK_TIMEOUT_SECONDS,
     });
   }
   console.log(
@@ -384,6 +397,8 @@ export async function main(argv, deps = {}) {
       env: { VARIANTS: browserVariants.join(','), RESULTS_FILE: `${out}-browser` },
       allowFail: true,
       locked: true,
+      // 50 s a family and run: select and combobox at 12 runs took 9.5 minutes on the Mac.
+      timeoutSeconds: benchTimeoutSeconds(components.length * options.runs, 50),
     },
   );
   const browser = fs.existsSync(`${out}-browser.json`)
@@ -408,6 +423,7 @@ export async function main(argv, deps = {}) {
         env: { NO_BUILD: '1', SSR_VARIANTS: ssrVariants.join(','), RESULTS_FILE: `${out}-ssr` },
         allowFail: true,
         locked: true,
+        timeoutSeconds: benchTimeoutSeconds(ssrIds.length * options.ssrRuns, 10),
       },
     );
     ssr = fs.existsSync(`${out}-ssr.json`)

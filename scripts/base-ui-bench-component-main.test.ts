@@ -71,8 +71,15 @@ async function bench(curMs: number) {
 	writeFileSync(join(dir, "builds/solid/dist/index.js"), "export {}\n")
 	writeFileSync(join(dir, "baselines", "b.json"), JSON.stringify({ label: "b", sha: head }))
 	const commands: string[] = []
-	const run = (command: string, args: string[], options: { env?: Record<string, string> } = {}) => {
+	const timeouts: Record<string, number | undefined> = {}
+	const run = (
+		command: string,
+		args: string[],
+		options: { env?: Record<string, string>; timeoutSeconds?: number } = {},
+	) => {
 		commands.push([command, ...args].join(" "))
+		if (args.includes("test/perf-solid/run.mjs")) timeouts.browser = options.timeoutSeconds
+		if (args.includes("test/perf-solid/ssr/run.mjs") && options.env?.RESULTS_FILE) timeouts.ssr = options.timeoutSeconds
 		const file = options.env?.RESULTS_FILE
 		const write = (result: object, title: string) => {
 			writeFileSync(`${file}.json`, JSON.stringify(result))
@@ -105,7 +112,7 @@ async function bench(curMs: number) {
 		console.log = log
 	}
 	const md = readdirSync(dir).find((name) => /^component-separator-[^-].*\d{3}Z\.md$/.test(name))!
-	return { code, md: readFileSync(join(dir, md), "utf8"), commands }
+	return { code, md: readFileSync(join(dir, md), "utf8"), commands, timeouts }
 }
 
 describe("bench:component main", () => {
@@ -118,6 +125,12 @@ describe("bench:component main", () => {
 		expect(md).not.toContain("## Failures")
 		expect(commands.some((c) => c.includes("--expose-gc test/perf-solid/ssr/run.mjs 20"))).toBe(true)
 		expect(commands.some((c) => c.includes("test/perf-solid/run.mjs 12"))).toBe(true)
+	})
+
+	test("the browser and SSR runs get a timeout scaled to the work, never below the gate timeout", async () => {
+		const { timeouts } = await bench(40)
+		// One component at 12 runs, one SSR case at 20: both under the 1200 s floor.
+		expect(timeouts).toEqual({ browser: 1200, ssr: 1200 })
 	})
 
 	test("a 2x slower library fails the run and names each regression", async () => {
