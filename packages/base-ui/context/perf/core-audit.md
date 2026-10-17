@@ -58,6 +58,8 @@ A keyed `createProjection` created once at the list root, unconditionally on bot
 
 ### S6. Later phases (outline only)
 
+Measured and dropped (D13): native server templates, which wrote an element's markup without `ssrElement`. `ssrElement` and its node walk cost about 200 µs of a 2.55 ms collapsible/300-open server render; the server gap to the floor is the parts' setup (ServerPanel and its closures, the root model, ids and memos, the markup string).
+
 These are not needed for the pilot:
 
 - `SolidStore` write fast path; derived selectors shared per store.
