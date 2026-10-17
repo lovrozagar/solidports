@@ -17,9 +17,12 @@ beforeAll(async () => {
 	cdp = await page.context().newCDPSession(page)
 	await cdp.send("Performance.enable")
 })
+// Closing waits for Chromium's shutdown, which a starved process drags out: the verify stamp runs
+// at `nice -n 19 ionice -c3`, where 12 closes under load 50 on 16 cores took up to 10.5 s (launches
+// under 0.1 s), past Bun's 5 s hook default.
 afterAll(async () => {
 	await browser?.close()
-})
+}, 60_000)
 
 const scriptMs = async (run: () => Promise<unknown>) => {
 	const read = async () =>
