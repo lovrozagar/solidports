@@ -1,7 +1,7 @@
 ---
 tags: [testing, parity, upstream, tdd]
 sources: [packages/base-ui/scripts/test-parity.mjs, packages/base-ui/scripts/browser-parity.mjs, packages/base-ui/scripts/compare-regressions.mjs, packages/base-ui/test/regressions-solid/run.mjs, packages/base-ui/test/regressions-solid/accepted.json, packages/base-ui/packages/solid/test/parityHarness.tsx, .rulesync/reference/tdd.md]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Test parity
@@ -28,8 +28,10 @@ Current run (local, rc.15, 2026-10-16): 0 missing files, 0 missing tests, 0 extr
 Input: Vitest JSON reports of upstream's suite and the Solid suite in one browser. Keys are `<file without .test.tsx> :: <ancestor titles > title>`, with `floating-ui-react` mapped to `floating-ui-solid`.
 
 - Solid-only failure: Solid fails, upstream does not fail (passes or has no such test). Failing in both counts as shared (browser or environment).
-- `--confirm <browser>` reruns the files of Solid-only failures twice per suite. Confirmed means Solid failed both reruns and upstream passed once (or has no test); the rest print as flaky and do not fail.
-- Prints Solid failures, shared, Solid-only, flaky, and upstream failures Solid passes. Exit 1 on any confirmed Solid-only failure.
+- `--confirm <browser>` reruns the files of Solid-only failures 10 times per suite (`CONFIRM_RUNS`). Confirmed means Solid failed every rerun and upstream passed at least one (or has no such test); the rest print as not confirmed, with both counts (Solid failed x/10, upstream passed y/10), and do not fail. The rule is `confirm()`, tested in `scripts/base-ui-browser-parity.test.ts`. On CI the reruns take about 22 s per pair, so 10 add about 7 minutes.
+- Why every rerun: on CI's WebKit over 30 runs (to 98d6a238), upstream failed Popover's "keeps the popover open when a nested menu opens via pointer using a shared container" in 10 of 27 runs ('contained triggers'), 22 of 27 and 20 of 27 (the detached variants), and "should toggle closed with Enter or Space when rendering a <div>" in 4 of 27. With two reruns, a Solid test failing 60% of runs failed both by chance, which failed 98d6a238's check. With ten, for a 60%-vs-37% test, a Solid flake confirms with 0.6^10 (0.6%), and a deterministic Solid break goes unconfirmed only if upstream fails all ten reruns too, 0.37^10 (under 0.01%). Requiring upstream to pass every rerun would have hidden about 90% of real breaks on such tests (0.63^5 to pass five of five).
+- Open finding: Solid fails the 'contained triggers' variant in 18 of 30 of those runs against upstream's 10 of 27, a gap present since the oldest run. It passes in Chromium and Firefox.
+- Prints Solid failures, shared, Solid-only, not confirmed, and upstream failures Solid passes. Exit 1 on any confirmed Solid-only failure.
 
 ## Visual regressions (CI: Regression tests)
 
