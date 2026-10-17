@@ -121,3 +121,33 @@ Fast (native) vs slow (`useRenderElement`) path, dev probe, Solid rc.13, 2026-10
 Same probe, slow-path parts: Separator 15, Input 31, Field (Root+Label+Control) 84, Progress (Root+Track+Indicator) 60, Slider 153, NumberField 131, ScrollArea 90; Tooltip closed 81 / open 256, Popover 91 / 365, Dialog closed 71, Menu 136 / 490 (25 per item), Select 121 / 436 (29 per item), Combobox 146 / 459 (27 per item), NavigationMenu closed 227.
 
 Related: [perf method](method.md), [optimization map](optimization-map.md).
+
+## Warnings (census at f27d4702, 2026-10-17)
+
+Console output from every run the Base UI tests workflow makes, the benches and the docs crawl. Unit
+suites record through the census (`SOLID_WARNING_CENSUS`, `packages/solid/test/warningCensus.ts`),
+which also sees what the harness swallows; `known-warnings.json` stays empty, because the CI-gated
+production bench is clean.
+
+| Run | Result | Messages |
+| --- | --- | --- |
+| jsdom unit suites | 460 files, 10,100 tests passed | 0 |
+| Chromium unit suites | 458 files, 11,206 tests passed | 1: a harness-swallowed `FLUSH_IN_EFFECT_CALLBACK` (MenuFilterSubmenuRoot), harness origin |
+| Production bench, React and Solid | every scenario | 0 |
+| Docs hydration crawl | every page | 0 |
+| Development bench (`BENCH_DEV=1`) | 9 scenarios | 50, below |
+
+The development bench is not a CI gate; each finding goes to the unit that fixes it, and none is
+listed to pass:
+
+- `HUGE_FAN_IN` in `composition/render-fn-1000` and `static/use-render-1000`: a list's parent
+  tracked 3–4 sources per slow-path row. Fixed by plan 3's 4.3d (c996546d): 1 per row, and the
+  render-function scenario no longer warns. `static/use-render-1000` still tracks 2 per row because
+  its fixture wraps `element()` in a fragment of its own.
+- `HUGE_FAN_OUT` in `collapsible/300`: the shared controlled `open` is read about 13 times per root.
+  Goes to 4.7 (the root reads its controlled prop once).
+- `HUGE_FAN_OUT` in `checkbox/controlled-1000`, `static/avatar-1000`, `radio/300` and
+  `combobox/full-1000`: fan-out over one shared value. Goes to keyed selection (4.4b's mechanism,
+  then 4.11) and per-part read reduction.
+- OTPField's `aria-label` warning in `otp-field/6` and `/12`, in both apps: a fixture bug, fixed in
+  a87235f9 (a label around the field).
