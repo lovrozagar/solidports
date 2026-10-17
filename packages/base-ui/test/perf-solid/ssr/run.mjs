@@ -14,7 +14,9 @@
 //   SSR_MINIFY=0 keeps the bundles readable (function names for profile.mjs).
 //   RESULTS_FILE=<path without extension>.
 // Hydrate ms runs from the hydrate call to the commit: React's root layout effect (`hydrateRoot` is
-// concurrent, so its sync time is only scheduling), Solid's `hydrate` plus `flush`.
+// concurrent, so its sync time is only scheduling), Solid's `hydrate` plus `flush`. Then the first
+// expanded trigger is clicked: first close ms runs from the click through two settled frames, and
+// its script ms is the CDP `ScriptDuration` change, so work a part defers past hydration counts.
 // Server renders and hydration pages alternate between variants run by run. Exit 1 when hydration
 // logs a mismatch or a variant's hydrated DOM summary differs from the first variant's.
 import fs from 'node:fs';
@@ -127,7 +129,14 @@ for (const key of keys) {
   results[key] = {};
   for (const name of NAMES) {
     results[key][name] = {
-      samples: { serverMs: [], hydrateSyncMs: [], hydrateCommitMs: [], hydrateScriptMs: [] },
+      samples: {
+        serverMs: [],
+        hydrateSyncMs: [],
+        hydrateCommitMs: [],
+        hydrateScriptMs: [],
+        firstCloseMs: [],
+        firstCloseScriptMs: [],
+      },
     };
   }
   for (let run = 0; run < WARMUP + RUNS; run += 1) {
@@ -238,6 +247,24 @@ if (!process.env.SERVER_ONLY) {
           }));
           for (const log of new Set(logs)) problems.push(`${key} [${name}] ${log}`);
         }
+        const beforeClose = await cdp.send('Performance.getMetrics');
+        const closeMs = await page.evaluate(async (settleSource) => {
+          const trigger = document.querySelector('[aria-expanded="true"]');
+          if (!trigger) return null;
+          const settleFn = new Function(`return (${settleSource})()`);
+          const start = performance.now();
+          trigger.click();
+          await settleFn();
+          return performance.now() - start;
+        }, settle.toString());
+        const afterClose = await cdp.send('Performance.getMetrics');
+        if (run >= WARMUP && closeMs != null) {
+          const samples = results[key][name].samples;
+          samples.firstCloseMs.push(closeMs);
+          samples.firstCloseScriptMs.push(
+            (metric(afterClose, 'ScriptDuration') - metric(beforeClose, 'ScriptDuration')) * 1000,
+          );
+        }
         await page.close();
       }
     }
@@ -247,6 +274,12 @@ if (!process.env.SERVER_ONLY) {
       entry.hydrateCommitMs = median(entry.samples.hydrateCommitMs);
       entry.hydrateTotalMs = median(total[name]);
       entry.hydrateScriptMs = median(entry.samples.hydrateScriptMs);
+      entry.firstCloseMs = entry.samples.firstCloseMs.length
+        ? median(entry.samples.firstCloseMs)
+        : null;
+      entry.firstCloseScriptMs = entry.samples.firstCloseScriptMs.length
+        ? median(entry.samples.firstCloseScriptMs)
+        : null;
     }
     for (const name of NAMES.slice(1)) {
       if (JSON.stringify(summaries[NAMES[0]]) !== JSON.stringify(summaries[name])) {
@@ -264,23 +297,25 @@ if (!process.env.SERVER_ONLY) {
 const fmt = (n) => (n == null ? '-' : n.toFixed(2));
 const ratio = (a, b) => (a && b != null ? `${(b / a).toFixed(2)}x` : '-');
 const others = NAMES.slice(1);
+/** Hydration and first-close script time together: what deferring work past hydration can't hide. */
+const withClose = (entry) => entry.hydrateScriptMs + (entry.firstCloseScriptMs ?? 0);
 const lines = [
   `# Base UI SSR bench ${new Date().toISOString()}`,
   '',
   `runs ${RUNS} · warmup ${WARMUP} · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
   '',
-  `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate ms / hydrate script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate`).join(' | ')} |`,
+  `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate ms / hydrate script ms / first close ms / close script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate / hydrate+close script`).join(' | ')} |`,
   `|---|${NAMES.map(() => '---').join('|')}|${others.map(() => '---').join('|')}|`,
 ];
 for (const key of keys) {
   const row = results[key];
   const cells = NAMES.map(
     (n) =>
-      `${fmt(row[n].serverMs)} / ${row[n].htmlBytes} / ${fmt(row[n].hydrateCommitMs)} / ${fmt(row[n].hydrateScriptMs)}`,
+      `${fmt(row[n].serverMs)} / ${row[n].htmlBytes} / ${fmt(row[n].hydrateCommitMs)} / ${fmt(row[n].hydrateScriptMs)} / ${fmt(row[n].firstCloseMs)} / ${fmt(row[n].firstCloseScriptMs)}`,
   );
   const ratios = others.map(
     (n) =>
-      `${ratio(row[NAMES[0]].serverMs, row[n].serverMs)} / ${ratio(row[NAMES[0]].hydrateCommitMs, row[n].hydrateCommitMs)}`,
+      `${ratio(row[NAMES[0]].serverMs, row[n].serverMs)} / ${ratio(row[NAMES[0]].hydrateCommitMs, row[n].hydrateCommitMs)} / ${ratio(withClose(row[NAMES[0]]), withClose(row[n]))}`,
   );
   lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
 }

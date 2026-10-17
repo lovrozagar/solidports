@@ -94,8 +94,8 @@ export interface PanelRoot {
 export class ServerPanel implements UseCollapsiblePanelReturnValue {
   declare readonly dimensionStyle: JSX.CSSProperties;
   declare readonly props: Accessor<HTMLProps>;
-  declare readonly ref: (element: HTMLDivElement | null) => void;
-  declare private readonly root: PanelRoot;
+  declare ref: (element: HTMLDivElement | null) => void;
+  declare protected readonly root: PanelRoot;
   declare private readonly hiddenUntilFound: () => boolean;
   declare private readonly keepMounted: () => boolean;
   /** The client suppresses an initially open panel's open animation until it first closes. */
@@ -143,6 +143,87 @@ export class ServerPanel implements UseCollapsiblePanelReturnValue {
 
   transitionStatus() {
     return this.root.transitionStatus();
+  }
+}
+
+/**
+ * A native panel the client creates open: the server panel's attributes until its root's state
+ * first changes, then the client machinery. The machinery (its effects, the measurement and the
+ * computed-style read that detects an animation) is created at the first read that sees the root
+ * differ from its initial state, in the part's lazy scope, and the element is handed to it then; a
+ * panel that is never closed never builds it. Every reader of the panel's state also reads the
+ * root's state, so the first change reaches a reader in the same flush.
+ */
+export class DeferredPanel extends ServerPanel {
+  declare private real: UseCollapsiblePanelReturnValue | undefined;
+  declare private element: HTMLDivElement | null;
+  declare private readonly create: () => UseCollapsiblePanelReturnValue;
+  declare private readonly initialMounted: boolean;
+  declare private readonly initialStatus: TransitionStatus;
+
+  constructor(
+    root: PanelRoot,
+    hiddenUntilFound: () => boolean,
+    keepMounted: () => boolean,
+    dimensionCssVars: { height: string; width: string },
+    create: () => UseCollapsiblePanelReturnValue,
+  ) {
+    super(root, hiddenUntilFound, keepMounted, dimensionCssVars, true);
+    this.real = undefined;
+    this.element = null;
+    this.create = create;
+    this.initialMounted = untrack(() => root.mounted());
+    this.initialStatus = untrack(() => root.transitionStatus());
+    this.ref = (element) => {
+      if (this.real) {
+        this.real.ref(element);
+      } else {
+        this.element = element;
+      }
+    };
+  }
+
+  /** The client machinery, created at the first read that sees the root's state change. */
+  private live() {
+    if (
+      this.real === undefined &&
+      (!this.root.open() ||
+        this.root.mounted() !== this.initialMounted ||
+        this.root.transitionStatus() !== this.initialStatus)
+    ) {
+      this.real = this.create();
+      if (this.element) {
+        this.real.ref(this.element);
+      }
+    }
+    return this.real;
+  }
+
+  override hiddenAttribute() {
+    const real = this.live();
+    return real ? real.hiddenAttribute() : super.hiddenAttribute();
+  }
+
+  override shouldPersistHiddenTransitionStyles() {
+    const real = this.live();
+    return real
+      ? real.shouldPersistHiddenTransitionStyles()
+      : super.shouldPersistHiddenTransitionStyles();
+  }
+
+  override shouldPreventOpenAnimation() {
+    const real = this.live();
+    return real ? real.shouldPreventOpenAnimation() : super.shouldPreventOpenAnimation();
+  }
+
+  override shouldRender() {
+    const real = this.live();
+    return real ? real.shouldRender() : super.shouldRender();
+  }
+
+  override transitionStatus() {
+    const real = this.live();
+    return real ? real.transitionStatus() : super.transitionStatus();
   }
 }
 

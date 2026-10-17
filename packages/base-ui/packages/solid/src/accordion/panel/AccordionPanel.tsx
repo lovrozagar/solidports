@@ -7,7 +7,11 @@ import {
   renderNativePanel,
   warnKeepMountedIgnored,
 } from '../../collapsible/panel/CollapsiblePanel';
-import { ServerPanel, useCollapsiblePanel } from '../../collapsible/panel/useCollapsiblePanel';
+import {
+  DeferredPanel,
+  ServerPanel,
+  useCollapsiblePanel,
+} from '../../collapsible/panel/useCollapsiblePanel';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { panelRootParameters } from '../../collapsible/root/useCollapsibleRoot';
 import { createDepsRenderEffect, isStaticProp, splitComponentProps } from '../../solid-helpers';
@@ -193,7 +197,15 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
   let rendered: ReturnType<typeof createRenderedPanel> | undefined;
 
   return createNativeConditional(owner, shouldRender, () => {
-    rendered ??= createRenderedPanel(props, root, item, owner, initialOpen, hiddenUntilFound, keepMounted);
+    rendered ??= createRenderedPanel(
+      props,
+      root,
+      item,
+      owner,
+      initialOpen,
+      hiddenUntilFound,
+      keepMounted,
+    );
     const panel = rendered;
     return renderNativePanel(
       props,
@@ -252,7 +264,10 @@ class AccordionPanelStateView {
 }
 
 /** The panel's dimension variables. */
-const PANEL_DIMENSIONS = { height: AccordionPanelCssVars.accordionPanelHeight, width: AccordionPanelCssVars.accordionPanelWidth };
+const PANEL_DIMENSIONS = {
+  height: AccordionPanelCssVars.accordionPanelHeight,
+  width: AccordionPanelCssVars.accordionPanelWidth,
+};
 
 /** The machinery, ids and state of a panel that renders, created on its first render. */
 function createRenderedPanel(
@@ -266,21 +281,33 @@ function createRenderedPanel(
 ) {
   const id = () => props.id ?? root.defaultPanelId();
   // The server's panel creates no reactive node (D9), so it needs no lazy scope.
-  const panel = isServer
-    ? new ServerPanel(root, hiddenUntilFound, keepMounted, PANEL_DIMENSIONS, initialOpen)
-    : runInLazyScope(owner, () =>
-        untrack(() =>
-          useCollapsiblePanel({
-            dimensionCssVars: PANEL_DIMENSIONS,
-            hiddenUntilFound,
-            id,
-            initialOpen,
-            keepMounted,
-            native: true,
-            ...panelRootParameters(root),
-          }),
-        ),
-      )!;
+  const createPanel = () =>
+    runInLazyScope(owner, () =>
+      untrack(() =>
+        useCollapsiblePanel({
+          dimensionCssVars: PANEL_DIMENSIONS,
+          hiddenUntilFound,
+          id,
+          initialOpen,
+          keepMounted,
+          native: true,
+          ...panelRootParameters(root),
+        }),
+      ),
+    )!;
+  // A panel open since its part was created (a page that renders it open, hydrated or not) builds
+  // its client machinery on its first state change, which may never come: until then it suppresses
+  // the open animation, as the machinery would. A panel that opens later animates that opening, and
+  // one that renders closed (`keepMounted`, `hiddenUntilFound`) needs its `beforematch` listener
+  // and the next open's measurement: both build it at once.
+  let panel: ReturnType<typeof useCollapsiblePanel>;
+  if (isServer) {
+    panel = new ServerPanel(root, hiddenUntilFound, keepMounted, PANEL_DIMENSIONS, initialOpen);
+  } else if (initialOpen && untrack(() => root.open())) {
+    panel = new DeferredPanel(root, hiddenUntilFound, keepMounted, PANEL_DIMENSIONS, createPanel);
+  } else {
+    panel = createPanel();
+  }
   let publicState: AccordionPanelState | undefined;
   return {
     id,
@@ -294,7 +321,10 @@ function createRenderedPanel(
 }
 
 /** The public panel state: the item's state and the transition status, as own getters. */
-function createPanelState(state: AccordionItemState, panel: CollapsiblePanelHook): AccordionPanelState {
+function createPanelState(
+  state: AccordionItemState,
+  panel: CollapsiblePanelHook,
+): AccordionPanelState {
   return {
     get value() {
       return state.value;
