@@ -8,6 +8,10 @@ verified: 2026-10-17
 
 The living playbook for moving a family onto the native kit (D15): read it before writing a family's leaves, and add to it after every unit what worked, what failed and the recipe that came out of it. A family is done at the exit bar (within 1.25x of the hand-written floor and below React on every metric, closed and open, browser and SSR), not when its parts are native.
 
+## Family order
+
+The slow path is the largest bucket of library time, and only native ports shrink it (core-audit, "The slow path after the core phase"). Within phase 5, take a family's parts in order of their slow-path share in the latest attribution (`attribution.mjs`, the render-element bucket by component): among the list families, Combobox (497 ms expected) and Select (461 ms) come first.
+
 ## Unit loop
 
 1. Red: cost tests at the native budget in a `*.cost.test.tsx` (nodes beyond a plain element, `expectNativePath` on every measured part), a `<Family>.parity.test.tsx` through `test/parityHarness.tsx`, and `*.ssr-fixtures.tsx` with a hydration test that updates after hydration and compares with a client render. Run them to see them fail.
@@ -33,6 +37,8 @@ The living playbook for moving a family onto the native kit (D15): read it befor
 - The server prints numbers as written (`inset-inline-start:0`) where the CSSOM reports `0px`: compare hydrated styles through the CSSOM.
 - `typecheck` (pre-commit and verify) covers the whole working tree, so uncommitted work can fail an unrelated commit and a rebuilt tree can fail verify: typecheck before rebuilding a commit.
 - A tooling change needs its end-to-end path run, not only its unit tests: a `const` shadowing `run()` in `bench:component`'s main passed every unit test and failed on the Mac. `base-ui-bench-component-main.test.ts` and `base-ui-scripts-lint.test.ts` now catch that class locally.
+- Pin a cost's mechanism with a direct probe before designing its fix: untrack one candidate input at a time and count recomputes (4.3a found the trigger this way after two guesses from the profile were wrong). Reading the profile alone named the symptom, not the source.
+- A cache in front of the props view's per-key reads (4.3b) made every key's read depend on the whole key layout, so adding one attribute re-read every other prop, against `useRenderElement.reactivity`. Per-key granularity needs a projection, which takes a hydration id and so a node on every view. The per-key contract already stops each read at its winning source, so the gain was small, not the estimated half of the read path.
 - A generic native lane inside `useRenderElement` breaks its per-key and dynamic-key contracts (D14): port per part.
 - Before D16 the rule's tolerance was the summed p90 spreads, which one slow sample per side decides at ten samples: a 2x server drop at 597b2a75 (96.9 to 47.4 ms) read "same". Read verdicts from runs before D16 as unjudged.
 
