@@ -1,7 +1,7 @@
 ---
 tags: [store, state, helpers, compat]
 sources: [packages/base-ui/packages/solid/src/utils/store/SolidStoreV2.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/native/context.ts]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Store and state
@@ -27,7 +27,7 @@ Users: popup stores (`utils/popups/store.ts`, Dialog, Popover, Menu, Tooltip, Pr
 | Method | Behavior | Cost |
 | :--- | :--- | :--- |
 | `useState(key)` | A key, or a selector returning one key as is (probed once, `directSelectorKey`), reads the slot. A derived selector gets a transparent memo on first tracked read. | 0 or 1 memo |
-| `select(key, …args)` | Runs the selector; no memo. | Per call |
+| `select(key, …args)` | Runs the selector; no memo. A selector declared with `keyedSelector(current)` ("is `id` the current one") reads, when tracked on the client, one keyed projection per store and selector (`createKeyedSelector` in `runInLazyScope` of the store's owner), so moving the current id re-runs two readers, not all of them. | Per call; 1 projection per keyed selector |
 | `useSyncedValue`, `useControlledProp`, `useSyncedValues` | `bindStoreKey`: a writable derived signal, created on first read. `set` overrides it until the source changes; cleanup keeps the last value (`useSyncedValueWithCleanup` clears it). | 1 signal on read |
 | `observe(selector, listener)` | Calls once, then after each changing write; records read keys through a Proxy and starts one notifier effect per watched binding. | 1 effect per watched binding |
 | `useStateSetter(key)` | Ref-style setter; `null` clears only its own write. | None |

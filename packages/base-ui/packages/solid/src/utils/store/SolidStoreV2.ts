@@ -1,6 +1,7 @@
 import {
   isDisposed,
   createEffect,
+  createOwner,
   createMemo,
   createSignal,
   getObserver,
@@ -14,6 +15,8 @@ import { isServer } from '@solidjs/web';
 import { access, createDepsEffect, createDepsMemo } from '../../solid-helpers';
 import type { MaybeAccessor, MaybeAccessorValue } from '../../solid-helpers';
 import { NOOP } from '../empty';
+import { createKeyedSelector } from '../createKeyedSelector';
+import { runInLazyScope } from '../runInLazyScope';
 import type { SetStoreFunction } from '../../solid-1-compat';
 
 const storeBinders = new WeakMap<
@@ -24,6 +27,28 @@ const storeBinders = new WeakMap<
 const storeActivators = new WeakMap<object, (keys: Iterable<PropertyKey> | true) => void>();
 // Notifies a store's listeners (`observe`) without a write.
 const storeNotifiers = new WeakMap<object, () => void>();
+
+// The current-key reader of each selector declared with `keyedSelector`.
+const keyedSelectorKeys = new WeakMap<Function, (state: any) => unknown>();
+
+/**
+ * A selector answering "is `id` the store's current one", where `key` reads the current one
+ * (`undefined` for none). Declared keyed, a tracked `select` of it subscribes the reader to `id`
+ * only: when the current one moves, the readers of the old and the new id re-run, not every reader.
+ * Any other read (untracked, the server, `observe`) calls it as a plain selector.
+ */
+export function keyedSelector<State extends object, Id = string>(
+  key: (state: State) => Id | null | undefined,
+) {
+  const selector = (state: State, id: Accessor<Id | undefined>) => {
+    const value = id();
+    return value !== undefined && key(state) === value;
+  };
+  keyedSelectorKeys.set(selector, key);
+  return selector;
+}
+
+type KeyedSelector = (state: any, id: Accessor<unknown>) => boolean;
 
 /**
  * A Store that supports controlled state keys, non-reactive values and provides utility methods for React.
@@ -40,6 +65,31 @@ export function SolidStore<
   let controlledValues: Map<keyof State, boolean> | undefined;
   const context = initialContext;
   const [state, setState] = createInitialStore(initialState);
+  // Keyed selectors' memberships (`keyedSelector`), one per selector, created on its first tracked
+  // read in a lazy scope of the owner the store was created under: they live as long as the store.
+  // A store created outside any owner (a detached trigger's handle) gets an owner of its own, as a
+  // first read can come from an effect callback, where an ownerless computation is an error.
+  const storeOwner = getOwner() ?? (selectors && !isServer ? createOwner() : null);
+  const memberships = new Map<KeyedSelector, (id: unknown) => boolean>();
+
+  function selectKeyed(selector: KeyedSelector, id: Accessor<unknown>): boolean {
+    if (isServer || getObserver() === null || (storeOwner !== null && isDisposed(storeOwner))) {
+      return selector(state, id);
+    }
+    let isCurrent = memberships.get(selector);
+    if (isCurrent === undefined) {
+      const key = keyedSelectorKeys.get(selector)!;
+      isCurrent = runInLazyScope(storeOwner, () =>
+        createKeyedSelector(() => {
+          const current = key(state);
+          return current === undefined ? [] : [current];
+        }),
+      );
+      memberships.set(selector, isCurrent);
+    }
+    const value = id();
+    return value !== undefined && isCurrent(value);
+  }
 
   function update<const Key extends keyof State>(statePart: Pick<State, Key>) {
     setState(statePart as any);
@@ -169,7 +219,13 @@ export function SolidStore<
     if (!selectors) {
       throw new Error('Base UI: SolidStore.select called but no selectors were provided.');
     }
-    return selectors[key](state, ...args);
+    const selector = selectors[key];
+    if (keyedSelectorKeys.has(selector)) {
+      return selectKeyed(selector as KeyedSelector, args[0] as Accessor<unknown>) as ReturnType<
+        Selectors[Key]
+      >;
+    }
+    return selector(state, ...args);
   }
 
   function useState<Key extends keyof Selectors>(
@@ -191,7 +247,9 @@ export function SolidStore<
           : () => state[directKey as keyof State] as any;
       return () => (getObserver() === null ? untrack(read) : read());
     }
-    const compute = () => selector!(state, ...args);
+    const compute = keyedSelectorKeys.has(selector!)
+      ? () => select(key, ...args)
+      : () => selector!(state, ...args);
     const owner = getOwner();
     let selected: Accessor<any> | undefined;
     return () => {
