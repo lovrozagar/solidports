@@ -131,14 +131,18 @@ function resolve(callFrame) {
   const file = fileOf(callFrame.url);
   const map = file && mapOf(file);
   let source = callFrame.url;
+  let line = callFrame.lineNumber + 1;
   if (map) {
     const position = originalPositionFor(map, {
       line: callFrame.lineNumber + 1,
       column: callFrame.columnNumber,
     });
-    if (position.source) source = position.source;
+    if (position.source) {
+      source = position.source;
+      line = position.line ?? line;
+    }
   }
-  const result = { source, name: callFrame.functionName };
+  const result = { source, name: callFrame.functionName, line };
   resolved.set(key, result);
   return result;
 }
@@ -153,6 +157,7 @@ function attribute(cpu, heap) {
   const bytes = attributeAllocations(heap, resolve);
   return {
     ms: time.ms,
+    fns: time.fns,
     runtime: time.runtime,
     gcMs: time.gcMs,
     // Busy time: idle and the profiler's own work left out.
@@ -162,9 +167,18 @@ function attribute(cpu, heap) {
   };
 }
 
-const empty = () => ({ ms: {}, runtime: {}, gcMs: 0, totalMs: 0, bytes: {}, gcShare: {} });
+const empty = () => ({
+  ms: {},
+  fns: {},
+  runtime: {},
+  gcMs: 0,
+  totalMs: 0,
+  bytes: {},
+  gcShare: {},
+});
 function merge(into, part) {
   add(into.ms, part.ms);
+  for (const [bucket, fns] of Object.entries(part.fns ?? {})) add((into.fns[bucket] ??= {}), fns);
   add(into.runtime, part.runtime);
   add(into.bytes, part.bytes);
   add(into.gcShare, part.gcShare);
@@ -359,6 +373,19 @@ lines.push(
     .map(
       (pkg) => `| ${pkg} | ${fmt(totals.browser.runtime[pkg])} | ${fmt(totals.ssr.runtime[pkg])} |`,
     ),
+  '',
+  '## Inside the candidates (top functions by self ms, browser + SSR)',
+  '',
+  ...CANDIDATES.flatMap((candidate) => {
+    const fns = {};
+    for (const side of [totals.browser, totals.ssr]) add(fns, side.fns[candidate.id] ?? {});
+    const top = Object.entries(fns)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+    return top.length
+      ? [`- ${candidate.id}: ${top.map(([name, value]) => `${name} ${fmt(value)}`).join(', ')}`]
+      : [];
+  }),
   '',
   '## Library files outside the candidates (top 20, self + GC share)',
   '',
