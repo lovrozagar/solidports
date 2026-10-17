@@ -202,7 +202,9 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
   // measurement and transition machinery and the panel's state are created when the panel first
   // renders and kept for the part's lifetime, owned by the part.
   const shouldRender = () =>
-    Boolean(props.keepMounted || props.hiddenUntilFound) || root.mounted() || root.open();
+    Boolean(props.keepMounted || props.hiddenUntilFound) ||
+    root.open() ||
+    root.mountedWhileClosed();
   let rendered: ReturnType<typeof createRenderedPanel> | undefined;
 
   return createNativeConditional(owner, shouldRender, () => {

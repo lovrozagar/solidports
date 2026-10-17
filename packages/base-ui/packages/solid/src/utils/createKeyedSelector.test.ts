@@ -1,4 +1,4 @@
-import { createEffect, createRoot, createSignal, flush } from 'solid-js';
+import { createEffect, createRenderEffect, createRoot, createSignal, flush } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { createKeyedSelector } from './createKeyedSelector';
 
@@ -40,6 +40,58 @@ describe('createKeyedSelector', () => {
     flush();
     expect(Object.fromEntries(seen)).toEqual({ a: false, b: true, c: false });
     expect(Object.fromEntries(runs)).toEqual({ a: 1, b: 1, c: 0 });
+    dispose();
+  });
+
+  // A selector rewrite must stay pulled: a writer that applies membership in an effect leaves a
+  // reader that re-runs for another source in the same batch seeing the old membership with the
+  // new value of that source for one pass (measured 2026-10-17: `second:open` before
+  // `second:closed`), an inconsistent render. Pins the projection's consistency.
+  it('never shows a reader a membership older than another source changed in the same batch', () => {
+    const [values, setValues] = createSignal<readonly string[]>(['a']);
+    const [label, setLabel] = createSignal('first');
+    const seen: string[] = [];
+    const dispose = createRoot((disposeRoot) => {
+      const isSelected = createKeyedSelector(values);
+      const bound = isSelected.forKey('a');
+      createRenderEffect(
+        () => `${label()}:${isSelected('a') ? 'open' : 'closed'}:${bound() ? 'open' : 'closed'}`,
+        (value) => {
+          seen.push(value);
+        },
+      );
+      return disposeRoot;
+    });
+    flush();
+    setValues([]);
+    setLabel('second');
+    flush();
+    expect(seen).toEqual(['first:open:open', 'second:closed:closed']);
+    dispose();
+  });
+
+  it('a read bound to one key with forKey follows that key as the plain read does', () => {
+    const [values, setValues] = createSignal<readonly unknown[]>(['a']);
+    const object = { id: 1 };
+    const seen: boolean[][] = [];
+    const dispose = createRoot((disposeRoot) => {
+      const isSelected = createKeyedSelector(values);
+      const reads = [isSelected.forKey('a'), isSelected.forKey(1), isSelected.forKey(object)];
+      createEffect(
+        () => reads.map((read) => read()),
+        (value) => {
+          seen.push(value);
+        },
+      );
+      return disposeRoot;
+    });
+    flush();
+    setValues([1, object]);
+    flush();
+    expect(seen).toEqual([
+      [true, false, false],
+      [false, true, true],
+    ]);
     dispose();
   });
 

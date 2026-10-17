@@ -9,7 +9,7 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { createControlledDevChecks } from '../../utils/useControlled';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { createLazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
-import type { LazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
+import type { LazyTransitionHandle } from '../../utils/createLazyTransitionStatus';
 import type { CollapsibleRoot, CollapsibleRootState } from './CollapsibleRoot';
 import { createIdRegistry } from '../../utils/native/registration';
 
@@ -71,7 +71,7 @@ export class CollapsibleRootModel {
   declare private readonly writeOpen: Setter<boolean> | undefined;
   /** Untracked reads (event handlers, effect callbacks) see the latest write at once. */
   declare private latestWrite: boolean | undefined;
-  declare private transition: LazyTransitionStatus | undefined;
+  declare private transition: LazyTransitionHandle | undefined;
   declare private readonly registeredPanelId: Accessor<string | null | undefined>;
   declare private publicState: CollapsibleRootState | undefined;
 
@@ -170,6 +170,11 @@ export class CollapsibleRootModel {
    */
   mounted(): boolean {
     return this.transition!.mounted();
+  }
+
+  /** `mounted` for a reader that has read `open` and seen it closed (one read of `open`, not two). */
+  mountedWhileClosed(): boolean {
+    return this.transition!.mountedWhileClosed();
   }
 
   transitionStatus(): TransitionStatus {

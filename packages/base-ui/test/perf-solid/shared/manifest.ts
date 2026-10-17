@@ -176,6 +176,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     "accordion cost against the hand-written floor > a panel's open reads its layout at most as often as the floor's, without motion",
     "accordion cost against the hand-written floor > a panel's open reads its layout at most as often as the floor's, with motion",
     "accordion cost against the hand-written floor > an item's open reads its membership at most 20 times",
+    "accordion cost against the hand-written floor > an item's mount reads its membership at most 10 times",
   ],
   'alert-dialog': [closedRoot('AlertDialog')],
   button: [

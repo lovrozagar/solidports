@@ -78,6 +78,8 @@ export class AccordionItemModel {
   declare readonly stateView: AccordionItemStateView;
 
   declare private readonly local: ItemProps;
+  /** The membership read bound to a value fixed for the item's lifetime, else `undefined`. */
+  declare private readonly boundOpen: (() => boolean) | undefined;
   declare private readonly fallbackValue: Accessor<string | undefined> | undefined;
   declare private readonly registeredTriggerId: Accessor<string | null | undefined>;
   declare private publicState: AccordionItemState | undefined;
@@ -93,6 +95,12 @@ export class AccordionItemModel {
         ? undefined
         : useBaseUiId();
     this.publicState = undefined;
+    // A fixed value binds its membership read once: each read is then one projection lookup, with
+    // no slot name built per read (the parts read it 10 times at mount, more on every open).
+    this.boundOpen =
+      this.fallbackValue === undefined
+        ? this.root.isOpen.forKey(untrack(() => local.value))
+        : undefined;
     // `open` is always this item's membership in the root's value: there is no mode to decide, so
     // the collapsible root reads it directly.
     this.collapsible = useCollapsibleRoot({
@@ -117,11 +125,11 @@ export class AccordionItemModel {
   }
 
   open() {
-    return this.root.isOpen(this.value());
+    return this.boundOpen !== undefined ? this.boundOpen() : this.root.isOpen(this.value());
   }
 
   hidden() {
-    return !this.open() && !this.collapsible.mounted();
+    return !this.open() && !this.collapsible.mountedWhileClosed();
   }
 
   triggerId() {

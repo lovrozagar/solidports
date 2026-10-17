@@ -26,10 +26,21 @@ vi.mock('../utils/createKeyedSelector', async (importOriginal) => {
   return {
     createKeyedSelector: (values: Parameters<typeof actual.createKeyedSelector>[0]) => {
       const isSelected = actual.createKeyedSelector(values);
-      return (key: unknown) => {
-        membership.reads += 1;
-        return isSelected(key);
-      };
+      return Object.assign(
+        (key: unknown) => {
+          membership.reads += 1;
+          return isSelected(key);
+        },
+        {
+          forKey: (key: unknown) => {
+            const read = isSelected.forKey(key);
+            return () => {
+              membership.reads += 1;
+              return read();
+            };
+          },
+        },
+      );
     },
   };
 });
@@ -308,6 +319,18 @@ describe('accordion cost against the hand-written floor', () => {
   // An item's open re-reads its membership once per node that depends on it, not once per
   // dependency of every pass of its panel's machinery (plan 3 leaf 5.1.3 (b)): each read is a
   // projection lookup, 12% of open all at 300.
+  // A closed item reads its membership once per element's attribute pass and per panel condition
+  // (plan 3 leaf 5.1.4): `hidden` and the panel's condition read `mounted` after `open`, which a
+  // closed item answers without reading `open` again.
+  it("an item's mount reads its membership at most 10 times", () => {
+    membership.reads = 0;
+    const view = render(() => controlled.part(() => false));
+    flush();
+    const reads = membership.reads;
+    view.unmount();
+    expect(reads, `membership reads ${reads}`).toBeLessThanOrEqual(10);
+  });
+
   it("an item's open reads its membership at most 20 times", async () => {
     const [open, setOpen] = createSignal(false);
     const view = render(() => controlled.part(open));

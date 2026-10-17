@@ -12,6 +12,16 @@ export interface LazyTransitionStatus {
   setMounted(mounted: boolean): void;
 }
 
+/** The lazy handle: the status, plus `mounted` for a reader that has already read `open`. */
+export interface LazyTransitionHandle extends LazyTransitionStatus {
+  /**
+   * `mounted` for a reader that has read `open` and seen it closed: before the machinery exists
+   * the element is unmounted, and the reader's own read of `open` re-runs it on the open that
+   * creates it, so `open` is not read a second time.
+   */
+  mountedWhileClosed(): boolean;
+}
+
 export interface LazyTransitionStatusOptions {
   enableIdleState?: boolean | undefined;
   deferEndingState?: boolean | undefined;
@@ -49,7 +59,7 @@ export interface LazyTransitionStatusOptions {
 export function createLazyTransitionStatus(
   open: () => boolean,
   options: LazyTransitionStatusOptions = {},
-): LazyTransitionStatus {
+): LazyTransitionHandle {
   const owner = getOwner();
   let transition: LazyTransitionStatus | undefined;
 
@@ -115,6 +125,7 @@ export function createLazyTransitionStatus(
 
   return {
     mounted: () => ensure()?.mounted() ?? false,
+    mountedWhileClosed: () => transition?.mounted() ?? false,
     transitionStatus: () => ensure()?.transitionStatus(),
     setMounted(mounted) {
       if (transition === undefined) {
