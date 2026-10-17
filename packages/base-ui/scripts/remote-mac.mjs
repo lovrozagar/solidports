@@ -7,12 +7,16 @@
 //
 // macOS has no `flock` or `timeout`, so the run installs small Python stand-ins in ~/.gates/bin:
 // an fcntl lock released when its holder dies, and a timeout that kills the command's process
-// group. Every run holds ~/.gates/heavy.flock (other repos' Mac gates take the same lock); the
-// suites inside a run order themselves on a lock of their own, so the two never deadlock.
+// group. Every run holds ~/.gates/heavy.flock (other repos' Mac gates take the same lock) from its
+// checkout to the copy of its `--fetch` files, since all runs share the one checkout: a run queued
+// behind another must not move the tree under it. Each run sends its own bundle and collects its
+// files in its own folder. The suites inside a run order themselves on a lock of their own, so the
+// two never deadlock.
 //
 // Usage (from the monorepo root):
 //   node packages/base-ui/scripts/remote-mac.mjs <sha> [--timeout 1200] [--fetch <path>]... -- <command>
 //   e.g. ... HEAD -- bun run test:base-ui:all --only chromium
+// The timeout covers the checkout and install too, which run under the lock.
 import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -120,8 +124,35 @@ except subprocess.TimeoutExpired:
     end(124, f'killed after {limit:g}s')
 `;
 
-/** The remote script: shims, checkout, install, then the command under the lock. */
-export function remoteScript({ sha, timeout, command }) {
+/**
+ * The run inside the lock: clone once, check out the commit from the run's bundle, install, run
+ * the command, then copy the `fetch` files to the run's own folder (`~/<outDir>`).
+ */
+export function lockedScript({ sha, command, bundle, ref, fetch = [], outDir }) {
+  const collect = fetch
+    .map(
+      (file) =>
+        `mkdir -p "$(dirname ~/${outDir}/${quote(file)})" && cp -R ${quote(file)} ~/${outDir}/${quote(file)} || echo "remote-mac: could not collect "${quote(file)}`,
+    )
+    .join('\n');
+  return `[ -d ${REMOTE_REPO}/.git ] || git clone -q ${REPO_URL} ${REMOTE_REPO} || exit 1
+cd ${REMOTE_REPO} || exit 1
+git fetch -q origin main || exit 1
+git fetch -q ~/${bundle} ${ref} || exit 1
+rm -f ~/${bundle}
+git checkout -q --detach ${quote(sha)} || exit 1
+echo "remote-mac: at $(git log --oneline -1)"
+bun install --frozen-lockfile > /tmp/solidports-install.log 2>&1 || { tail -20 /tmp/solidports-install.log; exit 1; }
+${command.map(quote).join(' ')}
+code=$?
+mkdir -p ~/${outDir}
+${collect}
+exit $code
+`;
+}
+
+/** The remote script: shims, then the checkout, install and command under the lock. */
+export function remoteScript({ sha, timeout, command, bundle, ref, fetch = [], outDir }) {
   return `set -uo pipefail
 export PATH="$HOME/.gates/bin:$HOME/.bun/bin:$HOME/.local/node/bin:$PATH"
 mkdir -p ~/.gates/bin
@@ -130,15 +161,8 @@ ${FLOCK_SHIM}SHIM
 cat > ~/.gates/bin/timeout <<'SHIM'
 ${TIMEOUT_SHIM}SHIM
 chmod +x ~/.gates/bin/flock ~/.gates/bin/timeout
-[ -d ${REMOTE_REPO}/.git ] || git clone -q ${REPO_URL} ${REMOTE_REPO} || exit 1
-cd ${REMOTE_REPO}
-git fetch -q origin main || exit 1
-git fetch -q ~/solidports-remote.bundle refs/remote-mac/run || exit 1
-git checkout -q --detach ${quote(sha)} || exit 1
-echo "remote-mac: at $(git log --oneline -1)"
-bun install --frozen-lockfile > /tmp/solidports-install.log 2>&1 || { tail -20 /tmp/solidports-install.log; exit 1; }
 flock -n ~/.gates/heavy.flock true || echo "remote-mac: waiting for ~/.gates/heavy.flock ($(cat ~/.gates/heavy.flock 2>/dev/null) holds it)"
-${lockedRun(timeout, command)}`;
+${lockedRun(timeout, ['bash', '-c', lockedScript({ sha, command, bundle, ref, fetch, outDir })])}`;
 }
 
 /**
@@ -177,11 +201,13 @@ function run(command, args, options = {}) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   options.sha = run('git', ['rev-parse', options.sha]).trim();
-  const bundle = path.join(root, '.tmp/grunt/solidports-remote.bundle');
+  // Every name a run uses is its own, so runs started together never share a file or a ref.
+  const stamp = `${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}`;
+  const bundle = path.join(root, `.tmp/grunt/remote-mac/${stamp}.bundle`);
   fs.mkdirSync(path.dirname(bundle), { recursive: true });
   const base = run('git', ['merge-base', 'origin/main', options.sha]).trim();
   // A bundle carries refs, not bare commits: a temporary ref (not a branch) names the commit.
-  const ref = 'refs/remote-mac/run';
+  const ref = `refs/remote-mac/${stamp}`;
   run('git', ['update-ref', ref, options.sha]);
   try {
     // At origin/main itself the clone already has the commit; the bundle still needs one.
@@ -189,9 +215,11 @@ async function main() {
   } finally {
     run('git', ['update-ref', '-d', ref]);
   }
-  run('scp', ['-q', bundle, `${HOST}:solidports-remote.bundle`]);
+  const remoteBundle = `solidports-remote-${stamp}.bundle`;
+  const outDir = `.gates/remote-mac-out/${stamp}`;
+  run('scp', ['-q', bundle, `${HOST}:${remoteBundle}`]);
+  fs.rmSync(bundle);
 
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const log = path.join(root, `.tmp/grunt/remote-mac/${stamp}.log`);
   fs.mkdirSync(path.dirname(log), { recursive: true });
   console.log(`remote-mac: ${options.sha.slice(0, 12)} on ${HOST}; log ${path.relative(root, log)}`);
@@ -207,19 +235,20 @@ async function main() {
       out.write(chunk);
     });
     child.on('close', resolve);
-    child.stdin.end(remoteScript(options));
+    child.stdin.end(remoteScript({ ...options, bundle: remoteBundle, ref, outDir }));
   });
   out.end();
   for (const file of options.fetch) {
     const target = path.join(root, '.tmp/grunt/remote-mac', stamp, file);
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    const copy = spawnSync('scp', ['-q', '-r', `${HOST}:${REMOTE_REPO.slice(2)}/${file}`, target]);
+    const copy = spawnSync('scp', ['-q', '-r', `${HOST}:${outDir}/${file}`, target]);
     console.log(
       copy.status === 0
         ? `remote-mac: fetched ${file} → ${path.relative(root, target)}`
         : `remote-mac: could not fetch ${file}`,
     );
   }
+  spawnSync('ssh', [HOST, `rm -rf ${quote(outDir)} ${quote(remoteBundle)}`]);
   console.log(`remote-mac: exit ${code}`);
   process.exit(code ?? 1);
 }
