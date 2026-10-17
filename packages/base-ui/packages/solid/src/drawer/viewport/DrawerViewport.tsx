@@ -5,7 +5,12 @@ import { ownerDocument, ownerWindow } from '../../utils/owner';
 import { useAnimationFrame } from '../../utils/useAnimationFrame';
 import { clamp } from '../../utils/clamp';
 import { flushSync } from '../../utils/flushSync';
-import { createDepsEffect, createDepsRenderEffect, createLayoutEffect } from '../../solid-helpers';
+import {
+  createDepsEffect,
+  createDepsRenderEffect,
+  createLayoutEffect,
+  provideContext,
+} from '../../solid-helpers';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { DialogViewport } from '../../dialog/viewport/DialogViewport';
 import * as DialogViewportDataAttributes from '../../dialog/viewport/DialogViewportDataAttributes';
@@ -1074,7 +1079,9 @@ export function DrawerViewport(props: DrawerViewport.Props) {
         },
       ])}
     >
-      <DrawerViewportContext value={swipeProviderValue}>{props.children}</DrawerViewportContext>
+      {provideContext(DrawerViewportContext, swipeProviderValue, () => (
+        <>{props.children}</>
+      ))}
     </DialogViewport>
   );
 }

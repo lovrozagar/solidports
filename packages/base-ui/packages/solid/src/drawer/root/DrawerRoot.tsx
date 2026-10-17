@@ -4,10 +4,11 @@ import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { RenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
 import type { DrawerHandle } from '../handle';
 import {
-  createDepsEffect,
   ComponentWithPayload,
+  createDepsEffect,
   createLayoutEffect,
   isAbsentProp,
+  provideContext,
 } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -184,37 +185,35 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
     notifyParentHasNestedDrawer,
   };
 
-  return (
-    <DrawerRootContext value={contextValue}>
-      <RenderDialogRoot
-        mode="drawer"
-        open={openProp()}
-        defaultOpen={defaultOpen()}
-        onOpenChange={handleOpenChange}
-        onOpenChangeComplete={props.onOpenChangeComplete}
-        disablePointerDismissal={disablePointerDismissal()}
-        modal={modal()}
-        actionsRef={props.actionsRef}
-        // Forwarded only when given, so a Drawer without a handle creates no handle attachment.
-        {...(isAbsentProp(props, 'handle')
-          ? undefined
-          : {
-              get handle() {
-                return props.handle;
-              },
-            })}
-        triggerId={triggerIdProp()}
-        defaultTriggerId={defaultTriggerIdProp()}
-      >
-        {(data) => (
-          <>
-            <DrawerProviderReporter />
-            <ComponentWithPayload payload={() => data.payload} children={props.children} />
-          </>
-        )}
-      </RenderDialogRoot>
-    </DrawerRootContext>
-  );
+  return provideContext(DrawerRootContext, contextValue, () => (
+    <RenderDialogRoot
+      mode="drawer"
+      open={openProp()}
+      defaultOpen={defaultOpen()}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={props.onOpenChangeComplete}
+      disablePointerDismissal={disablePointerDismissal()}
+      modal={modal()}
+      actionsRef={props.actionsRef}
+      // Forwarded only when given, so a Drawer without a handle creates no handle attachment.
+      {...(isAbsentProp(props, 'handle')
+        ? undefined
+        : {
+            get handle() {
+              return props.handle;
+            },
+          })}
+      triggerId={triggerIdProp()}
+      defaultTriggerId={defaultTriggerIdProp()}
+    >
+      {(data) => (
+        <>
+          <DrawerProviderReporter />
+          <ComponentWithPayload payload={() => data.payload} children={props.children} />
+        </>
+      )}
+    </RenderDialogRoot>
+  ));
 }
 
 export interface DrawerRootState {}

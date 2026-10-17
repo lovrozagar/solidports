@@ -1,7 +1,7 @@
 import { usePositioner } from '../../utils/usePositioner';
 
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
-import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
+import { createLayoutEffect, provideContext, splitComponentProps } from '../../solid-helpers';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
@@ -137,11 +137,9 @@ export function PreviewCardPositioner(componentProps: PreviewCardPositioner.Prop
     },
   });
 
-  return (
-    <PreviewCardPositionerContext value={contextValue}>
-      <FloatingNode id={nodeId()}>{element()}</FloatingNode>
-    </PreviewCardPositionerContext>
-  );
+  return provideContext(PreviewCardPositionerContext, contextValue, () => (
+    <FloatingNode id={nodeId()}>{element()}</FloatingNode>
+  ));
 }
 
 export interface PreviewCardPositionerState {

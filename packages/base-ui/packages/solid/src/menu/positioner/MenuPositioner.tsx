@@ -2,7 +2,7 @@ import { createMemo, Show } from 'solid-js';
 import { useContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
 import { FloatingNode } from '../../floating-ui-solid';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
-import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
+import { createDepsEffect, provideContext, splitComponentProps } from '../../solid-helpers';
 import { DROPDOWN_COLLISION_AVOIDANCE, POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
@@ -351,8 +351,8 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
     return null;
   };
 
-  return (
-    <MenuPositionerContext value={positioner}>
+  return provideContext(MenuPositionerContext, positioner, () => (
+    <>
       <Show when={shouldRenderBackdrop()}>
         <InternalBackdrop
           managed
@@ -380,8 +380,8 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
           {element()}
         </CompositeList>
       </FloatingNode>
-    </MenuPositionerContext>
-  );
+    </>
+  ));
 }
 
 export interface MenuPositionerState {

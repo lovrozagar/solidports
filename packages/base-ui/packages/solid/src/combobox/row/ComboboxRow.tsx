@@ -1,4 +1,4 @@
-import { splitComponentProps } from '../../solid-helpers';
+import { provideContext, splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { ComboboxRowContext } from './ComboboxRowContext';
@@ -17,7 +17,7 @@ export function ComboboxRow(componentProps: ComboboxRow.Props) {
     props: [{ role: 'row' }, elementProps],
   });
 
-  return <ComboboxRowContext value>{element()}</ComboboxRowContext>;
+  return provideContext(ComboboxRowContext, true, () => <>{element()}</>);
 }
 
 export interface ComboboxRowState {}

@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { provideContext } from '../../solid-helpers';
 
 interface GroupCollectionContext {
   items: Accessor<readonly any[]>;
@@ -17,7 +18,7 @@ export function GroupCollectionProvider(props: GroupCollectionProvider.Props) {
     items: () => props.items,
   };
 
-  return <GroupCollectionContext value={contextValue}>{props.children}</GroupCollectionContext>;
+  return provideContext(GroupCollectionContext, contextValue, () => <>{props.children}</>);
 }
 
 namespace GroupCollectionProvider {

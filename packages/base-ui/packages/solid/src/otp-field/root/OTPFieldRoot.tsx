@@ -13,7 +13,7 @@ import { useAriaLabelledBy } from '../../internals/labelable-provider/useAriaLab
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useControlled } from '../../utils/useControlled';
-import { createDepsEffect, splitComponentProps, useRef } from '../../solid-helpers';
+import { createDepsEffect, provideContext, splitComponentProps, useRef } from '../../solid-helpers';
 import {
   createChangeEventDetails,
   createGenericEventDetails,
@@ -482,34 +482,36 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
         setInputCount(newMap.length);
       }}
     >
-      <OTPFieldRootContext value={contextValue}>
-        {element()}
-        {hasValidLength() && (
-          <input
-            {...(hiddenInputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)}
-            ref={(el) => {
-              validation.inputRef.current = el;
-              releaseServerFormState(el);
-            }}
-            type="text"
-            id={id() && name() == null ? `${id()}-hidden-input` : undefined}
-            form={form()}
-            name={name()}
-            value={value()}
-            autocomplete={autoComplete()}
-            inputmode={inputMode()}
-            minlength={length()}
-            maxlength={length()}
-            pattern={hiddenInputPattern()}
-            disabled={disabled()}
-            readonly={readOnly()}
-            required={required()}
-            aria-hidden="true"
-            tabindex={-1}
-            style={name() ? visuallyHiddenInput : visuallyHidden}
-          />
-        )}
-      </OTPFieldRootContext>
+      {provideContext(OTPFieldRootContext, contextValue, () => (
+        <>
+          {element()}
+          {hasValidLength() && (
+            <input
+              {...(hiddenInputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)}
+              ref={(el) => {
+                validation.inputRef.current = el;
+                releaseServerFormState(el);
+              }}
+              type="text"
+              id={id() && name() == null ? `${id()}-hidden-input` : undefined}
+              form={form()}
+              name={name()}
+              value={value()}
+              autocomplete={autoComplete()}
+              inputmode={inputMode()}
+              minlength={length()}
+              maxlength={length()}
+              pattern={hiddenInputPattern()}
+              disabled={disabled()}
+              readonly={readOnly()}
+              required={required()}
+              aria-hidden="true"
+              tabindex={-1}
+              style={name() ? visuallyHiddenInput : visuallyHidden}
+            />
+          )}
+        </>
+      ))}
     </CompositeList>
   );
 }

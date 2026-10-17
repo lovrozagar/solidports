@@ -3,6 +3,7 @@ import { FloatingPortalLite } from '../../utils/FloatingPortalLite';
 import { usePreviewCardRootContext } from '../root/PreviewCardContext';
 import { PreviewCardPortalContext } from './PreviewCardPortalContext';
 import { splitProps } from '../../solid-1-compat';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -22,9 +23,9 @@ export function PreviewCardPortal(props: PreviewCardPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <PreviewCardPortalContext value={keepMounted}>
+      {provideContext(PreviewCardPortalContext, keepMounted, () => (
         <FloatingPortalLite {...portalProps} />
-      </PreviewCardPortalContext>
+      ))}
     </Show>
   );
 }

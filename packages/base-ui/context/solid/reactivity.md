@@ -70,7 +70,7 @@ A `{ effect, error }` second argument routes compute-phase errors to `error`. An
 - `createContext(default)` returns a provider function. A provider is `createRoot` + `setContext` + `children()` (`solid.js:6`).
 - `getContext` throws `ContextNotFoundError` when both the provided value and the default are `undefined` (`core/context.js:35`). Port contexts default to `null`, so compare with `!= null`.
 - `setContext` copies the owner's whole context record on each call (`core/context.js:55`).
-- `provideContext` (`solid-helpers.tsx`) provides a context to what `render` creates: on the client after hydration under one transparent owner (`createContextOwner`), on the server and while hydrating through the provider (50 sites). Native parts use `provideNativeContext` (`utils/native/context.ts`), the same on the client. Costs are in [primitive costs](primitive-costs.md).
+- `provideContext` (`solid-helpers.tsx`) provides a context to what `render` creates: on the client after hydration under one transparent owner (`createContextOwner`), on the server and while hydrating through the provider (111 sites). Native parts use `provideNativeContext` (`utils/native/context.ts`), the same on the client. Costs are in [primitive costs](primitive-costs.md).
 
 ## Disposal order
 

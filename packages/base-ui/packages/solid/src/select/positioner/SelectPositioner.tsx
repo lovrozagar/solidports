@@ -3,7 +3,7 @@ import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
-import { createDepsEffect, splitComponentProps, useRef } from '../../solid-helpers';
+import { createDepsEffect, provideContext, splitComponentProps, useRef } from '../../solid-helpers';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import { DROPDOWN_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -258,12 +258,14 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
       refs={{ elements: listRef.current, labels: labelsRef.current }}
       onMapChange={onMapChange}
     >
-      <SelectPositionerContext value={contextValue}>
-        <Show when={mounted() && modal()}>
-          <InternalBackdrop managed inert={!open()} cutout={triggerElement()} />
-        </Show>
-        <FloatingNode id={nodeId()}>{element()}</FloatingNode>
-      </SelectPositionerContext>
+      {provideContext(SelectPositionerContext, contextValue, () => (
+        <>
+          <Show when={mounted() && modal()}>
+            <InternalBackdrop managed inert={!open()} cutout={triggerElement()} />
+          </Show>
+          <FloatingNode id={nodeId()}>{element()}</FloatingNode>
+        </>
+      ))}
     </CompositeList>
   );
 }

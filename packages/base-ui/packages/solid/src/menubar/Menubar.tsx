@@ -3,7 +3,7 @@ import type { ParentProps } from 'solid-js';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
 import { FloatingNode, FloatingTree, useFloatingNodeId } from '../floating-ui-solid';
 import type { MenuRoot } from '../menu/root/MenuRoot';
-import { splitComponentProps, useRef } from '../solid-helpers';
+import { provideContext, splitComponentProps, useRef } from '../solid-helpers';
 import type { StateAttributesMapping } from '../utils/getStateAttributesProps';
 import type { BaseUIComponentProps } from '../utils/types';
 import { useBaseUiId } from '../utils/useBaseUiId';
@@ -90,37 +90,35 @@ export function Menubar(props: Menubar.Props) {
     setContentElement,
   };
 
-  return (
-    <MenubarContext value={context}>
-      <FloatingTree>
-        <MenubarContent>
-          <CompositeRoot
-            render={renderProps.render}
-            class={renderProps.class}
-            state={state}
-            stateAttributesMapping={menubarStateAttributesMapping}
-            refs={[
-              (el) => {
-                if (typeof props.ref === 'function') {
-                  props.ref(el as HTMLDivElement);
-                } else {
-                  props.ref = el as any;
-                }
-              },
-              setContentElement,
-            ]}
-            props={[{ role: 'menubar', id: id(), 'aria-orientation': orientation() }, elementProps]}
-            orientation={orientation()}
-            loopFocus={loopFocus()}
-            enableHomeAndEndKeys
-            highlightItemOnHover={hasSubmenuOpen()}
-          >
-            {local.children}
-          </CompositeRoot>
-        </MenubarContent>
-      </FloatingTree>
-    </MenubarContext>
-  );
+  return provideContext(MenubarContext, context, () => (
+    <FloatingTree>
+      <MenubarContent>
+        <CompositeRoot
+          render={renderProps.render}
+          class={renderProps.class}
+          state={state}
+          stateAttributesMapping={menubarStateAttributesMapping}
+          refs={[
+            (el) => {
+              if (typeof props.ref === 'function') {
+                props.ref(el as HTMLDivElement);
+              } else {
+                props.ref = el as any;
+              }
+            },
+            setContentElement,
+          ]}
+          props={[{ role: 'menubar', id: id(), 'aria-orientation': orientation() }, elementProps]}
+          orientation={orientation()}
+          loopFocus={loopFocus()}
+          enableHomeAndEndKeys
+          highlightItemOnHover={hasSubmenuOpen()}
+        >
+          {local.children}
+        </CompositeRoot>
+      </MenubarContent>
+    </FloatingTree>
+  ));
 }
 
 function MenubarContent(props: ParentProps) {

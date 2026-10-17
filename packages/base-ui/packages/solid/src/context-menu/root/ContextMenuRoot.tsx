@@ -3,7 +3,7 @@ import type { JSX } from '@solidjs/web';
 import { Menu } from '../../menu';
 import type { MenuRoot } from '../../menu/root/MenuRoot';
 import { MenuRootContext } from '../../menu/root/MenuRootContext';
-import { useRef } from '../../solid-helpers';
+import { provideContext, useRef } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../types';
 import { useId } from '../../utils/useId';
 import { ContextMenuRootContext } from './ContextMenuRootContext';
@@ -45,12 +45,8 @@ export function ContextMenuRoot(props: ContextMenuRoot.Props) {
     setAnchor,
   };
 
-  return (
-    <ContextMenuRootContext value={contextValue}>
-      <MenuRootContext value={null}>
-        <Menu.Root {...props} />
-      </MenuRootContext>
-    </ContextMenuRootContext>
+  return provideContext(ContextMenuRootContext, contextValue, () =>
+    provideContext(MenuRootContext, null, () => <Menu.Root {...props} />),
   );
 }
 

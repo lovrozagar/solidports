@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { provideContext, splitComponentProps } from '../../solid-helpers';
 import { DROPDOWN_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import type { BaseUIComponentProps, BaseUIHTMLProps } from '../../utils/types';
@@ -148,8 +148,8 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
     },
   });
 
-  return (
-    <ComboboxPositionerContext value={contextValue}>
+  return provideContext(ComboboxPositionerContext, contextValue, () => (
+    <>
       <Show when={mounted() && modal()}>
         <InternalBackdrop
           managed
@@ -158,8 +158,8 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
         />
       </Show>
       {element()}
-    </ComboboxPositionerContext>
-  );
+    </>
+  ));
 }
 
 export interface ComboboxPositionerState {

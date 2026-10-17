@@ -2,7 +2,7 @@ import { isHTMLElement } from '@floating-ui/utils/dom';
 import { createMemo } from 'solid-js';
 import { COMPOSITE_KEYS } from '../../internals/composite/composite';
 import { FloatingFocusManager, useHoverFloatingInteraction } from '../../floating-ui-solid';
-import { splitComponentProps } from '../../solid-helpers';
+import { provideContext, splitComponentProps } from '../../solid-helpers';
 import { useToolbarRootContext } from '../../toolbar/root/ToolbarRootContext';
 import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -183,7 +183,9 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
       nextFocusableElement={store.context.triggerFocusTargetRef}
       beforeContentFocusGuardRef={store.context.beforeContentFocusGuardRef}
     >
-      <ClosePartContext value={closePartContext}>{element()}</ClosePartContext>
+      {provideContext(ClosePartContext, closePartContext, () => (
+        <>{element()}</>
+      ))}
     </FloatingFocusManager>
   );
 }

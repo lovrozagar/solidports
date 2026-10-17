@@ -3,6 +3,7 @@ import { FloatingPortal } from '../../floating-ui-solid';
 import { useComboboxRootContext } from '../root/ComboboxRootContext';
 import { ComboboxPortalContext } from './ComboboxPortalContext';
 import { splitProps } from '../../solid-1-compat';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -24,9 +25,9 @@ export function ComboboxPortal(props: ComboboxPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <ComboboxPortalContext value={keepMounted}>
+      {provideContext(ComboboxPortalContext, keepMounted, () => (
         <FloatingPortal {...portalProps} ref={props.ref} />
-      </ComboboxPortalContext>
+      ))}
     </Show>
   );
 }

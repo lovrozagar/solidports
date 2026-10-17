@@ -2,6 +2,7 @@ import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { DrawerProviderContext } from './DrawerProviderContext';
 import type { DrawerVisualState, DrawerVisualStateStore } from './DrawerProviderContext';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * Provides a shared context for coordinating global Drawer UI, such as indent/background effects based on whether any Drawer is open.
@@ -43,7 +44,7 @@ export function DrawerProvider(props: DrawerProvider.Props) {
     visualStateStore,
   };
 
-  return <DrawerProviderContext value={contextValue}>{props.children}</DrawerProviderContext>;
+  return provideContext(DrawerProviderContext, contextValue, () => <>{props.children}</>);
 }
 
 export interface DrawerProviderState {}

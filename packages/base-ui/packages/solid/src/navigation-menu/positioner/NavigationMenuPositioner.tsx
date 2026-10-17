@@ -5,7 +5,7 @@ import {
   isOutsideEvent,
 } from '../../floating-ui-solid/utils';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
-import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
+import { createDepsEffect, provideContext, splitComponentProps } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { adaptiveOrigin } from '../../utils/adaptiveOriginMiddleware';
 import { DROPDOWN_COLLISION_AVOIDANCE, POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
@@ -205,11 +205,7 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
     },
   });
 
-  return (
-    <NavigationMenuPositionerContext value={positioning}>
-      {element()}
-    </NavigationMenuPositionerContext>
-  );
+  return provideContext(NavigationMenuPositionerContext, positioning, () => <>{element()}</>);
 }
 
 export interface NavigationMenuPositionerState {

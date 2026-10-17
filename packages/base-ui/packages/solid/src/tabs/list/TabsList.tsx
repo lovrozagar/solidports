@@ -6,7 +6,7 @@ import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { useCompositeRoot } from '../../internals/composite/root/useCompositeRoot';
-import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
+import { createLayoutEffect, provideContext, splitComponentProps } from '../../solid-helpers';
 import { EMPTY_ARRAY } from '../../utils/constants';
 import { canRenderNative, composeHandler } from '../../utils/native';
 import { provideNativeContexts } from '../../utils/native/context';
@@ -124,7 +124,7 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
       relayKeyboardEvent: composite.relayKeyboardEvent,
     };
     const compositeProps = composite.props as Record<string, (event: Event) => void>;
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return provideNativeContexts(
       TabsListContext,
       tabsListContextValue,
@@ -171,33 +171,31 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
     role: 'tablist',
   };
 
-  return (
-    <TabsListContext value={tabsListContextValue}>
-      <CompositeRoot
-        render={renderProps.render}
-        class={renderProps.class}
-        state={state}
-        refs={[
-          // The public `ref` also accepts Solid's native ref forms, which the merged refs apply.
-          [componentProps.ref as UseRenderElementRef<HTMLElement> | undefined],
-          (el) => {
-            setTabsListElement(el ?? null);
-          },
-        ]}
-        props={[defaultProps as Record<string, unknown>, elementProps as Record<string, unknown>]}
-        stateAttributesMapping={tabsStateAttributesMapping}
-        highlightedIndex={highlightedTabIndex()}
-        enableHomeAndEndKeys
-        loopFocus={loopFocus()}
-        orientation={orientation()}
-        onHighlightedIndexChange={setHighlightedTabIndex}
-        onMapChange={setTabMap}
-        disabledIndices={EMPTY_ARRAY as number[]}
-      >
-        {local.children}
-      </CompositeRoot>
-    </TabsListContext>
-  );
+  return provideContext(TabsListContext, tabsListContextValue, () => (
+    <CompositeRoot
+      render={renderProps.render}
+      class={renderProps.class}
+      state={state}
+      refs={[
+        // The public `ref` also accepts Solid's native ref forms, which the merged refs apply.
+        [componentProps.ref as UseRenderElementRef<HTMLElement> | undefined],
+        (el) => {
+          setTabsListElement(el ?? null);
+        },
+      ]}
+      props={[defaultProps as Record<string, unknown>, elementProps as Record<string, unknown>]}
+      stateAttributesMapping={tabsStateAttributesMapping}
+      highlightedIndex={highlightedTabIndex()}
+      enableHomeAndEndKeys
+      loopFocus={loopFocus()}
+      orientation={orientation()}
+      onHighlightedIndexChange={setHighlightedTabIndex}
+      onMapChange={setTabMap}
+      disabledIndices={EMPTY_ARRAY as number[]}
+    >
+      {local.children}
+    </CompositeRoot>
+  ));
 }
 
 export interface TabsListState extends TabsRootState {}

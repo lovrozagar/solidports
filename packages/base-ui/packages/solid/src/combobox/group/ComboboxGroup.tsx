@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { provideContext, splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { GroupCollectionProvider } from '../collection/GroupCollectionContext';
@@ -46,11 +46,15 @@ export function ComboboxGroup(componentProps: ComboboxGroup.Props) {
     <Show
       keyed
       when={local.items}
-      fallback={<ComboboxGroupContext value={contextValue}>{element()}</ComboboxGroupContext>}
+      fallback={provideContext(ComboboxGroupContext, contextValue, () => (
+        <>{element()}</>
+      ))}
     >
       {(items) => (
         <GroupCollectionProvider items={items}>
-          <ComboboxGroupContext value={contextValue}>{element()}</ComboboxGroupContext>
+          {provideContext(ComboboxGroupContext, contextValue, () => (
+            <>{element()}</>
+          ))}
         </GroupCollectionProvider>
       )}
     </Show>

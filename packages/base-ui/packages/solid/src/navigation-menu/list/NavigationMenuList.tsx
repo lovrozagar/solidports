@@ -3,7 +3,7 @@ import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { useDismiss, useHoverFloatingInteraction } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
-import { live, splitComponentProps } from '../../solid-helpers';
+import { live, provideContext, splitComponentProps } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -141,34 +141,40 @@ export function NavigationMenuList(componentProps: NavigationMenuList.Props) {
   return (
     <Show
       when={!nested()}
-      fallback={
-        <NavigationMenuDismissContext value={() => dismissProps.props}>
-          {element()}
-        </NavigationMenuDismissContext>
-      }
+      fallback={provideContext(
+        NavigationMenuDismissContext,
+        () => dismissProps.props,
+        () => (
+          <>{element()}</>
+        ),
+      )}
     >
-      <NavigationMenuDismissContext value={() => dismissProps.props}>
-        <CompositeRoot
-          render={renderProps.render}
-          class={renderProps.class}
-          state={state}
-          refs={[
-            (el) => {
-              if (typeof componentProps.ref === 'function') {
-                componentProps.ref(el as HTMLUListElement);
-              } else {
-                componentProps.ref = el as any;
-              }
-            },
-          ]}
-          props={props.props}
-          loopFocus={false}
-          orientation={orientation()}
-          tag="ul"
-        >
-          {local.children}
-        </CompositeRoot>
-      </NavigationMenuDismissContext>
+      {provideContext(
+        NavigationMenuDismissContext,
+        () => dismissProps.props,
+        () => (
+          <CompositeRoot
+            render={renderProps.render}
+            class={renderProps.class}
+            state={state}
+            refs={[
+              (el) => {
+                if (typeof componentProps.ref === 'function') {
+                  componentProps.ref(el as HTMLUListElement);
+                } else {
+                  componentProps.ref = el as any;
+                }
+              },
+            ]}
+            props={props.props}
+            loopFocus={false}
+            orientation={orientation()}
+            tag="ul"
+          >
+            {local.children}
+          </CompositeRoot>
+        ),
+      )}
     </Show>
   );
 }

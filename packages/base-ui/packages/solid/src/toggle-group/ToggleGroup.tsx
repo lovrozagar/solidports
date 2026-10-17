@@ -9,7 +9,7 @@ import {
   renderNativeElement,
   stateAttr,
 } from '../utils/native';
-import { splitComponentProps } from '../solid-helpers';
+import { provideContext, splitComponentProps } from '../solid-helpers';
 import { useToolbarRootContext } from '../toolbar/root/ToolbarRootContext';
 import { useToolbarGroupContext } from '../toolbar/group/ToolbarGroupContext';
 import { EMPTY_ARRAY } from '../utils/empty';
@@ -111,9 +111,9 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
   // Solid-native fast path: the `<div role="group">` rendered directly, as a
   // `CompositeRoot` (its own roving focus) or a plain group inside a Toolbar.
   if (canRenderNative(componentProps)) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
-    return (
-      <ToggleGroupContext value={contextValue}>
+     
+    return provideContext(ToggleGroupContext, contextValue, () => (
+      <>
         {NativeToggleGroup(
           componentProps as unknown as ToggleGroup.Props<string>,
           state,
@@ -121,8 +121,8 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
           loopFocus,
           orientation,
         )}
-      </ToggleGroupContext>
-    );
+      </>
+    ));
   }
 
   const defaultProps: Omit<HTMLProps, 'children'> = {
@@ -135,24 +135,22 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
     state,
   });
 
-  return (
-    <ToggleGroupContext value={contextValue}>
-      <Show when={!toolbarContext} fallback={element()}>
-        <CompositeRoot
-          render={renderProps.render}
-          class={renderProps.class}
-          state={state}
-          ref={componentProps.ref}
-          props={[defaultProps, elementProps]}
-          loopFocus={loopFocus()}
-          orientation={orientation()}
-          enableHomeAndEndKeys
-        >
-          {local.children}
-        </CompositeRoot>
-      </Show>
-    </ToggleGroupContext>
-  );
+  return provideContext(ToggleGroupContext, contextValue, () => (
+    <Show when={!toolbarContext} fallback={element()}>
+      <CompositeRoot
+        render={renderProps.render}
+        class={renderProps.class}
+        state={state}
+        ref={componentProps.ref}
+        props={[defaultProps, elementProps]}
+        loopFocus={loopFocus()}
+        orientation={orientation()}
+        enableHomeAndEndKeys
+      >
+        {local.children}
+      </CompositeRoot>
+    </Show>
+  ));
 }
 
 const OWN_KEYS: ReadonlySet<string> = new Set([

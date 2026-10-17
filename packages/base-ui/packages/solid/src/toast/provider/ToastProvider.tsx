@@ -1,6 +1,6 @@
 import { createEffect, onSettled, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { createLayoutEffect } from '../../solid-helpers';
+import { createLayoutEffect, provideContext } from '../../solid-helpers';
 import type { ToastManager, ToastManagerEvent } from '../createToastManager';
 import { ToastStore } from '../store';
 import { ToastContext } from './ToastProviderContext';
@@ -54,12 +54,12 @@ export function ToastProvider(props: ToastProvider.Props) {
     },
   );
 
-  return (
-    <ToastContext value={store}>
+  return provideContext(ToastContext, store, () => (
+    <>
       <ToastProviderPropsSynchronizer store={store} timeout={timeout()} limit={limit()} />
       {props.children}
-    </ToastContext>
-  );
+    </>
+  ));
 }
 
 function ToastProviderPropsSynchronizer(props: {

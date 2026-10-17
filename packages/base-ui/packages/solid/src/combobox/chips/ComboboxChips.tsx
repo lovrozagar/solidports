@@ -1,5 +1,5 @@
 import { CompositeList } from '../../internals/composite/list/CompositeList';
-import { splitComponentProps, useRef } from '../../solid-helpers';
+import { provideContext, splitComponentProps, useRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { propsSourceAccessor } from '../../utils/propsView';
@@ -44,11 +44,9 @@ export function ComboboxChips(componentProps: ComboboxChips.Props) {
 
   const contextValue: ComboboxChipsContext = { chipsRef };
 
-  return (
-    <ComboboxChipsContext value={contextValue}>
-      <CompositeList refs={{ elements: chipsRef.current }}>{element()}</CompositeList>
-    </ComboboxChipsContext>
-  );
+  return provideContext(ComboboxChipsContext, contextValue, () => (
+    <CompositeList refs={{ elements: chipsRef.current }}>{element()}</CompositeList>
+  ));
 }
 
 export interface ComboboxChipsState {}

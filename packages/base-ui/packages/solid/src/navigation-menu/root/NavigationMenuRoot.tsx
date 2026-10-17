@@ -10,7 +10,12 @@ import {
 } from '../../floating-ui-solid';
 import type { FloatingRootContext } from '../../floating-ui-solid';
 import { activeElement, contains } from '../../floating-ui-solid/utils';
-import { createDepsRenderEffect, splitComponentProps, useRef } from '../../solid-helpers';
+import {
+  createDepsRenderEffect,
+  provideContext,
+  splitComponentProps,
+  useRef,
+} from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -328,11 +333,10 @@ export function NavigationMenuRoot<Value = any>(
     setViewportInert,
   };
 
-  const jsx = () => (
-    <NavigationMenuRootContext value={contextValue}>
+  const jsx = () =>
+    provideContext(NavigationMenuRootContext, contextValue, () => (
       <TreeContext componentProps={componentProps} />
-    </NavigationMenuRootContext>
-  );
+    ));
 
   // FloatingTree provides context to nested menus
   return (
@@ -372,11 +376,9 @@ function TreeContext<Value>(props: { componentProps: NavigationMenuRoot.Props<Va
     props: elementProps,
   });
 
-  return (
-    <NavigationMenuTreeContext value={nodeId}>
-      <FloatingNode id={nodeId?.()}>{element()}</FloatingNode>
-    </NavigationMenuTreeContext>
-  );
+  return provideContext(NavigationMenuTreeContext, nodeId, () => (
+    <FloatingNode id={nodeId?.()}>{element()}</FloatingNode>
+  ));
 }
 
 export interface NavigationMenuRootState {

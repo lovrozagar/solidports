@@ -7,7 +7,7 @@ import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { DEFAULT_FIELD_STATE_ATTRIBUTES } from '../../field/utils/constants';
 import { stopEvent } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
-import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
+import { createLayoutEffect, provideContext, splitComponentProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { platform } from '../../utils/platform';
 import { REASONS } from '../../utils/reasons';
@@ -483,11 +483,9 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
   );
 
   const renderedInput = () =>
-    hasPositionerParent ? (
-      <FieldRootContext value={FieldRootContext.defaultValue!}>{element()}</FieldRootContext>
-    ) : (
-      element()
-    );
+    hasPositionerParent
+      ? provideContext(FieldRootContext, FieldRootContext.defaultValue!, () => <>{element()}</>)
+      : element();
 
   return (
     <>

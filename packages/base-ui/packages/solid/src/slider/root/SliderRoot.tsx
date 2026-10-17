@@ -10,9 +10,10 @@ import { useLabelableContext } from '../../internals/labelable-provider/Labelabl
 import { useValueChanged } from '../../internals/useValueChanged';
 import {
   createDepsEffect,
+  createLayoutEffect,
+  provideContext,
   splitComponentProps,
   useRef,
-  createLayoutEffect,
 } from '../../solid-helpers';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 import { areArraysEqual } from '../../utils/areArraysEqual';
@@ -428,13 +429,11 @@ export function SliderRoot<Value extends number | readonly number[]>(
     stateAttributesMapping: sliderStateAttributesMapping,
   });
 
-  return (
-    <SliderRootContext value={contextValue}>
-      <CompositeList refs={{ elements: thumbRefs.current }} onMapChange={setThumbMap}>
-        {element()}
-      </CompositeList>
-    </SliderRootContext>
-  );
+  return provideContext(SliderRootContext, contextValue, () => (
+    <CompositeList refs={{ elements: thumbRefs.current }} onMapChange={setThumbMap}>
+      {element()}
+    </CompositeList>
+  ));
 }
 
 export interface SliderRootState extends FieldRootState {
