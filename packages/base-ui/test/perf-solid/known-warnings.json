@@ -1,0 +1,4 @@
+{
+  "_doc": "Console messages the browser bench expects (shared/console.mjs): each entry names the variant (solid, react or *), the kind (warn or error), a pattern (a regular expression over the message's text) and the reason. Any other console warning or error fails the run. Empty until the census (plan 3, leaf 1.12) finds one that is intentional.",
+  "entries": []
+}
