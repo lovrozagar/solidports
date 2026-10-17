@@ -4,7 +4,7 @@
  * part with the floor counterpart of the same shape. Both sides are components, so the dev runtime's
  * per-component nodes cancel out (core audit, plan 3 leaf 3.1).
  */
-import { DEV, flush } from 'solid-js';
+import { DEV, createSignal, flush } from 'solid-js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Collapsible } from '@solidports/base-ui/collapsible';
 import { createRenderer } from '#test-utils';
@@ -14,6 +14,7 @@ import {
   FloorCollapsibleRoot,
   FloorCollapsibleTrigger,
 } from '../../test/floor/collapsible';
+import { startingTimeline } from '../../test/floor/startingTimeline';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
 const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
@@ -167,6 +168,93 @@ describe('collapsible cost against the hand-written floor', () => {
     expect(cost, `closed Panel ${cost} nodes, floor ${budget}`).toBeLessThanOrEqual(
       Math.floor(budget * 1.25),
     );
+  });
+
+  // Two budgets per shape (D19): the floor builds its status at mount, as hand-written code would,
+  // while the parts build their machinery on the first open (S5). Laziness moves cost from mount to
+  // the first open, so the closed mount and the mount plus the first open are each held to the
+  // floor's plus 25%. `open all` pays the first open once per panel: 300 of them in one step.
+  function mountAndOpen(make: (open: () => boolean) => JSX.Element) {
+    const [open, setOpen] = createSignal(false);
+    count = 0;
+    hooks.onOwner = counting;
+    const view = render(() => make(open));
+    flush();
+    const mount = count;
+    count = 0;
+    setOpen(true);
+    flush();
+    hooks.onOwner = undefined;
+    const opened = count;
+    view.unmount();
+    return { mount, open: opened };
+  }
+
+  const controlled = {
+    part: (open: () => boolean) => (
+      <Collapsible.Root open={open()}>
+        <Collapsible.Trigger>Toggle</Collapsible.Trigger>
+        <Collapsible.Panel>Content</Collapsible.Panel>
+      </Collapsible.Root>
+    ),
+    floor: (open: () => boolean) => (
+      <FloorCollapsibleRoot open={open()}>
+        <FloorCollapsibleTrigger>Toggle</FloorCollapsibleTrigger>
+        <FloorCollapsiblePanel>Content</FloorCollapsiblePanel>
+      </FloorCollapsibleRoot>
+    ),
+  };
+
+  it('a closed Collapsible mounts at most the floor plus 25%', () => {
+    const cost = mountAndOpen(controlled.part).mount;
+    const budget = mountAndOpen(controlled.floor).mount;
+    expect(cost, `closed mount ${cost} nodes, floor ${budget}`).toBeLessThanOrEqual(
+      Math.floor(budget * 1.25),
+    );
+  });
+
+  it("a Collapsible's mount plus its first open costs at most the floor's plus 25%", () => {
+    const part = mountAndOpen(controlled.part);
+    const floor = mountAndOpen(controlled.floor);
+    const cost = part.mount + part.open;
+    const budget = floor.mount + floor.open;
+    expect(
+      cost,
+      `mount ${part.mount} + first open ${part.open} nodes, floor ${floor.mount} + ${floor.open}`,
+    ).toBeLessThanOrEqual(Math.floor(budget * 1.25));
+  });
+
+  // The floor models every branch the parts support (D19), so its starting-style timeline matches
+  // theirs with and without motion. The expected samples are the ones Chromium shows for React's
+  // Collapsible.
+  async function timeline(make: (open: () => boolean) => JSX.Element, motion: boolean) {
+    const [open, setOpen] = createSignal(false);
+    const view = render(() => make(open));
+    flush();
+    const samples = await startingTimeline(view.container, () => setOpen(true), motion);
+    view.unmount();
+    return samples;
+  }
+
+  it("the floor's starting-style timeline matches Collapsible's without motion", async () => {
+    const part = await timeline(controlled.part, false);
+    expect(part).toEqual({
+      beforePaint: 'div button | --collapsible-panel-height:auto;--collapsible-panel-width:auto',
+      afterFrame: 'div button | --collapsible-panel-height:auto;--collapsible-panel-width:auto',
+      afterTask: ' | --collapsible-panel-height:auto;--collapsible-panel-width:auto',
+    });
+    expect(await timeline(controlled.floor, false)).toEqual(part);
+  });
+
+  it("the floor's starting-style timeline matches Collapsible's with motion", async () => {
+    const part = await timeline(controlled.part, true);
+    expect(part).toEqual({
+      beforePaint:
+        'div button div | --collapsible-panel-height:0px;--collapsible-panel-width:0px;align-content:initial;align-items:initial;justify-content:initial;justify-items:initial',
+      afterFrame: 'div button div | --collapsible-panel-height:0px;--collapsible-panel-width:0px',
+      afterTask: ' | --collapsible-panel-height:auto;--collapsible-panel-width:auto',
+    });
+    expect(await timeline(controlled.floor, true)).toEqual(part);
   });
 
   it('an open Collapsible costs at most the open floor plus 25%', () => {

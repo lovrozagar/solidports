@@ -127,7 +127,7 @@ Plan 3's bar, judged on production builds: every SSR case with a `<id>-floor` tw
 
 ## Reactive-node cost tests
 
-Counting technique (all five files): set `DEV.hooks.onOwner` to count every non-null owner (owners and computations), render, `flush()`, unset, unmount. `perPart` renders two copies minus one copy, so the parent's insert is counted once; native tests also subtract a plain element. Counts are dev-mode: the dev runtime wraps each component in one root that production does not create.
+Counting technique (every file below): set `DEV.hooks.onOwner` to count every non-null owner (owners and computations), render, `flush()`, unset, unmount. `perPart` renders two copies minus one copy, so the parent's insert is counted once; native tests also subtract a plain element. Counts are dev-mode: the dev runtime wraps each component in one root that production does not create.
 
 | file | budgets |
 | --- | --- |
@@ -136,6 +136,7 @@ Counting technique (all five files): set `DEV.hooks.onOwner` to count every non-
 | `src/utils/native/native.cost.test.tsx` | native Button 1 beyond a plain button (3 with reactive props and children); static attributes and handlers 0; extra reactive inputs share one effect |
 | `src/utils/native/toggles.cost.test.tsx` | beyond hand-written markup: Checkbox+Indicator 19, Switch+Thumb 10, Toggle 5, grouped Toggle 5, Radio+Indicator 18 |
 | `src/utils/native/disclosure.cost.test.tsx` | Collapsible closed 12, open 18; closed Accordion item 14; Tab plus hidden Panel 4 |
+| `src/collapsible/collapsible.cost.test.tsx`, `src/accordion/accordion.cost.test.tsx` | each part at most its hand-written floor (`packages/solid/test/floor/`) plus 25%; per D19, the closed mount and the mount plus the first open each at most the floor's plus 25% (Collapsible 16 + 5 against 20 + 3, Accordion 32 + 5 against 30 + 3), and the floor's `data-starting-style` timeline equal to the part's with and without motion |
 
 `shared/manifest.ts` maps each component to its cost tests by full name (`COST_TESTS`); components without one name the leaf that adds it (`PENDING_COST`), render-core guards are listed in `GENERIC_COST_TESTS`, and the manifest test checks every name against `vitest list` and fails on an unclaimed cost test. No cost test covers Avatar, Input, the Progress and Meter Roots or `useRender`, the slowest mount scenarios in [baseline](baseline.md) after the static parts (`utils/native/static.cost.test.tsx`). No bench scenario covers Fieldset, FilterDropdown or `unstable-use-media-query`.
 

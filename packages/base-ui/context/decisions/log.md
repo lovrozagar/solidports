@@ -163,3 +163,39 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
 - This is the reference instrument from here. Unit verdicts from the old cycle are re-judged on it.
 - Re-judged on it (Mac, chain session at 9c1f9bc8), 44b kept the old cycle's tooltip/handle-500 unmount regression (+0.9 ms) and lost its popover/handle-20 unmount and preview-card/roots-200 move-across and hover-open regressions, which only the old cycle had. An A/A control at the start of that session (5330e011 against itself, 32 pairs) had no verdicts.
 - 4.4a (lazy store key signals, d44668ae against 5330e011) on the Mac regressed toolbar/200 under both warmed modes, all four passes: mount +6–13%, ArrowRight x100 +4–9%; it improved tooltip/roots-500 mount by about 10%. Its Linux "same" in the warmed probe did not hold, so the regression is the library's, not the old cycle's, and 4.4a stays unpushed until it is fixed.
+
+### D19 — A floor models the mechanism of every observable branch its component supports (2026-10-17)
+
+- Rule: a hand-written floor models the mechanism for every observable branch its component supports, not only the branch the bench's CSS takes. A part cannot know which branch it is on before it reads, so the floor reads the same way. The floor builds that mechanism where hand-written code would, eagerly at mount; it does not build lazy scopes.
+- What React does on an open (Chromium, vitest browser mode as in the parity harness; one item clicked open, `data-starting-style` sampled before paint, after the frame and in the task after, with a MutationObserver):
+  - Collapsible: Root and Trigger hold it through the frame and drop it in the task after, as `CollapsibleRootState` carries `transitionStatus`. The Panel never paints it without motion.
+  - Accordion: Item, Header and Trigger never carry it. `AccordionItemState` is `hidden`, `index` and `open` plus the root's state, with no `transitionStatus`, although `accordionStateAttributesMapping` spreads `transitionStatusMapping`.
+  - Accordion Panel without motion: inserted with the attribute, which is removed before paint. `useCollapsiblePanel`'s opening layout effect, on `open && transitionStatus === 'starting'` with `getAnimationType` 'none', calls `setForcePanelIdle(true)`, which re-renders the panel `'idle'` before paint. So the no-motion branch paints nothing.
+  - Accordion Panel with `transition: height 200ms`: holds the attribute through the frame and drops it in the task after.
+  - The port matched every sample in all three cases. Wrapping React's probe in `act()` held its frame updates until `act` returned, so the attribute looked stuck; the readings above ran without it.
+- The floors (`packages/solid/test/floor/`, the helpers in `motion.ts`):
+  - Collapsible Root: its status is the function form of `createSignal`, following `open`. That is one computation, created at mount. A value signal cannot see a controlled `open` change.
+  - Root and Trigger hold `'starting'` for the frame and the task after, on the shared frame scheduler.
+  - Every opening panel reads its motion once before paint, one computed-style read, as upstream's opening pass does. With none it drops the attribute at once; otherwise it holds through the frame and the task after.
+  - Accordion: each opened panel holds its own plain signal.
+  - The port may not read more often than once per opening panel.
+- The bench's raw floors get the same mechanism in both frameworks with no library code (`test/perf-solid/shared/raw-motion.ts`). `accordion/motion-300` (controlled, 300 panels with a 200 ms height transition, open all and close all waiting for the transitions) measures the motion branch against React instead of inferring it.
+- Budgets: two per family, each at most the floor's plus 25%:
+  - the closed mount;
+  - the mount plus the first open, summed.
+  The parts' lazy creation (S5) moves cost from mount to first open, so the pair neither punishes laziness nor hides its first-open cost.
+  - Collapsible: 16 + 5 = 21 nodes against the floor's 20 + 3 = 23.
+  - Accordion: 32 + 5 = 37 against 30 + 3 = 33.
+- Tests:
+  - "the floor's starting-style timeline matches Collapsible's / Accordion's, without and with motion" pins each part's timeline to the Chromium readings and holds the floor to it. Three of the four failed on the old floors; the Accordion no-motion case passed there, since neither side paints anything.
+  - The two budget tests.
+- The size variables are part of the mechanism. `height: var(--accordion-panel-height)` is the documented pattern, and a motion open depends on it.
+  - React, read in Chromium: without motion the variables stay `auto` throughout.
+  - With motion they hold the measured `scrollHeight` and `scrollWidth` in px through the frame. Upstream's `resetLayoutStyles` (`align-*`/`justify-*: initial !important`) is set while measuring and lifted on the next frame. `useOpenChangeComplete` releases the variables to `auto` once the panel's animations finish.
+  - The floors do the same. A panel that mounts open alone gets `animation-name: none`, as the parts do; the old floors set it on every open.
+- Reads per opening panel (`getComputedStyle`, `scrollHeight`, `scrollWidth`):
+  - React: 2/1/1 on both branches. The second `getComputedStyle` is its opening layout effect running again on the idle pass, not behavior.
+  - Floor: 1/0/0 without motion, 1/1/1 with it. A no-motion open leaves the variables at `auto`, so a measurement there is a forced layout nothing observes.
+  - Port at this entry: 3/2/2 without motion and 2/1/1 with it. 5.1.3 a-2 rewrites the measurement pass and pins the port at the floor's counts.
+- The timeline tests sample the panel's whole inline style as well as the attribute. On the floors without the measurement, all four cases failed.
+- Floor figures from before this entry (node counts, the hydration table's floor ms) used floors without this mechanism.

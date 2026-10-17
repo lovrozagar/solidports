@@ -1,14 +1,91 @@
 /*
  * Raw-React floors for the disclosure parts (plan 8 step 3.2): the DOM the Base UI parts render,
  * hand-written with plain React elements and state. The Solid twin is `solid/fixtures/raw-disclosure.tsx`.
+ * Opening holds `data-starting-style` as the parts do (`shared/raw-motion.ts`, D19); every raw
+ * list mounts closed, so a panel always mounts by opening.
  */
 import * as React from 'react';
+import {
+  afterNextFrame,
+  openPanelPass,
+  releaseAfterAnimations,
+  sizeVar,
+} from '../../shared/raw-motion';
+import type { PanelSize } from '../../shared/raw-motion';
 import { items, size } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 const noop = () => {};
+
+/**
+ * A panel that holds `starting` unless it has no motion, read once before paint; with motion it
+ * keeps its measured size until its animations finish after `starting` ends. Mounted by an open, as
+ * every raw list starts closed. `vars` names its size variables.
+ */
+function RawPanel({
+  starting,
+  vars,
+  id,
+  labelledBy,
+  children,
+}: {
+  starting: boolean;
+  vars: string;
+  id: string;
+  labelledBy?: string;
+  children: React.ReactNode;
+}) {
+  const [idle, setIdle] = React.useState(false);
+  const [measured, setMeasured] = React.useState<PanelSize>();
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    openPanelPass(ref.current!, () => setIdle(true), setMeasured);
+  }, []);
+  // After the commit that removed `starting`, so the transition it starts is among the animations.
+  React.useEffect(() => {
+    if (starting || !measured) {
+      return;
+    }
+    releaseAfterAnimations(ref.current!, () => setMeasured(undefined));
+  }, [starting, measured]);
+  return (
+    <div
+      ref={ref}
+      id={id}
+      role={labelledBy ? 'region' : undefined}
+      aria-labelledby={labelledBy}
+      data-open=""
+      data-starting-style={starting && !idle ? '' : undefined}
+      style={
+        {
+          [`${vars}-height`]: sizeVar(measured, 'height'),
+          [`${vars}-width`]: sizeVar(measured, 'width'),
+        } as React.CSSProperties
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+/** `true` from an open of `open` until the task after the next frame. */
+function useStarting(open: boolean) {
+  const [wasOpen, setWasOpen] = React.useState(open);
+  const [starting, setStarting] = React.useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    setStarting(open);
+  }
+  React.useEffect(() => {
+    if (!starting) {
+      return undefined;
+    }
+    return afterNextFrame(() => setStarting(false));
+  }, [starting]);
+  return starting;
+}
 
 function RawCollapsible({
   index,
@@ -20,8 +97,13 @@ function RawCollapsible({
   toggle: () => void;
 }) {
   const panelId = `raw-panel-${index}`;
+  const starting = useStarting(open);
   return (
-    <div data-open={open ? '' : undefined} data-closed={open ? undefined : ''}>
+    <div
+      data-open={open ? '' : undefined}
+      data-closed={open ? undefined : ''}
+      data-starting-style={starting ? '' : undefined}
+    >
       <button
         type="button"
         tabIndex={0}
@@ -29,14 +111,15 @@ function RawCollapsible({
         aria-expanded={open ? 'true' : 'false'}
         aria-controls={open ? panelId : undefined}
         data-panel-open={open ? '' : undefined}
+        data-starting-style={starting ? '' : undefined}
         onClick={toggle}
       >
         Trigger {index}
       </button>
       {open ? (
-        <div id={panelId} data-open="">
+        <RawPanel id={panelId} starting={starting} vars="--collapsible-panel">
           Panel {index}
-        </div>
+        </RawPanel>
       ) : null}
     </div>
   );
@@ -65,6 +148,25 @@ function RawCollapsiblesUncontrolled() {
         <RawCollapsibleUncontrolled key={i} index={i} />
       ))}
     </div>
+  );
+}
+
+/** An accordion panel holds its own `starting` from its open, the frame and the task after. */
+function RawAccordionPanel({
+  id,
+  labelledBy,
+  children,
+}: {
+  id: string;
+  labelledBy: string;
+  children: React.ReactNode;
+}) {
+  const [starting, setStarting] = React.useState(true);
+  React.useEffect(() => afterNextFrame(() => setStarting(false)), []);
+  return (
+    <RawPanel id={id} labelledBy={labelledBy} starting={starting} vars="--accordion-panel">
+      {children}
+    </RawPanel>
   );
 }
 
@@ -108,9 +210,9 @@ function RawAccordion() {
               </button>
             </h3>
             {open ? (
-              <div id={panelId} role="region" aria-labelledby={triggerId} data-open="">
+              <RawAccordionPanel id={panelId} labelledBy={triggerId}>
                 Content {it.label}
-              </div>
+              </RawAccordionPanel>
             ) : null}
           </div>
         );

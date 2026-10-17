@@ -5,8 +5,12 @@
  * each item provides its collapsible root and itself, as two contexts. On the client a context
  * rides a transparent owner; the server uses the provider, since its owners are not
  * `@solidjs/signals`'s, and hydration rebuilds the provider's owners (GOTCHA-017). An item's index
- * is its creation order on every side, as the parts guess it. Cost tests and the bench compare the parts against it: the exit bar is at most
- * the floor plus 25%.
+ * is its creation order on every side, as the parts guess it. An opening panel holds
+ * `data-starting-style` for a frame when it has motion and drops it before paint when it has none
+ * and measures itself until its transition ends (`./motion.ts`, D19); the item, header and
+ * trigger never carry it, as upstream's item state has
+ * no transition status. Cost tests and the bench compare the parts against it: the exit bar is at
+ * most the floor plus 25%.
  */
 import {
   createComponent,
@@ -16,7 +20,9 @@ import {
   createSignal,
   createUniqueId,
   isHydrating,
+  onCleanup,
   runWithOwner,
+  untrack,
   useContext,
 } from 'solid-js';
 import type { Accessor, Context } from 'solid-js';
@@ -25,6 +31,8 @@ import type { JSX } from '@solidjs/web';
 // `solid-js` does not re-export `setContext`; `@solidjs/signals` is the same core in the browser.
 import { setContext } from '@solidjs/signals';
 import { conditional } from './conditional';
+import { afterNextFrame, openPanel, releaseAfterAnimations, sizeVar } from './motion';
+import type { PanelSize } from './motion';
 
 interface FloorRoot {
   value: Accessor<readonly string[]>;
@@ -124,9 +132,7 @@ export function FloorAccordionRoot(props: {
       return count - 1;
     },
   };
-  return (
-    <div data-orientation="vertical">{provide(RootContext, root, () => props.children)}</div>
-  );
+  return <div data-orientation="vertical">{provide(RootContext, root, () => props.children)}</div>;
 }
 
 export function FloorAccordionItem(props: { value: string; children?: JSX.Element }) {
@@ -193,24 +199,58 @@ export function FloorAccordionTrigger(props: { children?: JSX.Element }) {
 
 export function FloorAccordionPanel(props: { children?: JSX.Element }) {
   const item = useContext(ItemContext)!;
+  // A panel that mounts open skips `'starting'`; every later open holds it.
+  let mountedOpen = untrack(item.open);
   return conditional(
     () => item.open(),
-    () => (
-      <div
-        data-orientation="vertical"
-        data-index={item.index()}
-        data-open=""
-        id={item.panelId}
-        aria-labelledby={item.triggerId}
-        role="region"
-        style={{
-          '--accordion-panel-height': 'auto',
-          '--accordion-panel-width': 'auto',
-          'animation-name': 'none',
-        }}
-      >
-        {props.children}
-      </div>
-    ),
+    () => {
+      const opening = !mountedOpen;
+      mountedOpen = false;
+      const [starting, setStarting] = createSignal(opening);
+      const [size, setSize] = createSignal<PanelSize>();
+      let panel: HTMLDivElement | undefined;
+      if (opening) {
+        const cancel = afterNextFrame(() => {
+          setStarting(false);
+          if (untrack(size)) {
+            releaseAfterAnimations(
+              () => panel,
+              () => setSize(undefined),
+            );
+          }
+        });
+        onCleanup(cancel);
+        openPanel(
+          () => panel,
+          () => {
+            cancel();
+            setStarting(false);
+          },
+          setSize,
+        );
+      }
+      return (
+        <div
+          ref={(el) => {
+            panel = el;
+          }}
+          data-starting-style={starting() ? '' : undefined}
+          data-orientation="vertical"
+          data-index={item.index()}
+          data-open=""
+          id={item.panelId}
+          aria-labelledby={item.triggerId}
+          role="region"
+          style={{
+            '--accordion-panel-height': sizeVar(size(), 'height'),
+            '--accordion-panel-width': sizeVar(size(), 'width'),
+            // A panel that mounts open suppresses its open animation until it first closes.
+            'animation-name': opening ? undefined : 'none',
+          }}
+        >
+          {props.children}
+        </div>
+      );
+    },
   ) as unknown as JSX.Element;
 }
