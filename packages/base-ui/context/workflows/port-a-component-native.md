@@ -14,7 +14,7 @@ The living playbook for moving a family onto the native kit (D15): read it befor
 2. Prove red on `main`: copy only the new test files into a worktree at `main` (`.tmp/grunt/wt-pilot`), run them, record the failing count, and remove the copies by literal path.
 3. Fix through the kit, then green in jsdom (family suites, the hydration fixture sweep, `scripts/base-ui-perf-manifest.test.ts`) and the new files in chromium.
 4. Register the cost tests in `test/perf-solid/shared/manifest.ts` (`COST_TESTS`, and out of `PENDING_COST`).
-5. Gate of record on the Mac (`test:base-ui:all --only jsdom,chromium` through `scripts/remote-mac.mjs`), and the bench against `main`: `bench:component <names> --runs 8 --save-baseline main-<sha> --at <sha>`, then `--compare main-<sha>` (D13: the targeted metric improves and nothing gated regresses beyond the rule's tolerance). A shared-core unit benches `all`.
+5. Gate of record on the Mac (`test:base-ui:all --only jsdom,chromium` through `scripts/remote-mac.mjs`), and the bench against `main`: `bench:component <names> --save-baseline main-<sha> --at <sha>`, then `--compare main-<sha>` (D13: the targeted metric improves and nothing gated regresses under the rule, D16; keep the default `--runs 12`, which the rule's power needs). A shared-core unit benches `all`.
 6. Docs (the component note with nodes and the bench table, render pipeline, method), the context map, a stamp per SHA, push.
 
 ## Recipes
@@ -33,7 +33,7 @@ The living playbook for moving a family onto the native kit (D15): read it befor
 - The server prints numbers as written (`inset-inline-start:0`) where the CSSOM reports `0px`: compare hydrated styles through the CSSOM.
 - `typecheck` (pre-commit and verify) covers the whole working tree, so uncommitted work can fail an unrelated commit and a rebuilt tree can fail verify: typecheck before rebuilding a commit.
 - A generic native lane inside `useRenderElement` breaks its per-key and dynamic-key contracts (D14): port per part.
-- The SSR server column cannot judge a change yet: at 597b2a75 a 2x drop (96.9 to 47.4 ms) read "same" because its tolerance exceeded the value (D15). Until the instrument is fixed, report server ms without calling it improved or same.
+- Before D16 the rule's tolerance was the summed p90 spreads, which one slow sample per side decides at ten samples: a 2x server drop at 597b2a75 (96.9 to 47.4 ms) read "same". Read verdicts from runs before D16 as unjudged.
 
 ## Log
 

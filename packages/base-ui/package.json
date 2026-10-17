@@ -69,7 +69,7 @@
     "bench:solid": "node test/perf-solid/run.mjs",
     "bench:solid:build": "LIB=react vite build -c test/perf-solid/vite.config.mjs && LIB=solid vite build -c test/perf-solid/vite.config.mjs",
     "bench:solid:profile": "node test/perf-solid/profile.mjs",
-    "bench:solid:ssr": "node test/perf-solid/ssr/run.mjs",
+    "bench:solid:ssr": "node --expose-gc test/perf-solid/ssr/run.mjs",
     "build": "lerna run --no-private build",
     "docs:api": "bun --filter @solidports/docs internal-validate --command 'bun docs:validate' --types",
     "docs:build": "bun --filter @solidports/docs build",

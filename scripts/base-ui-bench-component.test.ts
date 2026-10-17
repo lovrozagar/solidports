@@ -52,7 +52,7 @@ describe("bench:component driver", () => {
 		expect(parseArgs(["collapsible,accordion", "--runs", "4", "--filter", "!tag:raw", "--compare", "b0"])).toEqual({
 			names: ["collapsible", "accordion"],
 			runs: 4,
-			ssrRuns: 10,
+			ssrRuns: 20,
 			filter: "!tag:raw",
 			saveBaseline: null,
 			at: null,

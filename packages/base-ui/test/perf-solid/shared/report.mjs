@@ -1,6 +1,6 @@
 // Turns raw bench samples into the report summary and judges a baseline/working pair of variants.
 // `run.mjs` writes the summary; `scripts/bench-component.mjs` reads it for `--compare`.
-import { GATED, judge, median, p90 } from './regression.mjs';
+import { GATED, judge, judgeAll, median, p90 } from './regression.mjs';
 
 const HEAP = 'heap after mount KB';
 
@@ -51,30 +51,49 @@ export function summarize(results, names, timers) {
 }
 
 /**
- * Judges every gated metric of `cur` against `base` (1.6 rule); one verdict per key and metric.
+ * Judges every gated metric of `cur` against `base` (D16); one verdict per key and metric.
  * Raw floor scenarios (`options.raw`, scenario ids) never use the library, so their difference is
  * session noise: they are reported, not judged.
  */
 export function compareVariants(summary, base, cur, options = {}) {
+  return judgeRun(variantPairs(summary, base, cur, options)).verdicts;
+}
+
+/**
+ * One run's comparisons judged together (`judgeAll`, Benjamini–Hochberg across them), in their
+ * order. A `raw` pair is reported with its statistics but is neither judged nor counted.
+ * @param {{ key: string, metric: string, base: number[], cur: number[], rule: object, raw?: boolean }[]} pairs
+ */
+export function judgeRun(pairs) {
+  const judged = judgeAll(pairs.filter((pair) => !pair.raw));
+  let next = 0;
+  const verdicts = pairs.map(({ base, cur, rule, ...rest }) =>
+    rest.raw
+      ? Object.assign(judge(base, cur, rule), rest, { verdict: 'unjudged (raw floor)' })
+      : judged.verdicts[next++],
+  );
+  return { verdicts, pairs: judged.pairs, threshold: judged.threshold };
+}
+
+/**
+ * The browser comparisons of one run, for `judgeAll`: each gated metric of every step, `cur`
+ * against `base`. Raw floor scenarios carry `raw` and no samples, so they are reported but never
+ * counted.
+ */
+export function variantPairs(summary, base, cur, options = {}) {
   const raw = new Set(options.raw ?? []);
-  const verdicts = [];
+  const pairs = [];
   for (const [key, entry] of Object.entries(summary)) {
     const metrics = key.endsWith(HEAP) ? ['heapKB'] : ['sync', 'script', 'settled'];
     for (const metric of metrics) {
       const a = entry[base].samples[metric];
       const b = entry[cur].samples[metric];
       if (!a?.length && !b?.length) continue;
-      const judged = judge(a, b, GATED[metric]);
       const id = key.slice(0, key.indexOf(' › '));
-      verdicts.push({
-        key,
-        metric,
-        ...judged,
-        ...(raw.has(id) ? { verdict: 'unjudged (raw floor)' } : {}),
-      });
+      pairs.push({ key, metric, base: a, cur: b, rule: GATED[metric], raw: raw.has(id) });
     }
   }
-  return verdicts;
+  return pairs;
 }
 
 const fmtMs = (n) => (n == null ? '-' : n.toFixed(2));
@@ -109,4 +128,3 @@ export function mainThreadLines(keys, results, names) {
   }
   return lines;
 }
-
