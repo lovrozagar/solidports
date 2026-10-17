@@ -106,6 +106,9 @@ export function bucketOf(frame) {
 
 const SPECIAL = { '(garbage collector)': 'gcMs', '(idle)': 'idleMs', '(program)': 'programMs' };
 
+/** Buckets whose frames keep only their own time and pass the work below them up the stack. */
+const PASS_THROUGH = new Set(['bench-harness', 'flush']);
+
 /**
  * Where a runtime source lives: its package (`@solidjs/web`, `solid-js`, …), `node` for Node's
  * internals, else the file's name (a bundle position the sourcemap did not map, say).
@@ -138,9 +141,9 @@ export function attributeCpu(profile, resolve) {
       const callFrame = byId.get(current).callFrame;
       const frame = callFrame.url ? resolve(callFrame) : null;
       const bucket = frame ? bucketOf(frame) : null;
-      // The bench's own frames sit atop every stack: they keep only their own time, never the
-      // runtime work below them.
-      if (bucket && (bucket !== 'bench-harness' || current === id)) {
+      // Pass-through frames keep only their own time, never the work below them: the bench's own
+      // frames (atop every stack) and flushSync (a funnel: what it flushes belongs to its caller).
+      if (bucket && (!PASS_THROUGH.has(bucket) || current === id)) {
         found = {
           bucket,
           name: frame.name || `(anonymous:${frame.source.split('/').pop()}:${frame.line ?? '?'})`,
@@ -212,9 +215,9 @@ export function attributeAllocations(profile, resolve) {
   const bytes = {};
   const walk = (node, inherited) => {
     const own = node.callFrame.url ? bucketOf(resolve(node.callFrame)) : null;
-    const bucket = own && own !== 'bench-harness' ? own : inherited;
+    const bucket = own && !PASS_THROUGH.has(own) ? own : inherited;
     if (node.selfSize) {
-      const key = bucket ?? (own === 'bench-harness' ? 'bench-harness' : 'runtime');
+      const key = bucket ?? (own && PASS_THROUGH.has(own) ? own : 'runtime');
       bytes[key] = (bytes[key] ?? 0) + node.selfSize;
     }
     for (const child of node.children) walk(child, bucket);
