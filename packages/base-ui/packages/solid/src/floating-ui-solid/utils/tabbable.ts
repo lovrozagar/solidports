@@ -56,27 +56,52 @@ function isFocusableCandidate(element: Element | null): element is FocusableElem
   );
 }
 
-function isFocusableElement(element: Element | null): element is FocusableElement {
+/** Whether `element` hides what it contains: `inert`, `hidden` or `display: none`. */
+function hidesDescendants(element: Element) {
+  return (
+    element.hasAttribute('inert') ||
+    element.hasAttribute('hidden') ||
+    (getNodeName(element) !== 'slot' && !isVisibleInTabbableTree(element, true))
+  );
+}
+
+/**
+ * Solid: upstream walks every candidate's ancestors on its own, reading each ancestor's computed
+ * style once per candidate below it, so a 1000-item popup read about seven styles an item per scan.
+ * `ancestors` shares an ancestor's verdict across one scan: nothing can change a style while a
+ * synchronous scan runs. A closed `<details>` depends on the candidate (its summary stays
+ * focusable), so that check stays per candidate; it reads no style.
+ */
+function isFocusableElement(
+  element: Element | null,
+  ancestors?: Map<Element, boolean>,
+): element is FocusableElement {
   if (!isFocusableCandidate(element) || !element.isConnected || element.matches(':disabled')) {
     return false;
   }
 
-  for (let current: Element | null = element; current; current = getParentElement(current)) {
-    const isAncestor = current !== element;
-    const isSlot = getNodeName(current) === 'slot';
+  if (
+    element.hasAttribute('inert') ||
+    element.hasAttribute('hidden') ||
+    (getNodeName(element) !== 'slot' && !isVisibleInTabbableTree(element, false))
+  ) {
+    return false;
+  }
 
-    if (current.hasAttribute('inert')) {
+  for (let current = getParentElement(element); current; current = getParentElement(current)) {
+    if (
+      getNodeName(current) === 'details' &&
+      !(current as HTMLDetailsElement).open &&
+      !isWithinOpenDetailsSummary(element, current)
+    ) {
       return false;
     }
-
-    if (
-      (isAncestor &&
-        getNodeName(current) === 'details' &&
-        !(current as HTMLDetailsElement).open &&
-        !isWithinOpenDetailsSummary(element, current)) ||
-      current.hasAttribute('hidden') ||
-      (!isSlot && !isVisibleInTabbableTree(current, isAncestor))
-    ) {
+    let hides = ancestors?.get(current);
+    if (hides === undefined) {
+      hides = hidesDescendants(current);
+      ancestors?.set(current, hides);
+    }
+    if (hides) {
       return false;
     }
   }
@@ -143,7 +168,7 @@ function isTabbableRadio(element: FocusableElement, candidates: FocusableElement
   );
 }
 
-function getComposedChildren(container: ParentNode): Element[] {
+function getComposedChildren(container: ParentNode): ArrayLike<Element> {
   if (isHTMLElement(container) && getNodeName(container) === 'slot') {
     const assignedElements = (container as HTMLSlotElement).assignedElements({ flatten: true });
     if (assignedElements.length > 0) {
@@ -152,30 +177,35 @@ function getComposedChildren(container: ParentNode): Element[] {
   }
 
   if (isHTMLElement(container) && container.shadowRoot) {
-    return Array.from(container.shadowRoot.children);
+    return container.shadowRoot.children;
   }
 
-  return Array.from(container.children);
+  return container.children;
 }
 
+// Solid: indexed loops over the live collections, without an array copy and a callback per node.
 function appendCandidates(container: ParentNode, list: FocusableElement[]) {
-  getComposedChildren(container).forEach((child) => {
+  const children = getComposedChildren(container);
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
     if (isFocusableCandidate(child)) {
       list.push(child);
     }
 
     appendCandidates(child, list);
-  });
+  }
 }
 
 function appendMatchingElements(container: ParentNode, selector: string, list: HTMLElement[]) {
-  getComposedChildren(container).forEach((child) => {
+  const children = getComposedChildren(container);
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
     if (isHTMLElement(child) && child.matches(selector)) {
       list.push(child);
     }
 
     appendMatchingElements(child, selector, list);
-  });
+  }
 }
 
 export function isTabbable(element: Element | null) {
@@ -185,7 +215,8 @@ export function isTabbable(element: Element | null) {
 export function focusable(container: Element) {
   const candidates: FocusableElement[] = [];
   appendCandidates(container, candidates);
-  return candidates.filter(isFocusableElement);
+  const ancestors = new Map<Element, boolean>();
+  return candidates.filter((candidate) => isFocusableElement(candidate, ancestors));
 }
 
 export function tabbable(container: Element) {
@@ -240,12 +271,14 @@ export function getTabbableNearElement(
     return null;
   }
 
-  const candidates = list.filter(isFocusableElement);
+  const ancestors = new Map<Element, boolean>();
+  const candidates = list.filter((candidate) => isFocusableElement(candidate, ancestors));
   for (let offset = 1; offset < list.length; offset += 1) {
     const element = list[(index + direction * offset + list.length) % list.length];
     if (
       !contains(exclude, element) &&
-      isTabbable(element) &&
+      isFocusableElement(element, ancestors) &&
+      getTabIndex(element) >= 0 &&
       isTabbableRadio(element, candidates)
     ) {
       return element;

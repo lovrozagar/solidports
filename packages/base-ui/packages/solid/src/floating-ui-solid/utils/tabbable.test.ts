@@ -468,3 +468,34 @@ it('finds the next tabbable from a tabindex=-1 anchor and skips an excluded subt
   expect(getTabbableNearElement(anchor, 1, popup)).toBe(after);
   expect(getTabbableNearElement(anchor, -1, popup)).toBe(before);
 });
+
+it('reads each ancestor style once per scan, not once per candidate below it', () => {
+  // Plan 3, 4.5a: a 1000-item popup made a scan read every ancestor of every item (about 7 style
+  // reads per item). Styles cannot change during a synchronous scan, so an ancestor's verdict is
+  // shared by every candidate below it.
+  let parent: HTMLElement = document.body;
+  for (let depth = 0; depth < 6; depth += 1) {
+    const wrapper = document.createElement('div');
+    parent.append(wrapper);
+    parent = wrapper;
+  }
+  for (let index = 0; index < 1000; index += 1) {
+    const item = document.createElement('div');
+    item.tabIndex = -1;
+    item.textContent = `Item ${index}`;
+    parent.append(item);
+  }
+  const original = window.getComputedStyle;
+  let reads = 0;
+  window.getComputedStyle = function counted(this: Window, ...args: Parameters<typeof original>) {
+    reads += 1;
+    return original.apply(this, args);
+  } as typeof original;
+  try {
+    expect(tabbable(document.body)).toHaveLength(0);
+  } finally {
+    window.getComputedStyle = original;
+  }
+  // One read per item, plus the shared ancestors (six wrappers, body, html) once.
+  expect(reads).toBeLessThanOrEqual(1000 + 8);
+});
