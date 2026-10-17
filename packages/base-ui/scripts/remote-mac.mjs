@@ -152,10 +152,16 @@ exit $code
 }
 
 /** The remote script: shims, then the checkout, install and command under the lock. */
-export function remoteScript({ sha, timeout, command, bundle, ref, fetch = [], outDir }) {
+export function remoteScript({ sha, timeout, command, bundle, ref, fetch = [], outDir, heartbeat }) {
   return `set -uo pipefail
 export PATH="$HOME/.gates/bin:$HOME/.bun/bin:$HOME/.local/node/bin:$PATH"
-mkdir -p ~/.gates/bin
+mkdir -p ~/.gates/bin${
+    heartbeat
+      ? `
+mkdir -p "$(dirname ~/${heartbeat})" && touch ~/${heartbeat}
+export REMOTE_MAC_HEARTBEAT=~/${heartbeat}`
+      : ''
+  }
 cat > ~/.gates/bin/flock <<'SHIM'
 ${FLOCK_SHIM}SHIM
 cat > ~/.gates/bin/timeout <<'SHIM'
@@ -165,28 +171,53 @@ flock -n ~/.gates/heavy.flock true || echo "remote-mac: waiting for ~/.gates/hea
 ${lockedRun(timeout, ['bash', '-c', lockedScript({ sha, command, bundle, ref, fetch, outDir })])}`;
 }
 
+/** How often the driver refreshes a run's heartbeat file, and how stale it may get. */
+export const HEARTBEAT_SECONDS = 20;
+export const HEARTBEAT_STALE_SECONDS = 90;
+
 /**
- * Runs `command` under the Mac's machine-wide lock with a hard timeout, and ends it when the ssh
- * session that started it goes away (its parent, or `$REMOTE_MAC_WATCH`): a run stopped on this
- * machine must not go on holding the lock there. Heavy suites run one at a time there unless the
- * caller sets `GATES_HEAVY`: jsdom beside a browser suite took 922 s and timed out a cold import
- * test, and the two one after the other took 527 s.
+ * Runs `command` under the Mac's machine-wide lock with a hard timeout, and ends it when the
+ * machine that started it goes away: a run stopped on this machine must not go on holding the lock
+ * there. Two signs: the ssh session ends (its parent, or `$REMOTE_MAC_WATCH`), or the heartbeat
+ * file `$REMOTE_MAC_HEARTBEAT`, which the driver refreshes every `HEARTBEAT_SECONDS`, goes
+ * `$REMOTE_MAC_STALE` seconds without one. The session alone is not enough: with no tty, sshd
+ * notices a vanished client only when it next forwards output, so a quiet run held the lock for 48
+ * minutes after its driver was stopped. Heavy suites run one at a time there unless the caller sets
+ * `GATES_HEAVY`: jsdom beside a browser suite took 922 s and timed out a cold import test, and the
+ * two one after the other took 527 s.
  */
 export function lockedRun(timeout, command) {
   return `GATES_HEAVY=\${GATES_HEAVY:-1} GATES_LOCK=~/.gates/solidports-suites.flock flock ~/.gates/heavy.flock timeout -k 30 ${timeout} sh -c ${quote(command.map(quote).join(' '))} &
 RUN=$!
 WATCH=\${REMOTE_MAC_WATCH:-$PPID}
+HEARTBEAT=\${REMOTE_MAC_HEARTBEAT:-}
+STALE=\${REMOTE_MAC_STALE:-${HEARTBEAT_STALE_SECONDS}}
 (
+  # Its stderr is the pipe to sshd: once that is gone, a report would raise SIGPIPE and end this
+  # watcher before it stopped the run. It stops the run first, and ignores SIGPIPE and SIGHUP.
+  trap '' PIPE HUP
   while kill -0 "$RUN" 2>/dev/null; do
     if ! kill -0 "$WATCH" 2>/dev/null; then
-      echo "remote-mac: the session that started this run is gone; stopping it" >&2
       kill -TERM "$RUN"
+      echo "remote-mac: the session that started this run is gone; stopped it" >&2
       break
     fi
-    sleep 2
+    if [ -n "$HEARTBEAT" ]; then
+      beat=$(stat -c %Y "$HEARTBEAT" 2>/dev/null || stat -f %m "$HEARTBEAT" 2>/dev/null || echo 0)
+      if [ $(( $(date +%s) - beat )) -gt "$STALE" ]; then
+        kill -TERM "$RUN"
+        echo "remote-mac: the machine that started this run stopped its heartbeat; stopped it" >&2
+        break
+      fi
+    fi
+    sleep 1
   done
 ) &
 wait "$RUN"
+code=$?
+# A driver stopped by force never removes its heartbeat file.
+[ -n "$HEARTBEAT" ] && rm -f "$HEARTBEAT"
+exit $code
 `;
 }
 
@@ -217,6 +248,7 @@ async function main() {
   }
   const remoteBundle = `solidports-remote-${stamp}.bundle`;
   const outDir = `.gates/remote-mac-out/${stamp}`;
+  const heartbeat = `.gates/remote-mac-heartbeat/${stamp}`;
   run('scp', ['-q', bundle, `${HOST}:${remoteBundle}`]);
   fs.rmSync(bundle);
 
@@ -224,6 +256,10 @@ async function main() {
   fs.mkdirSync(path.dirname(log), { recursive: true });
   console.log(`remote-mac: ${options.sha.slice(0, 12)} on ${HOST}; log ${path.relative(root, log)}`);
   const out = fs.createWriteStream(log);
+  // The run stops itself once this stops: a driver killed here leaves no run holding the lock there.
+  const beat = setInterval(() => {
+    spawn('ssh', [HOST, `touch ${heartbeat}`], { stdio: 'ignore' }).on('error', () => {});
+  }, HEARTBEAT_SECONDS * 1000);
   const code = await new Promise((resolve) => {
     const child = spawn('ssh', [HOST, 'bash -s'], { stdio: ['pipe', 'pipe', 'pipe'] });
     child.stdout.on('data', (chunk) => {
@@ -235,8 +271,9 @@ async function main() {
       out.write(chunk);
     });
     child.on('close', resolve);
-    child.stdin.end(remoteScript({ ...options, bundle: remoteBundle, ref, outDir }));
+    child.stdin.end(remoteScript({ ...options, bundle: remoteBundle, ref, outDir, heartbeat }));
   });
+  clearInterval(beat);
   out.end();
   for (const file of options.fetch) {
     const target = path.join(root, '.tmp/grunt/remote-mac', stamp, file);
@@ -248,7 +285,7 @@ async function main() {
         : `remote-mac: could not fetch ${file}`,
     );
   }
-  spawnSync('ssh', [HOST, `rm -rf ${quote(outDir)} ${quote(remoteBundle)}`]);
+  spawnSync('ssh', [HOST, `rm -rf ${quote(outDir)} ${quote(remoteBundle)} ${quote(heartbeat)}`]);
   console.log(`remote-mac: exit ${code}`);
   process.exit(code ?? 1);
 }
