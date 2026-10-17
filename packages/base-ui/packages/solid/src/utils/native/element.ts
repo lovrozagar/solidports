@@ -15,7 +15,7 @@ import {
   runWithOwner,
   untrack,
 } from 'solid-js';
-import { assign, insert, isServer, ssrElement } from '@solidjs/web';
+import { assign, escape, insert, isServer, ssrElement } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
@@ -305,23 +305,81 @@ const consumerState = <State extends object>(spec: NativeElementSpec<State>, val
   typeof value === 'function' ? partState(spec) : undefined;
 
 // The server writes one element's attributes at a time: one writer serves every element (saved and
-// restored around each write, in case a state getter renders).
-let serverTarget: Record<string, unknown> = {};
+// restored around each write, in case a state getter renders). The part's own writes (its state
+// attributes and `attributes`) are collected and then written into the markup string, a later
+// write of a key winning as on the client; a key the attribute object already holds (a template or
+// literal attribute it overrides), `class` and `style` go into the object, copied before its first
+// write since it starts as the template's shared attributes. The write lists are shared by every
+// element: an element rendered while another writes appends after it and truncates back.
+const writeKeys: string[] = [];
+const writeValues: unknown[] = [];
+let serverObject: Record<string, unknown> = {};
+let serverObjectShared = false;
 let serverKeys: ReadonlySet<string> = new Set();
-const setServerAttribute: SetAttribute = (key, value) => {
-  if (value !== undefined && !serverKeys.has(key)) {
-    serverTarget[key] = value;
+
+/** The element's attribute object, owned by this element from its first write. */
+function ownServerObject() {
+  if (serverObjectShared) {
+    serverObject = { ...serverObject };
+    serverObjectShared = false;
   }
+  return serverObject;
+}
+
+const setServerAttribute: SetAttribute = (key, value) => {
+  if (value == null || serverKeys.has(key)) {
+    return;
+  }
+  if (key in serverObject || key === 'class' || key === 'style') {
+    ownServerObject()[key] = value;
+    return;
+  }
+  writeKeys.push(key);
+  writeValues.push(value);
 };
+
+/**
+ * The markup of the writes from `start` on: each key once, its last write winning (the client's
+ * object keeps the last write), every value escaped as `ssrElement` escapes attributes. Development
+ * warns about a key written twice. Empties the lists back to `start`.
+ */
+export function takeServerMarkup(keys: string[], values: unknown[], start: number): string {
+  let markup = '';
+  for (let i = start; i < keys.length; i += 1) {
+    const key = keys[i];
+    if (keys.indexOf(key, i + 1) !== -1) {
+      if (process.env.NODE_ENV !== 'production') {
+        warn(
+          `A native part wrote the \`${key}\` attribute twice on the server; its last write is kept, as on the client. Write each attribute once per element.`,
+        );
+      }
+      continue;
+    }
+    const value = values[i];
+    if (typeof value === 'boolean') {
+      if (value) {
+        markup += ` ${key}`;
+      }
+    } else {
+      markup += value === '' ? ` ${key}` : ` ${key}="${escape(value as string, true)}"`;
+    }
+  }
+  keys.length = start;
+  values.length = start;
+  return markup;
+}
 
 /** A literal the server renders as an attribute: no ref, handler or function. */
 const isServerAttribute = (key: string, value: unknown) =>
   key !== 'ref' && typeof value !== 'function' && !isHandlerKey(key);
 
+const NO_ATTRIBUTES: Record<string, unknown> = Object.freeze({}) as Record<string, unknown>;
+
 /**
  * `renderNativeElement` on the server: one pass with the same attributes as the client's first
  * write, and no handlers, refs or effect. `ssrElement` prints the hydration key the client's
- * compiled template claims.
+ * compiled template claims, the attribute object (the template's literals and the consumer's
+ * props) and then the part's own attributes, already written as markup.
  */
 function renderServerElement<State extends object>(
   element: Element | NativeElementTemplate,
@@ -336,55 +394,67 @@ function renderServerElement<State extends object>(
   const source = props as Record<string, any>;
   const consumer = classifyConsumerProps(props, spec.own);
   const keys = consumer.keys;
-  const attributes: Record<string, unknown> = { ...element.attributes };
-  const partLiteral = spec.literal;
-  if (partLiteral) {
-    for (const key in partLiteral) {
-      if (!keys.has(key) && isServerAttribute(key, partLiteral[key])) {
-        attributes[key] = partLiteral[key];
+
+  const previousObject = serverObject;
+  const previousShared = serverObjectShared;
+  const previousKeys = serverKeys;
+  const start = writeKeys.length;
+  serverObject = element.attributes ?? NO_ATTRIBUTES;
+  serverObjectShared = true;
+  serverKeys = keys;
+  let attributes: Record<string, unknown>;
+  let markup: string;
+  try {
+    const partLiteral = spec.literal;
+    if (partLiteral) {
+      for (const key in partLiteral) {
+        if (!keys.has(key) && isServerAttribute(key, partLiteral[key])) {
+          ownServerObject()[key] = partLiteral[key];
+        }
       }
     }
-  }
-  const consumerLiteral = consumer.literal;
-  for (const key in consumerLiteral) {
-    if (isServerAttribute(key, consumerLiteral[key])) {
-      attributes[key] = consumerLiteral[key];
+    const consumerLiteral = consumer.literal;
+    for (const key in consumerLiteral) {
+      if (isServerAttribute(key, consumerLiteral[key])) {
+        ownServerObject()[key] = consumerLiteral[key];
+      }
     }
-  }
+    if (consumer.reactive.length > 0) {
+      readReactiveProps(props, consumer.reactive, ownServerObject());
+    }
 
-  const writeState = stateWriterOf(spec);
-  const previousTarget = serverTarget;
-  const previousKeys = serverKeys;
-  serverTarget = attributes;
-  serverKeys = keys;
-  try {
-    writeState?.(writtenStateOf(spec), setServerAttribute);
+    stateWriterOf(spec)?.(writtenStateOf(spec), setServerAttribute);
     spec.attributes?.(setServerAttribute);
+
+    if ('class' in props) {
+      const value = resolveClass(source.class, consumerState(spec, source.class));
+      if (value !== undefined) {
+        ownServerObject().class = value;
+      }
+    }
+    const styleOverride = spec.styleOverride;
+    const partStyle = spec.partStyle;
+    const hasStyle = 'style' in props;
+    if (hasStyle || styleOverride || partStyle) {
+      let value = hasStyle
+        ? resolveStyle(source.style, consumerState(spec, source.style), partStyle?.())
+        : partStyle?.();
+      const override = styleOverride?.();
+      if (override) {
+        value = value ? combineStyle(value, override) : override;
+      }
+      if (value !== undefined) {
+        ownServerObject().style = value;
+      }
+    }
+    attributes = serverObject;
+    markup = takeServerMarkup(writeKeys, writeValues, start);
   } finally {
-    serverTarget = previousTarget;
+    writeKeys.length = Math.min(writeKeys.length, start);
+    writeValues.length = Math.min(writeValues.length, start);
+    serverObject = previousObject;
+    serverObjectShared = previousShared;
     serverKeys = previousKeys;
-  }
-  readReactiveProps(props, consumer.reactive, attributes);
-  if ('class' in props) {
-    const value = resolveClass(source.class, consumerState(spec, source.class));
-    if (value !== undefined) {
-      attributes.class = value;
-    }
-  }
-  const styleOverride = spec.styleOverride;
-  const partStyle = spec.partStyle;
-  const hasStyle = 'style' in props;
-  if (hasStyle || styleOverride || partStyle) {
-    let value = hasStyle
-      ? resolveStyle(source.style, consumerState(spec, source.style), partStyle?.())
-      : partStyle?.();
-    const override = styleOverride?.();
-    if (override) {
-      value = value ? combineStyle(value, override) : override;
-    }
-    if (value !== undefined) {
-      attributes.style = value;
-    }
   }
 
   let children: unknown;
@@ -393,7 +463,14 @@ function renderServerElement<State extends object>(
   } else if (spec.consumerChildren !== false && 'children' in props) {
     children = isStatic(props, 'children') ? source.children : () => source.children;
   }
-  return ssrElement(element.tag, attributes, children as never, true) as unknown as Element;
+  return ssrElement(
+    element.tag,
+    attributes,
+    children as never,
+    true,
+    undefined,
+    markup,
+  ) as unknown as Element;
 }
 
 /**
