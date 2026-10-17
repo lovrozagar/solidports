@@ -5,10 +5,12 @@
  */
 import { DEV, flush } from 'solid-js';
 import { afterEach, describe, expect, it } from 'vitest';
+import { Avatar } from '@solidports/base-ui/avatar';
 import { Button } from '@solidports/base-ui/button';
 import { Checkbox } from '@solidports/base-ui/checkbox';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { Select } from '@solidports/base-ui/select';
+import { useRender } from '@solidports/base-ui/use-render';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 
@@ -102,6 +104,33 @@ describe('render core cost', () => {
     );
     const cost = nodes(list(['a', 'b'])) - nodes(list(['a']));
     expect(cost, `Combobox.Item: ${cost} nodes`).toBeLessThanOrEqual(23);
+  });
+
+  // The slowest static mounts (plan 3 leaf 1.13): an Avatar with its image and fallback, and a
+  // minimal part built on \`useRender\`, both on the slow path.
+  it('an Avatar (Root, Image, Fallback) costs at most 49 reactive nodes', () => {
+    const cost = perPart(() => (
+      <Avatar.Root>
+        <Avatar.Image src="data:," width="8" height="8" />
+        <Avatar.Fallback>A</Avatar.Fallback>
+      </Avatar.Root>
+    ));
+    expect(cost, `Avatar: ${cost} nodes`).toBeLessThanOrEqual(49);
+  });
+
+  it('a part built on useRender costs at most 16 reactive nodes', () => {
+    function Part(props: useRender.ComponentProps<'button'>) {
+      const view = useRender({
+        defaultTagName: 'button',
+        get render() {
+          return props.render;
+        },
+        props: { type: 'button', children: 'part' },
+      });
+      return view();
+    }
+    const cost = perPart(() => <Part />);
+    expect(cost, `useRender part: ${cost} nodes`).toBeLessThanOrEqual(16);
   });
 
   it('static attributes create no reactive nodes', () => {

@@ -118,7 +118,7 @@ const FAMILY_LEAF: Partial<Record<ComponentName, string>> = {
   radio: 'plan 3 leaf 5.3',
   'radio-group': 'plan 3 leaf 5.3',
   field: 'plan 3 leaf 5.4',
-  fieldset: 'plan 3 leaf 1.13 (its first scenario), then 5.4',
+  fieldset: 'plan 3 leaf 5.4',
   form: 'plan 3 leaf 5.4',
   'number-field': 'plan 3 leaf 5.4',
   slider: 'plan 3 leaf 5.4',
@@ -139,7 +139,7 @@ const FAMILY_LEAF: Partial<Record<ComponentName, string>> = {
   drawer: 'plan 3 leaf 5.7',
   'navigation-menu': 'plan 3 leaf 5.7',
   toast: 'plan 3 leaf 5.8',
-  'unstable-use-media-query': 'plan 3 leaf 1.13 (its first scenario)',
+  'unstable-use-media-query': 'plan 3 leaf 5.2',
 };
 
 /** Axes that apply but no scenario or SSR case covers yet, by component. */
@@ -157,7 +157,7 @@ const PENDING: Partial<Record<ComponentName, readonly CoverageAxis[]>> = {
   'direction-provider': ['scale-1', 'scale-1000'],
   'drawer': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
   'field': ['scale-1000', 'static-props', 'wrapper', 'render-fn', 'render-element'],
-  'fieldset': ['scale-1', 'scale-100', 'scale-1000', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
+  'fieldset': ['scale-1', 'scale-1000', 'static-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
   'form': ['scale-1', 'scale-1000', 'static-props', 'wrapper', 'render-fn', 'render-element'],
   'input': ['scale-1', 'scale-100', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element'],
   'menu': ['scale-1000', 'reactive-props', 'wrapper', 'render-element', 'ssr', 'hydrate'],
@@ -182,7 +182,7 @@ const PENDING: Partial<Record<ComponentName, readonly CoverageAxis[]>> = {
   'toggle-group': ['scale-1', 'scale-1000', 'uncontrolled', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
   'toolbar': ['scale-1', 'scale-1000', 'static-props', 'reactive-props', 'wrapper', 'render-element', 'ssr', 'hydrate'],
   'tooltip': ['scale-1', 'scale-1000', 'controlled', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
-  'unstable-use-media-query': ['scale-1', 'scale-100', 'scale-1000'],
+  'unstable-use-media-query': ['scale-1', 'scale-100'],
   'use-render': ['scale-1', 'scale-100', 'static-props', 'reactive-props', 'wrapper', 'render-fn', 'render-element', 'ssr', 'hydrate'],
 };
 

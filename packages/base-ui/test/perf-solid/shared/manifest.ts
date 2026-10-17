@@ -62,10 +62,7 @@ export const NON_COMPONENT_EXPORTS: Record<string, string> = {
 };
 
 /** Components still without a scenario, each naming the leaf that adds it. Must stay disjoint from covered ones. */
-export const PENDING_COVERAGE: Partial<Record<ComponentName, string>> = {
-  fieldset: 'plan 3 leaf 1.13 adds the Fieldset scenario',
-  'unstable-use-media-query': 'plan 3 leaf 1.13 adds the useMediaQuery scenario',
-};
+export const PENDING_COVERAGE: Partial<Record<ComponentName, string>> = {};
 
 /**
  * Coverage dimensions, the same axes as the per-component matrix (plan 3 leaf 1.13).
@@ -131,6 +128,8 @@ const RADIO_INDICATOR =
  * prints it). `bench:component` runs exactly these; the manifest test checks every name exists.
  */
 export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
+  avatar: ['render core cost > an Avatar (Root, Image, Fallback) costs at most 49 reactive nodes'],
+  'use-render': ['render core cost > a part built on useRender costs at most 16 reactive nodes'],
   accordion: [
     'native disclosure part cost > a closed Accordion item (Item + Header + Trigger + Panel) costs at most 14 nodes (dev)',
 
@@ -203,7 +202,6 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
 /** Components with no cost test yet, each naming the plan 3 leaf that adds its budget. */
 export const PENDING_COST: Partial<Record<ComponentName, string>> = {
   autocomplete: '8.1 composite lists family',
-  avatar: '1.13 cost tests for the slowest static mounts',
   'checkbox-group': '5.1 toggles family',
   'csp-provider': '4.1 static parts family',
   'direction-provider': '4.1 static parts family',
@@ -219,7 +217,6 @@ export const PENDING_COST: Partial<Record<ComponentName, string>> = {
   toast: '10.1 toast family',
   toolbar: '5.1 toggles family',
   'unstable-use-media-query': '4.1 static parts family',
-  'use-render': '1.13 cost tests for the slowest static mounts',
 };
 
 /** Cost tests that guard the render core rather than one component, each with its reason. */
