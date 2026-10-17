@@ -10,7 +10,8 @@ import type { ServerWeb, SsrFixtureModule } from './renderFixtures';
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = resolve(here, '../..');
 
-function createSsrServer() {
+/** The Vite SSR server the fixtures render with (Solid's SSR transform, the library's source). */
+export function createSsrServer() {
   return createServer({
     appType: 'custom',
     // Its own cache and no client dep discovery: a shared Vite cache would re-optimize the

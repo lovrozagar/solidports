@@ -15,7 +15,18 @@ import {
   runWithOwner,
   untrack,
 } from 'solid-js';
-import { assign, escape, insert, isServer, ssrElement } from '@solidjs/web';
+// The instance `@solidjs/web`'s server reads its claims mode from.
+import { sharedConfig } from 'solid-js/internal';
+import {
+  assign,
+  escape,
+  insert,
+  isServer,
+  ssrClassName,
+  ssrElement,
+  ssrHydrationKey,
+  ssrStyle,
+} from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
@@ -318,7 +329,9 @@ function partState<State extends object>(spec: NativeElementSpec<State>): State 
 }
 
 /** The writer of the part's state attributes, if it writes any. */
-function stateWriterOf<State extends object>(spec: NativeElementSpec<State>): StateWriter | undefined {
+function stateWriterOf<State extends object>(
+  spec: NativeElementSpec<State>,
+): StateWriter | undefined {
   if (spec.state === undefined || spec.stateAttributes === false) {
     return undefined;
   }
@@ -420,6 +433,122 @@ const isServerAttribute = (key: string, value: unknown) =>
 
 const NO_ATTRIBUTES: Record<string, unknown> = Object.freeze({}) as Record<string, unknown>;
 
+let serverTemplates = true;
+
+/** Turns the server templates off, so a test can compare their markup with `ssrElement`'s. */
+export function setServerTemplates(enabled: boolean): void {
+  serverTemplates = enabled;
+}
+
+/** How many server elements each path rendered, in development (`server-template.test.ts`). */
+export const serverRenderPaths = { template: 0, generic: 0 };
+
+/**
+ * Tags whose markup `ssrElement` shapes beyond its attributes: form state (`input`, `option`,
+ * `textarea`), raw text (`script`, `style`) and link claims (`a`).
+ */
+const GENERIC_TAGS: ReadonlySet<string> = new Set([
+  'input',
+  'option',
+  'textarea',
+  'script',
+  'style',
+  'a',
+]);
+/** Keys `ssrElement` writes as the element's content rather than as attributes. */
+const CHILD_PROPERTIES: ReadonlySet<string> = new Set([
+  'innerHTML',
+  'textContent',
+  'innerText',
+  'children',
+]);
+const VOID_TAGS =
+  /^(?:area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr)$/i;
+/** Characters an attribute name cannot hold, as Solid's server checks it. */
+const NOT_NAME = /[\0-\x20\x7F-\x9F"'<>/=]/;
+const isAttributeName = (name: string) => name !== '' && !NOT_NAME.test(name);
+const isEventName = (name: string) => {
+  const code = name.charCodeAt(2);
+  return name.startsWith('on') && code > 64 && code < 91;
+};
+/** The markup of a template's own attributes, when nothing else wrote to the element. */
+const templateMarkup = new WeakMap<object, string>();
+
+/**
+ * The element's server markup, written as compiled JSX writes it: the open tag with its hydration
+ * key, the attributes object (as `ssrElement` walks it, without its normalization of spreads,
+ * proxies and slots), the part's own attribute markup, and the children escaped. `undefined` when
+ * the element needs `ssrElement`: a tag in GENERIC_TAGS, a content key, or Solid's claims mode.
+ */
+function renderServerTemplate(
+  tag: string,
+  attributes: Record<string, unknown>,
+  markup: string,
+  children: unknown,
+): { t: string } | undefined {
+  if (GENERIC_TAGS.has(tag) || (sharedConfig.context as { claims?: unknown } | undefined)?.claims) {
+    return undefined;
+  }
+  let attributeMarkup = templateMarkup.get(attributes);
+  if (attributeMarkup === undefined) {
+    attributeMarkup = '';
+    for (const name in attributes) {
+      // Own keys only, as `ssrElement` walks `Object.keys`.
+      if (!Object.hasOwn(attributes, name)) {
+        continue;
+      }
+      if (CHILD_PROPERTIES.has(name)) {
+        return undefined;
+      }
+      const value = attributes[name];
+      if (value == null || name.startsWith('prop:') || name === 'ref' || isEventName(name)) {
+        continue;
+      }
+      if (name === 'style') {
+        attributeMarkup += ` style="${ssrStyle(value as never)}"`;
+      } else if (name === 'class') {
+        attributeMarkup += ` class="${ssrClassName(value as never)}"`;
+      } else if (typeof value === 'boolean') {
+        if (value && isAttributeName(name)) {
+          attributeMarkup += ` ${name}`;
+        }
+      } else if (isAttributeName(name)) {
+        attributeMarkup +=
+          value === '' ? ` ${name}` : ` ${name}="${escape(value as string, true)}"`;
+      }
+    }
+    if (Object.isFrozen(attributes)) {
+      // A template's own attributes object (or the shared empty one): the same markup every time.
+      templateMarkup.set(attributes, attributeMarkup);
+    }
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    serverRenderPaths.template += 1;
+  }
+  const attrs = `${ssrHydrationKey()}${attributeMarkup}${markup}`;
+  if (VOID_TAGS.test(tag)) {
+    return { t: `<${tag}${attrs} />` };
+  }
+  const content = typeof children === 'function' ? (children as () => unknown)() : children;
+  const type = typeof content;
+  if (type === 'string' || type === 'number') {
+    return { t: `<${tag}${attrs}>${content as string}</${tag}>` };
+  }
+  if (content == null || type === 'boolean') {
+    return { t: `<${tag}${attrs}></${tag}>` };
+  }
+  const template = content as { t?: unknown; h?: unknown };
+  if (type === 'object' && !template.h && typeof template.t === 'string') {
+    return { t: `<${tag}${attrs}>${template.t}</${tag}>` };
+  }
+  // Several children, a deferred one or a hole: `ssrElement` resolves them (text separators, async
+  // holes). With no attributes object and no key of its own, it writes `<tag`, then `attrs`
+  // (the key and every attribute, in the order it would have written them), then the children.
+  return ssrElement(tag, NO_ATTRIBUTES, content as never, false, undefined, attrs) as unknown as {
+    t: string;
+  };
+}
+
 /**
  * `renderNativeElement` on the server: one pass with the same attributes as the client's first
  * write, and no handlers, refs or effect. `ssrElement` prints the hydration key the client's
@@ -510,6 +639,15 @@ function renderServerElement<State extends object>(
     children = isStatic(props, 'children')
       ? escape(source.children)
       : () => escape(source.children);
+  }
+  const templated = serverTemplates
+    ? renderServerTemplate(element.tag, attributes, markup, children)
+    : undefined;
+  if (templated !== undefined) {
+    return templated as unknown as Element;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    serverRenderPaths.generic += 1;
   }
   return ssrElement(
     element.tag,
