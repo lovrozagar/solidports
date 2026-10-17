@@ -66,7 +66,13 @@ const isHandlerKey = (key: string) => {
 };
 
 /** Writes one attribute below the consumer's props (a consumer key always wins). */
-export type SetAttribute = (key: string, value: unknown) => void;
+/**
+ * Writes one attribute of a native element's write (`undefined` removes it). A writer object:
+ * parts call `w.set(key, value)`, with no closure per element.
+ */
+export interface SetAttribute {
+  set(key: string, value: unknown): void;
+}
 
 export interface NativeElementSpec<State extends object> {
   /** The part's own props: never forwarded to the element. */
@@ -138,15 +144,15 @@ export function writeStateAttributes<State extends object>(
       const custom = mapper(value as never);
       if (custom != null) {
         for (const attribute of Object.keys(custom)) {
-          set(attribute, custom[attribute]);
+          set.set(attribute, custom[attribute]);
         }
       }
       continue;
     }
     if (value === true) {
-      set(`data-${key.toLowerCase()}`, '');
+      set.set(`data-${key.toLowerCase()}`, '');
     } else if (value) {
-      set(`data-${key.toLowerCase()}`, String(value));
+      set.set(`data-${key.toLowerCase()}`, String(value));
     }
   }
 }
@@ -181,13 +187,13 @@ export function compileStateWriter(
         const custom = mapper(value as never);
         if (custom != null) {
           for (const attribute of Object.keys(custom)) {
-            set(attribute, custom[attribute]);
+            set.set(attribute, custom[attribute]);
           }
         }
       } else if (value === true) {
-        set(names[i], '');
+        set.set(names[i], '');
       } else if (value) {
-        set(names[i], String(value));
+        set.set(names[i], String(value));
       }
     }
   };
@@ -306,17 +312,19 @@ function ownServerObject() {
   return serverObject;
 }
 
-const setServerAttribute: SetAttribute = (key, value) => {
-  if (value == null || serverKeys.has(key)) {
-    return;
-  }
-  if (key in serverObject || key === 'class' || key === 'style') {
-    ownServerObject()[key] = value;
-    return;
-  }
-  writeKeys[writeTop] = key;
-  writeValues[writeTop] = value;
-  writeTop += 1;
+const setServerAttribute: SetAttribute = {
+  set(key, value) {
+    if (value == null || serverKeys.has(key)) {
+      return;
+    }
+    if (key in serverObject || key === 'class' || key === 'style') {
+      ownServerObject()[key] = value;
+      return;
+    }
+    writeKeys[writeTop] = key;
+    writeValues[writeTop] = value;
+    writeTop += 1;
+  },
 };
 
 /**
@@ -806,6 +814,30 @@ interface ClientWriter {
   needsEffect: boolean;
 }
 
+/**
+ * The client's attribute writer for one element (`createClientWriter`): writes into `target`
+ * the keys the consumer does not set, `undefined` values only when `keepUndefined` (the effect's
+ * writes, which remove an attribute) and not in the literal pass. Solid: the method is on the
+ * prototype, so an element allocates one object, not a closure per mode.
+ */
+class ElementWriter implements SetAttribute {
+  declare target: Record<string, unknown>;
+  declare keepUndefined: boolean;
+  declare private readonly keys: ReadonlySet<string>;
+
+  constructor(keys: ReadonlySet<string>, target: Record<string, unknown>) {
+    this.keys = keys;
+    this.target = target;
+    this.keepUndefined = false;
+  }
+
+  set(key: string, value: unknown) {
+    if ((this.keepUndefined || value !== undefined) && !this.keys.has(key)) {
+      this.target[key] = value;
+    }
+  }
+}
+
 function createClientWriter<State extends object>(
   props: object,
   spec: NativeElementSpec<State>,
@@ -860,23 +892,14 @@ function createClientWriter<State extends object>(
     (hasClass && (!isStatic(props, 'class') || typeof source.class === 'function')) ||
     (hasStyle && (!isStatic(props, 'style') || typeof source.style === 'function'));
 
-  // The writers are created once per element; `target` is the object being written.
-  let target: Record<string, unknown> = literal;
-  const setKeep: SetAttribute = (key, value) => {
-    if (!keys.has(key)) {
-      target[key] = value;
-    }
-  };
-  const setDefined: SetAttribute = (key, value) => {
-    if (value !== undefined && !keys.has(key)) {
-      target[key] = value;
-    }
-  };
+  // One writer object per element; `write` points it at the object being written.
+  const writer = new ElementWriter(keys, literal);
   const write = (into: Record<string, unknown>, keepUndefined: boolean) => {
-    target = into;
-    const set = keepUndefined ? setKeep : setDefined;
-    writeState?.(writtenState!, set);
-    spec.attributes?.(set);
+    writer.target = into;
+    writer.keepUndefined = keepUndefined;
+    const target = into;
+    writeState?.(writtenState!, writer);
+    spec.attributes?.(writer);
     readReactiveProps(props, reactive, target);
     if (hasClass) {
       const value = resolveClass(source.class, consumerState(spec, source.class));

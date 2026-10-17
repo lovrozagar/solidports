@@ -537,13 +537,13 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
     mapping: tabsStateAttributesMapping,
     reactive: true,
     literal: TAB,
-    attributes: (set) => {
-      set('tabindex', isHighlighted() ? 0 : -1);
-      set('aria-disabled', disabled() ? 'true' : 'false');
-      set('aria-controls', tabPanelId());
-      set('aria-selected', active() ? 'true' : 'false');
-      set('id', id());
-      set(ACTIVE_COMPOSITE_ITEM, active() ? '' : undefined);
+    attributes: (w) => {
+      w.set('tabindex', isHighlighted() ? 0 : -1);
+      w.set('aria-disabled', disabled() ? 'true' : 'false');
+      w.set('aria-controls', tabPanelId());
+      w.set('aria-selected', active() ? 'true' : 'false');
+      w.set('id', id());
+      w.set(ACTIVE_COMPOSITE_ITEM, active() ? '' : undefined);
     },
     wrapHandler,
     handlerKeys: HANDLER_KEYS,

@@ -133,9 +133,9 @@ function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
     stateWriter: writeTriggerState,
     mapping: stateAttributesMapping,
     reactive: true,
-    attributes: (set) => {
-      writeDisclosureTriggerAttributes(set, root.open(), root.panelId(), disabled());
-      set('id', id());
+    attributes: (w) => {
+      writeDisclosureTriggerAttributes(w, root.open(), root.panelId(), disabled());
+      w.set('id', id());
     },
     // The server renders no handlers: no wrapper to create.
     wrapHandler: isServer

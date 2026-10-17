@@ -144,8 +144,8 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
               mapping: tabsStateAttributesMapping,
               reactive: true,
               literal: TABLIST,
-              attributes: (set) =>
-                set('aria-orientation', orientation() === 'vertical' ? 'vertical' : undefined),
+              attributes: (w) =>
+                w.set('aria-orientation', orientation() === 'vertical' ? 'vertical' : undefined),
               wrapHandler: (key, read) => {
                 const part = compositeProps[key];
                 return part ? composeHandler(read, part) : undefined;

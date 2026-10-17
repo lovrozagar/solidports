@@ -181,7 +181,7 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
           reactive: true,
           literal: PRESENTATION,
           // Hidden until the layout is settled.
-          attributes: (set) => set('hidden', !displayIndicator()),
+          attributes: (w) => w.set('hidden', !displayIndicator()),
           partStyle: style,
         }) as unknown as JSX.Element
     : useRenderElement('span', componentProps, {

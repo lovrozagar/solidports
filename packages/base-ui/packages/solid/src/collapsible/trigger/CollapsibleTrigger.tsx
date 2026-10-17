@@ -141,15 +141,15 @@ export function wrapDisclosureTriggerHandler(
 
 /** The trigger's `aria-*` attributes, as `useButton` and the trigger's props produce them. */
 export function writeDisclosureTriggerAttributes(
-  set: SetAttribute,
+  w: SetAttribute,
   open: boolean,
   panelId: JSX.HTMLAttributes<Element>['id'],
   disabled: boolean,
 ) {
-  set('aria-controls', open ? panelId : undefined);
-  set('aria-expanded', open ? 'true' : 'false');
+  w.set('aria-controls', open ? panelId : undefined);
+  w.set('aria-expanded', open ? 'true' : 'false');
   // Native buttons expose disabled through the disabled attribute.
-  set('disabled', disabled ? true : undefined);
+  w.set('disabled', disabled ? true : undefined);
 }
 
 function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element {
@@ -163,8 +163,8 @@ function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element 
     mapping: stateAttributesMapping,
     stateWriter: writeTriggerState,
     reactive: true,
-    attributes: (set) =>
-      writeDisclosureTriggerAttributes(set, root.open(), root.panelId(), disabled()),
+    attributes: (w) =>
+      writeDisclosureTriggerAttributes(w, root.open(), root.panelId(), disabled()),
     // The server renders no handlers: no wrapper to create.
     wrapHandler: isServer
       ? undefined
