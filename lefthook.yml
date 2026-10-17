@@ -11,6 +11,18 @@ pre-commit:
       root: "packages/base-ui/"
       glob: "**/{packages/solid,docs/solid}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
       run: bunx eslint --report-unused-disable-directives --max-warnings 0 --no-warn-ignored {staged_files}
+    # The scripts suite pins the bench manifest, the context map, the workflow steps and the gate
+    # scripts to the code they describe; the verify stamp runs it, the commit did not. A commit
+    # that touches one of its inputs runs it, so a renamed cost test fails here, not at the stamp.
+    - name: scripts-suite
+      glob:
+        - "scripts/**"
+        - "packages/base-ui/test/perf-solid/**"
+        - "packages/base-ui/scripts/**"
+        - "**/*.cost.test.tsx"
+        - "packages/base-ui/context/**"
+        - ".github/workflows/**"
+      run: bun test ./scripts
 
 pre-push:
   jobs:
