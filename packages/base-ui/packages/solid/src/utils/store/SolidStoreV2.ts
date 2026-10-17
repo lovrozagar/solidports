@@ -27,23 +27,34 @@ const storeActivators = new WeakMap<object, (keys: Iterable<PropertyKey> | true)
 // Notifies a store's listeners (`observe`) without a write.
 const storeNotifiers = new WeakMap<object, () => void>();
 
-// The current-key reader of each selector declared with `keyedSelector`.
-const keyedSelectorKeys = new WeakMap<Function, (state: any) => unknown>();
+interface KeyedSelectorShape {
+  /** Reads the current id. Selectors declared with the same function share one projection. */
+  key: (state: any) => unknown;
+  /** Read only once `id` is the current one. */
+  gate: ((state: any) => boolean) | undefined;
+}
+
+// The key and gate of each selector declared with `keyedSelector`.
+const keyedSelectorKeys = new WeakMap<Function, KeyedSelectorShape>();
 
 /**
  * A selector answering "is `id` the store's current one", where `key` reads the current one
- * (`undefined` for none). Declared keyed, a tracked `select` of it subscribes the reader to `id`
- * only: when the current one moves, the readers of the old and the new id re-run, not every reader.
- * Any other read (untracked, the server, `observe`) calls it as a plain selector.
+ * (`undefined` for none), and, with `gate`, "and does `gate` hold". Declared keyed, a tracked
+ * `select` of it subscribes the reader to `id` only: when the current one moves, the readers of
+ * the old and the new id re-run, not every reader, and only the current id's readers read `gate`.
+ * Selectors declared with the same `key` function share one projection: a popup trigger reads
+ * three of the active trigger id. Any other read (untracked, the server, `observe`) calls it as a
+ * plain selector.
  */
 export function keyedSelector<State extends object, Id = string>(
   key: (state: State) => Id | null | undefined,
+  gate?: (state: State) => boolean,
 ) {
   const selector = (state: State, id: Accessor<Id | undefined>) => {
     const value = id();
-    return value !== undefined && key(state) === value;
+    return value !== undefined && key(state) === value && (gate === undefined || gate(state));
   };
-  keyedSelectorKeys.set(selector, key);
+  keyedSelectorKeys.set(selector, { key, gate });
   return selector;
 }
 
@@ -64,8 +75,8 @@ export function SolidStore<
   let controlledValues: Map<keyof State, boolean> | undefined;
   const context = initialContext;
   const [state, setState] = createInitialStore(initialState);
-  // Keyed selectors' memberships (`keyedSelector`), one per selector, created when its current id
-  // first changes, in a lazy scope of the owner the store was created under: they live as long as
+  // Keyed selectors' memberships (`keyedSelector`), one per key function, created when its current
+  // id first changes, in a lazy scope of the owner the store was created under: they live as long as
   // the store and are disposed with it. Until then readers compare directly, subscribed to what the
   // current id reads, and `firstKeys` holds the id they first saw: a store whose current id never
   // moves (every closed popup root) creates nothing, and the first change, which re-runs every
@@ -74,39 +85,41 @@ export function SolidStore<
   // are the handles' inert stand-ins (`NullStore`), whose state never changes, and an ownerless
   // projection would be an error when the first read comes from an effect callback.
   const storeOwner = getOwner();
-  const memberships = new Map<KeyedSelector, (id: unknown) => boolean>();
-  const firstKeys = new Map<KeyedSelector, unknown>();
+  const memberships = new Map<Function, (id: unknown) => boolean>();
+  const firstKeys = new Map<Function, unknown>();
 
   function selectKeyed(selector: KeyedSelector, id: Accessor<unknown>): boolean {
     if (isServer || storeOwner === null || getObserver() === null || isDisposed(storeOwner)) {
       return selector(state, id);
     }
-    let isCurrent = memberships.get(selector);
+    const { key, gate } = keyedSelectorKeys.get(selector)!;
+    // Read after the key matched: only the current id's readers subscribe to it.
+    const passes = () => gate === undefined || gate(state);
+    let isCurrent = memberships.get(key);
     if (isCurrent === undefined) {
-      const key = keyedSelectorKeys.get(selector)!;
       // Compared untracked: the reader that sees the change reads through the projection only, so
       // it does not stay subscribed to the raw current id.
       const current = untrack(() => key(state));
-      if (!firstKeys.has(selector)) {
-        firstKeys.set(selector, current);
+      if (!firstKeys.has(key)) {
+        firstKeys.set(key, current);
       }
-      if (Object.is(firstKeys.get(selector), current)) {
+      if (Object.is(firstKeys.get(key), current)) {
         // Subscribes to what the current id reads, so its first change re-runs this reader.
         key(state);
         const value = id();
-        return value !== undefined && current === value;
+        return value !== undefined && current === value && passes();
       }
-      firstKeys.delete(selector);
+      firstKeys.delete(key);
       isCurrent = runInLazyScope(storeOwner, () =>
         createKeyedSelector(() => {
           const next = key(state);
           return next === undefined ? [] : [next];
         }),
       );
-      memberships.set(selector, isCurrent);
+      memberships.set(key, isCurrent);
     }
     const value = id();
-    return value !== undefined && isCurrent(value);
+    return value !== undefined && isCurrent(value) && passes();
   }
 
   function update<const Key extends keyof State>(statePart: Pick<State, Key>) {

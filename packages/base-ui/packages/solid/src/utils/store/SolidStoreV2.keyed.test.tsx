@@ -220,3 +220,73 @@ describe('SolidStore keyed selectors', () => {
     disposeStore();
   });
 });
+
+describe('SolidStore keyed selectors that share a key', () => {
+  // Plan 3, 44b's fix: a popup trigger reads three keyed selectors of one key (the active trigger
+  // id), two of them gated on `open` and `mounted`. A projection each made 500 detached Tooltip
+  // triggers hold 1,500 projection entries, released one by one when they unmounted (+15% on
+  // tooltip/handle-500's unmount); one shared projection holds 500.
+  const activeKey = (state: State) => state.active;
+  const shared = {
+    isActive: keyedSelector(activeKey),
+    isOpenedBy: keyedSelector(activeKey, (state: State) => state.open),
+    isMountedBy: keyedSelector(activeKey, (state: State) => state.open),
+  };
+  const createShared = () =>
+    SolidStore<State, {}, typeof shared>({ active: '0', open: false }, {}, shared);
+
+  /** Owners the first change of the current id creates, with readers of `names` for ids 0-9. */
+  function firstChangeOwners(names: (keyof typeof shared)[]) {
+    const [store, disposeStore] = inRoot(createShared);
+    const [, dispose] = inRoot(() =>
+      names.flatMap((name) =>
+        Array.from({ length: 10 }, (_, index) => {
+          const read = createMemo(() => store.select(name, () => String(index)));
+          read();
+          return read;
+        }),
+      ),
+    );
+    const owners = ownersCreatedBy(() => {
+      store.set('active', '1');
+      flush();
+    });
+    dispose();
+    disposeStore();
+    return owners.length;
+  }
+
+  it('selectors of one key create one projection between them', () => {
+    expect(firstChangeOwners(['isActive', 'isOpenedBy', 'isMountedBy'])).toBe(
+      firstChangeOwners(['isActive']),
+    );
+  });
+
+  it('a gated selector is the current id and its gate, and only the current reader reads the gate', () => {
+    const [store, disposeStore] = inRoot(createShared);
+    const runs = Array.from({ length: 10 }, () => 0);
+    const [reads, dispose] = inRoot(() =>
+      runs.map((_, index) =>
+        createMemo(() => {
+          runs[index] += 1;
+          return store.select('isOpenedBy', () => String(index));
+        }),
+      ),
+    );
+    const current = () => reads.flatMap((read, index) => (read() ? [index] : []));
+    expect(current()).toEqual([]);
+    store.set('active', '3');
+    flush();
+    expect(current()).toEqual([]);
+    const before = runs.reduce((a, b) => a + b, 0);
+    store.set('open', true);
+    flush();
+    expect(current()).toEqual([3]);
+    expect(runs.reduce((a, b) => a + b, 0) - before).toBe(1);
+    store.set('active', '5');
+    flush();
+    expect(current()).toEqual([5]);
+    dispose();
+    disposeStore();
+  });
+});
