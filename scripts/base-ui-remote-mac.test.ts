@@ -2,9 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { spawn, spawnSync } from "node:child_process"
 import {
 	chmodSync,
+	closeSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	openSync,
 	readdirSync,
 	readFileSync,
 	readlinkSync,
@@ -185,6 +187,80 @@ describe("stopping a Mac run", () => {
 		// one after the other they took 527 s together.
 		expect(await seen(undefined)).toBe("1")
 		expect(await seen("2")).toBe("2")
+	}, 30_000)
+
+	test("a locked run ends when the machine that started it stops refreshing its heartbeat", async () => {
+		// Stopping the local driver left the Mac's sshd session (the watched parent) alive for 48
+		// minutes, holding the lock: with no tty, sshd notices a vanished client only when it next
+		// forwards output, and a run prints little. The heartbeat file stops being refreshed instead.
+		const { dir } = shims()
+		const home = join(dir, "home")
+		mkdirSync(join(home, ".gates"), { recursive: true })
+		const session = Bun.spawn(["sleep", "60"])
+		const heartbeat = join(dir, "heartbeat")
+		writeFileSync(heartbeat, "")
+		const pidFile = join(dir, "command.pid")
+		const run = Bun.spawn(["bash", "-c", lockedRun(60, ["sh", "-c", `echo $$ > ${pidFile}; exec sleep 30`])], {
+			env: {
+				...process.env,
+				HOME: home,
+				PATH: `${dir}:${process.env.PATH}`,
+				REMOTE_MAC_WATCH: String(session.pid),
+				REMOTE_MAC_HEARTBEAT: heartbeat,
+				REMOTE_MAC_STALE: "2",
+			},
+			stdout: "ignore",
+			stderr: "ignore",
+		})
+		expect(waitFor(() => Bun.file(pidFile).size > 0)).toBe(true)
+		const command = Number(readFileSync(pidFile, "utf8").trim())
+		// Refreshed, the run goes on.
+		for (let beat = 0; beat < 3; beat += 1) {
+			writeFileSync(heartbeat, String(beat))
+			await Bun.sleep(1000)
+		}
+		expect(alive(command)).toBe(true)
+		// No longer refreshed: the run stops while its session is still alive.
+		expect(waitFor(() => !alive(command), 10_000)).toBe(true)
+		expect(alive(session.pid)).toBe(true)
+		expect(await run.exited).toBe(143)
+		// The run removes its own heartbeat file: a driver stopped by force never does.
+		expect(existsSync(heartbeat)).toBe(false)
+		session.kill()
+	}, 30_000)
+
+	test("a locked run ends even when its stderr's reader is gone, as when sshd has exited", async () => {
+		// The watcher reported before it killed: with sshd gone, the report raised SIGPIPE and killed
+		// the watcher, and the run went on holding the Mac's lock.
+		const { dir } = shims()
+		const home = join(dir, "home")
+		mkdirSync(join(home, ".gates"), { recursive: true })
+		const session = Bun.spawn(["sleep", "60"])
+		const heartbeat = join(dir, "heartbeat")
+		writeFileSync(heartbeat, "")
+		const fifo = join(dir, "stderr.fifo")
+		expect(spawnSync("mkfifo", [fifo]).status).toBe(0)
+		const pidFile = join(dir, "command.pid")
+		const script = lockedRun(60, ["sh", "-c", `echo $$ > ${pidFile}; exec sleep 30`])
+		const run = Bun.spawn(["bash", "-c", `exec 2>${quote(fifo)}\n${script}`], {
+			env: {
+				...process.env,
+				HOME: home,
+				PATH: `${dir}:${process.env.PATH}`,
+				REMOTE_MAC_WATCH: String(session.pid),
+				REMOTE_MAC_HEARTBEAT: heartbeat,
+				REMOTE_MAC_STALE: "2",
+			},
+			stdout: "ignore",
+		})
+		// Open the reader so the run starts, then close it: every later write to stderr fails.
+		const reader = openSync(fifo, "r")
+		expect(waitFor(() => Bun.file(pidFile).size > 0)).toBe(true)
+		closeSync(reader)
+		const command = Number(readFileSync(pidFile, "utf8").trim())
+		expect(waitFor(() => !alive(command), 10_000)).toBe(true)
+		await run.exited
+		session.kill()
 	}, 30_000)
 
 	test("a locked run ends when the session that started it goes away", async () => {
