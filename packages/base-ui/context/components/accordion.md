@@ -64,6 +64,7 @@ Heap after mount (`accordion/300`): 5841 KB React vs 2569 KB Solid.
 ## Known issues and divergences
 
 - Contexts sit on plain owners and the panel machinery is created on first render; behavior matches upstream per `Accordion.parity.test.tsx`. An item open since its panel was created defers the machinery to its first change, as Collapsible's panel does (D11).
+- Security note: from b4d74b10 (2026-10-16) to ae146fd7 (2026-10-17), the native server path wrote a part's text children unescaped, so a consumer's text with markup characters became markup in server-rendered HTML. No release contained it (base-ui-v1.9.0-13 is at b9b813c9, before b4d74b10). `serverEscape.test.tsx` holds the fix.
 
 ## Docs
 
