@@ -2,7 +2,7 @@ import { untrack } from 'solid-js';
 import { access, createLayoutEffect } from '../solid-helpers';
 import type { MaybeAccessor } from '../solid-helpers';
 import { useOpenChangeComplete } from './useOpenChangeComplete';
-import { useTransitionStatus } from './useTransitionStatus';
+import { createLazyTransitionStatus } from './createLazyTransitionStatus';
 
 export interface UseUnmountAfterCloseParameters {
   /**
@@ -44,47 +44,65 @@ export interface UseUnmountAfterCloseParameters {
 export function useUnmountAfterClose(parameters: UseUnmountAfterCloseParameters) {
   const open = () => Boolean(access(parameters.open));
 
-  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open, false, false, () =>
-    Boolean(access(parameters.animateInitialOpen)),
-  );
-
   // Opening starts a new close cycle. Derive it so the close-completion hook reads the value on
   // the same pass, and clear the stored value so it doesn't leak into the next close.
   const preventUnmountingOnClose = () =>
     open() ? false : Boolean(access(parameters.preventUnmountOnClose));
 
-  let mountedNow = untrack(mounted);
+  let mountedNow = false;
   let pendingUnmount = false;
   let wasOpen: boolean | undefined;
 
-  const unmount = () => {
-    mountedNow = false;
-    setMounted(false);
-    // A callback: it may also run from the effect below, where its reads must not subscribe.
-    untrack(parameters.onUnmount);
-  };
+  // A popup that never opens has nothing to animate or unmount: its status and the effects below
+  // are created on the first open a reader of `mounted` or `transitionStatus` sees
+  // (`createLazyTransitionStatus`, as indicators and collapsibles do), or at once when it mounts
+  // open. Before that, `mounted` is false and `forceUnmount` does nothing.
+  const status = createLazyTransitionStatus(open, {
+    animateInitialOpen: () => Boolean(access(parameters.animateInitialOpen)),
+    onCreate(created) {
+      mountedNow = untrack(created.mounted);
 
-  // Solid: one effect replaces React's `[open]` effect and its every-commit `mounted` mirror.
-  createLayoutEffect(
-    () => ({ mounted: mounted(), open: open() }),
-    (state) => {
-      // Only a change to `open` clears the opt-out, so one recorded while a controlled close is
-      // still pending survives.
-      if (state.open && wasOpen !== true) {
-        parameters.setPreventUnmountOnClose(false);
-      }
-      wasOpen = state.open;
-      mountedNow = state.mounted;
-      if (pendingUnmount) {
-        pendingUnmount = false;
-        if (!state.open && state.mounted) {
-          unmount();
-        }
-      }
+      // Solid: one effect replaces React's `[open]` effect and its every-commit `mounted` mirror.
+      createLayoutEffect(
+        () => ({ mounted: created.mounted(), open: open() }),
+        (state) => {
+          // Only a change to `open` clears the opt-out, so one recorded while a controlled close is
+          // still pending survives.
+          if (state.open && wasOpen !== true) {
+            parameters.setPreventUnmountOnClose(false);
+          }
+          wasOpen = state.open;
+          mountedNow = state.mounted;
+          if (pendingUnmount) {
+            pendingUnmount = false;
+            if (!state.open && state.mounted) {
+              unmount();
+            }
+          }
+        },
+      );
+
+      useOpenChangeComplete({
+        enabled: () => created.mounted() && !open() && !preventUnmountingOnClose(),
+        open,
+        ref: () => access(parameters.ref) ?? null,
+        onComplete() {
+          if (!untrack(open)) {
+            forceUnmount();
+          }
+        },
+      });
     },
-  );
+  });
 
-  const forceUnmount = () => {
+  function unmount() {
+    mountedNow = false;
+    status.setMounted(false);
+    // A callback: it may also run from the effect above, where its reads must not subscribe.
+    untrack(parameters.onUnmount);
+  }
+
+  function forceUnmount() {
     if (!mountedNow) {
       return;
     }
@@ -102,18 +120,12 @@ export function useUnmountAfterClose(parameters: UseUnmountAfterCloseParameters)
       return;
     }
     unmount();
+  }
+
+  return {
+    mounted: status.mounted,
+    transitionStatus: status.transitionStatus,
+    preventUnmountingOnClose,
+    forceUnmount,
   };
-
-  useOpenChangeComplete({
-    enabled: () => mounted() && !open() && !preventUnmountingOnClose(),
-    open,
-    ref: () => access(parameters.ref) ?? null,
-    onComplete() {
-      if (!untrack(open)) {
-        forceUnmount();
-      }
-    },
-  });
-
-  return { mounted, transitionStatus, preventUnmountingOnClose, forceUnmount };
 }

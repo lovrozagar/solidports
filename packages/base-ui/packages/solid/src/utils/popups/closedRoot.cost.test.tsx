@@ -62,7 +62,7 @@ describe('closed popup root cost', () => {
   const roots: [name: string, budget: number, root: () => JSX.Element][] = [
     [
       'Tooltip', // before: 110
-      77,
+      73,
       () => (
         <Tooltip.Root>
           <Tooltip.Trigger>Trigger</Tooltip.Trigger>
@@ -76,7 +76,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Menu', // before: 189
-      124,
+      120,
       () => (
         <Menu.Root>
           <Menu.Trigger>Trigger</Menu.Trigger>
@@ -92,7 +92,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'ContextMenu', // before: 153
-      84,
+      80,
       () => (
         <ContextMenu.Root>
           <ContextMenu.Trigger>Area</ContextMenu.Trigger>
@@ -108,7 +108,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Popover', // before: 113
-      84,
+      80,
       () => (
         <Popover.Root>
           <Popover.Trigger>Trigger</Popover.Trigger>
@@ -122,7 +122,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'PreviewCard', // before: 99
-      73,
+      69,
       () => (
         <PreviewCard.Root>
           <PreviewCard.Trigger href="#">Trigger</PreviewCard.Trigger>
@@ -136,7 +136,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Dialog', // before: 94
-      67,
+      63,
       () => (
         <Dialog.Root>
           <Dialog.Trigger>Trigger</Dialog.Trigger>
@@ -148,7 +148,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'AlertDialog', // before: 94
-      67,
+      63,
       () => (
         <AlertDialog.Root>
           <AlertDialog.Trigger>Trigger</AlertDialog.Trigger>
@@ -160,7 +160,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Drawer', // before: 125
-      92,
+      88,
       () => (
         <Drawer.Root>
           <Drawer.Trigger>Trigger</Drawer.Trigger>
@@ -172,7 +172,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Select', // before: 188
-      112,
+      108,
       () => (
         <Select.Root>
           <Select.Trigger>
@@ -190,7 +190,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Combobox', // before: 210
-      149,
+      144,
       () => (
         <Combobox.Root items={['a']}>
           <Combobox.Input />
@@ -209,7 +209,7 @@ describe('closed popup root cost', () => {
     [
       // Not deferred: its trigger's hover and click hooks cost one node each.
       'NavigationMenu',
-      189,
+      185,
       () => (
         <NavigationMenu.Root>
           <NavigationMenu.List>

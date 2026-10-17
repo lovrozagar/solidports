@@ -35,7 +35,7 @@ No. No Tooltip file imports `utils/native`; every part renders through `useRende
 | :--- | ---: |
 | Closed root (dev probe 2026-10-14, rc.13) | 81 |
 | Open root (dev probe 2026-10-14, rc.13) | 256 |
-| Closed-root budget, `closedRoot.cost.test.tsx:64` | 77 (before deferral: 110) |
+| Closed-root budget, `closedRoot.cost.test.tsx:64` | 73 (before deferral: 110) |
 
 There is no open-root budget.
 

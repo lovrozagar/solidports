@@ -1,4 +1,4 @@
-import { createRoot, createSignal, flush } from 'solid-js';
+import { createRenderEffect, createRoot, createSignal, flush } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { waitFor } from '@solidjs/testing-library';
 import { useUnmountAfterClose } from './useUnmountAfterClose';
@@ -67,6 +67,15 @@ describe('useUnmountAfterClose', () => {
         setPreventUnmountOnClose: setPreventSignal,
         onUnmount: () => calls.push('unmount'),
       });
+      // A hook test of this port, with no upstream counterpart: every popup reads `mounted` (it
+      // decides whether the popup renders), which is what creates the machinery on the first open,
+      // so the setup reads it too. The behavior users see, a prevented close kept mounted until
+      // `actionsRef.unmount`, is pinned at the component level by upstream's Popover tests
+      // ("unmounts the popover when the `unmount` method is called").
+      createRenderEffect(
+        () => api!.mounted(),
+        () => {},
+      );
     });
     flush();
 
@@ -88,6 +97,39 @@ describe('useUnmountAfterClose', () => {
     await Promise.resolve();
     expect(calls).toEqual(['unmount']);
     expect(api!.mounted()).toBe(false);
+  });
+
+  it('creates its machinery on the first open a reader of mounted sees, which then enters starting', () => {
+    // Plan 3, 4.8: a closed popup root built its transition status, unmount effect and
+    // close-completion hook at mount (4 nodes per root) though it may never open.
+    let api: ReturnType<typeof useUnmountAfterClose> | undefined;
+    let setOpen: (open: boolean) => void = () => {};
+    const statuses: unknown[] = [];
+    const dispose = createRoot((d) => {
+      const [open, setOpenSignal] = createSignal(false, { ownedWrite: true });
+      setOpen = setOpenSignal;
+      api = useUnmountAfterClose({
+        open,
+        ref: () => null,
+        preventUnmountOnClose: () => false,
+        setPreventUnmountOnClose: () => {},
+        onUnmount: () => {},
+      });
+      createRenderEffect(
+        () => [api!.mounted(), api!.transitionStatus()] as const,
+        ([mounted, status]) => {
+          statuses.push(`${mounted}:${status}`);
+        },
+      );
+      return d;
+    });
+    flush();
+    expect(statuses).toEqual(['false:undefined']);
+    api!.forceUnmount();
+    setOpen(true);
+    flush();
+    expect(statuses.at(-1)).toBe('true:starting');
+    dispose();
   });
 
   it('drops a force that is still open on the next microtask, and applies one once close commits', async () => {

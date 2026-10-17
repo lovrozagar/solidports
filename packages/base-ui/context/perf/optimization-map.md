@@ -79,7 +79,7 @@ Line numbers were read at b9b813c9. Benchmark ratios are `solid/react` sync from
 ## 10. Defer trigger hooks to first intent (shipped, except NavigationMenu)
 
 - Where: `utils/popups/useInteractionIntent.ts`: one capture listener per event type and document; a closed root builds its interactions on first intent.
-- Status: done for Tooltip, Menu, ContextMenu, Popover, PreviewCard, Dialog, AlertDialog, Drawer, Select and Combobox (closed-root budgets fell 16–35%). NavigationMenu still builds hover and click hooks up front (budget 189).
+- Status: done for Tooltip, Menu, ContextMenu, Popover, PreviewCard, Dialog, AlertDialog, Drawer, Select and Combobox (closed-root budgets fell 16–35%). NavigationMenu still builds hover and click hooks up front (budget 185).
 - Remaining evidence: popover/roots-500 mount 4.63x, tooltip/roots-500 3.86x, menu/many-roots-500 2.96x; these now point at items 1, 6 and 7.
 
 ## Cross-cutting rules for the plan
