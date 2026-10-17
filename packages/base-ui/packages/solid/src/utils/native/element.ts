@@ -502,10 +502,14 @@ function renderServerElement<State extends object>(
   }
 
   let children: unknown;
+  // Escaped as compiled JSX escapes a child expression: `ssrElement` writes the children it is
+  // given as they are, so text with markup characters would become markup.
   if (spec.children) {
-    children = spec.children;
+    children = escape(spec.children);
   } else if (spec.consumerChildren !== false && 'children' in props) {
-    children = isStatic(props, 'children') ? source.children : () => source.children;
+    children = isStatic(props, 'children')
+      ? escape(source.children)
+      : () => escape(source.children);
   }
   return ssrElement(
     element.tag,
