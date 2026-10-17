@@ -972,6 +972,77 @@ describe('<CompositeList />', () => {
     });
   });
 
+  describe('index updates', () => {
+    // Every flush called every item's map listener, and each looked itself up in the new map: a
+    // flush that moved one index still cost a call per item (1,000 per open of a 1,000-item list).
+    // Only items whose index changed hear about it now.
+    function countDeliveries() {
+      const counter = { deliveries: 0 };
+      const wrapped = new WeakSet<object>();
+      function CountDeliveries(props: { children: JSX.Element }) {
+        const context = useCompositeListContext();
+        const value = {
+          ...context,
+          register: (...args: Parameters<typeof context.register>) => {
+            const sink = args[3];
+            if (sink && !wrapped.has(sink)) {
+              wrapped.add(sink);
+              const set = sink.set;
+              sink.set = (index: number) => {
+                counter.deliveries += 1;
+                set(index);
+              };
+            }
+            context.register(...args);
+          },
+          subscribeMapChange: (fn: Parameters<typeof context.subscribeMapChange>[0]) =>
+            context.subscribeMapChange((map) => {
+              counter.deliveries += 1;
+              fn(map);
+            }),
+        };
+        return <CompositeListContext value={value}>{props.children}</CompositeListContext>;
+      }
+      return { counter, CountDeliveries };
+    }
+
+    function GuessedItem(props: { label: string }) {
+      const { setRef, index } = useCompositeListItem({
+        indexGuessBehavior: IndexGuessBehavior.GuessFromOrder,
+      });
+      return <div ref={setRef} data-testid={props.label} data-index={index()} />;
+    }
+
+    it('a flush that moves no index updates no item, and an insertion updates the items after it', async () => {
+      const { counter, CountDeliveries } = countDeliveries();
+      const [items, setItems] = createSignal(Array.from({ length: 100 }, (_, i) => `item-${i}`));
+      await render(() => (
+        <CompositeList refs={createRefs()}>
+          <CountDeliveries>
+            <For each={items()}>{(item) => <GuessedItem label={item} />}</For>
+          </CountDeliveries>
+        </CompositeList>
+      ));
+      const indexOf = (label: string) => screen.getByTestId(label).getAttribute('data-index');
+      expect(indexOf('item-99')).toBe('99');
+
+      // Appended in order: its guessed index is right, so nothing changes.
+      counter.deliveries = 0;
+      act(() => setItems((current) => [...current, 'item-100']));
+      expect(indexOf('item-100')).toBe('100');
+      expect(counter.deliveries).toBe(0);
+
+      // Inserted at 10: the new item and the 91 after it move.
+      counter.deliveries = 0;
+      act(() => setItems((current) => [...current.slice(0, 10), 'new', ...current.slice(10)]));
+      expect(indexOf('new')).toBe('10');
+      expect(indexOf('item-10')).toBe('11');
+      expect(indexOf('item-100')).toBe('101');
+      expect(indexOf('item-9')).toBe('9');
+      expect(counter.deliveries).toBeLessThanOrEqual(92);
+    });
+  });
+
   describe('prop: onMapChange', () => {
     it('publishes item metadata alongside the index', async () => {
       const refs = createRefs();

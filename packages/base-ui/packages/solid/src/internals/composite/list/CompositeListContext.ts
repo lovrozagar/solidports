@@ -12,17 +12,30 @@ export interface CompositeListRegistration<Metadata> {
   textRef: (() => HTMLElement | null | undefined) | undefined;
 }
 
+/**
+ * Where the list delivers an item's index: `current` is the index the item holds, and `set` is
+ * called only when a flush gives it another one.
+ */
+export interface CompositeListIndexSink {
+  current: number;
+  set: (index: number) => void;
+}
+
 export interface CompositeListContextValue<Metadata> {
   /**
    * Solid: `owner` identifies the registering item. Nested items that share one DOM node keep the
    * outer (first-attached) registration; React gets the same result from ref attachment order.
+   * Solid: `sink` receives the item's index when a flush changes it (React re-renders each item
+   * from its map subscription).
    */
   register: (
     node: Element,
     registration: CompositeListRegistration<Metadata>,
     owner: object,
+    sink?: CompositeListIndexSink,
   ) => void;
   unregister: (node: Element, owner: object) => void;
+  /** Called with the whole map after every flush that changed it (lists that filter their items). */
   subscribeMapChange: (fn: (map: Map<Element, Metadata>) => void) => () => void;
   nextIndexRef: { current: number };
 }

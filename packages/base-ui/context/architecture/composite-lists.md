@@ -15,7 +15,7 @@ All paths are under `packages/base-ui/packages/solid/src/`.
 | File | Role |
 | --- | --- |
 | `internals/composite/list/CompositeList.tsx` | Registration map, batched flush, sorted snapshot, `MutationObserver` reorder check |
-| `internals/composite/list/CompositeListContext.ts` | `register`, `unregister`, `subscribeMapChange`, `nextIndexRef` |
+| `internals/composite/list/CompositeListContext.ts` | `register` (with the item's index sink), `unregister`, `subscribeMapChange` (whole-map listeners), `nextIndexRef` |
 | `internals/composite/list/useCompositeListItem.ts` | Slow-path item hook: registers a node, follows its index |
 | `internals/composite/item/useCompositeItem.ts` | Adds roving focus: `onFocus`, hover highlight, `tabindex` |
 | `internals/composite/root/useCompositeRoot.ts` | Keyboard navigation, `highlightedIndex` (controlled or internal signal) |
@@ -30,7 +30,7 @@ All paths are under `packages/base-ui/packages/solid/src/`.
 - A registration is `{ metadata, index, label, textRef }`. `index: null` means automatic (DOM order); a number reserves that slot. `textRef` is a reader the list calls when it builds labels, as React reads its ref object at flush: an ItemText part's ref attaches after the item registered, and a registered element value made every Select item register twice per open (two 1,000-item flushes).
 - Items register from their ref (Solid applies refs once, never with `null`) and unregister in `onCleanup`. `useCompositeListItem` also runs one effect that re-registers when metadata, explicit index or label change, compared field by field against the last registration.
 - Index guess: with `IndexGuessBehavior.GuessFromOrder` (or `guessIndex` in the native helpers), the initial index comes from `nextIndexRef` in creation order, so a flat list in DOM order needs no update after the first flush. The flush corrects a wrong guess.
-- Each item subscribes to map changes. The slow hook subscribes from a layout effect keyed on the explicit index (`:135-147`), so items with an explicit index do not subscribe. The native helpers subscribe at setup.
+- Each item registers an index sink (`{ current, set }`) with its registration; the list calls `set` only when a flush gives the item another index. Whole-map consumers (`MenuFilterList`) use `subscribeMapChange`.
 
 ## Flush
 
@@ -41,7 +41,7 @@ All paths are under `packages/base-ui/packages/solid/src/`.
 1. `getCompositeListSnapshot` (`:246-290`): walks the whole map, skips disconnected nodes, sorts all automatic items by document position (`:273`), assigns indexes around reserved ones, and sorts again by index when any are reserved.
 2. `syncRefs` (`:85-114`): empties and refills `refs.elements` and `refs.labels` in place, and builds a new `Map` with a spread copy of each item's metadata plus `index` (`:96-99`). Labels fall back to `textRef.textContent` or `element.textContent`, a DOM read per item.
 3. Compares the new items with the previous ones; if unchanged, stops after re-arming the observer.
-4. Calls every listener (each item does one `map.get`) and `onMapChange` with a fresh array.
+4. Calls the sink of each item whose index moved (an insertion updates the items after it; a flush that confirms every guessed index updates none), then every `subscribeMapChange` listener and `onMapChange` with a fresh array.
 
 `sortByDocumentPosition` (`:316-329`) short-circuits adjacent siblings before falling back to `compareDocumentPosition`, which keeps sorting an already ordered flat list near linear.
 
@@ -59,16 +59,16 @@ The `MutationObserver` (`:116-167`) watches the common parents of adjacent sorte
 
 `createNativeListItem(metadata, { guessIndex })` covers items with an automatic index, no label and no `textRef`:
 
-- One index signal instead of the hook's signal, registration effect and layout-effect subscription.
+- One index signal and its sink instead of the hook's signal and registration effect.
 - Static metadata is read once; an accessor gets one effect that re-registers on change.
 - The list sees the same registrations in the same order, so slow and native items can share a list.
 - `createCompositeItemRegistration` in `utils/native/index.ts:364` is a second helper with the same contract that always guesses the index. Radio and Toggle use it.
 
 ## Costs
 
-- A flush is O(n log n) worst case over all items, not only the changed ones, plus one metadata copy and one listener call per item. Items that register across separate flushes (lazy or late mounting) pay that per batch, so k batches cost k full rebuilds.
+- A flush is O(n log n) worst case over all items, not only the changed ones, plus one metadata copy per item; only items whose index moved are updated. Items that register across separate flushes (lazy or late mounting) pay that per batch, so k batches cost k full rebuilds.
 - Highlight: O(n) binding re-evaluations per arrow key or hover highlight.
-- Per slow item: one signal, one effect, one layout effect, one subscription.
+- Per slow item: one signal and one effect.
 - Ranked fixes (keyed highlight, incremental insertion, native list items) are in the [optimization map](../perf/optimization-map.md).
 
 ## When changing this layer

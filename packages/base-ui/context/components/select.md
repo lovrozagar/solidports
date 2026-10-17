@@ -36,7 +36,7 @@ Dev probe 2026-10-14, rc.13: closed root with one item 121 nodes, open 436, each
 Current budgets:
 
 - Closed root (Trigger + Value + unopened popup + one item): ≤ 123, down from 188 before deferring interactions (`packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx:174`).
-- `Select.Item` ≤ 27 (`packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx:66`).
+- `Select.Item` ≤ 26 (`packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx:66`).
 - No open-root budget exists.
 
 ## Benchmarks

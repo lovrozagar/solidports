@@ -1,8 +1,7 @@
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { access, createLayoutEffect } from '../../../solid-helpers';
+import { access } from '../../../solid-helpers';
 import type { MaybeAccessor } from '../../../solid-helpers';
-import type { CompositeMetadata } from './CompositeList';
 import { useCompositeListContext } from './CompositeListContext';
 import type { CompositeListRegistration } from './CompositeListContext';
 
@@ -40,7 +39,7 @@ export function useCompositeListItem<Metadata>(
 ): UseCompositeListItemReturnValue {
   const externalIndex = () => access(params.index);
 
-  const { register, unregister, subscribeMapChange, nextIndexRef } = useCompositeListContext();
+  const { register, unregister, nextIndexRef } = useCompositeListContext();
 
   // Guess the index from the render order. This avoids a re-render after mount for
   // flat lists rendered in DOM order; when the guess is wrong (grouped or out-of-order
@@ -59,6 +58,9 @@ export function useCompositeListItem<Metadata>(
     }),
   );
   const index = () => externalIndex() ?? internalIndex();
+  // The list sets the index only when a flush moves it (with an explicit index, `index()` reads that
+  // one instead).
+  const sink = { current: untrack(internalIndex), set: setInternalIndex };
 
   // Identifies this item's registration when nested items share one DOM node.
   const owner = {};
@@ -85,7 +87,7 @@ export function useCompositeListItem<Metadata>(
 
   function registerNode(node: Element, registration: CompositeListRegistration<Metadata>) {
     lastRegistration = registration;
-    register(node, registration, owner);
+    register(node, registration, owner, sink);
   }
 
   // Solid: refs are applied once and never with `null`, so the ref registers and the unmount
@@ -132,22 +134,6 @@ export function useCompositeListItem<Metadata>(
     if (componentRef) {
       unregister(componentRef, owner);
     }
-  });
-
-  // Render-effect timing: subscribed before the list's first flush, as React's child layout
-  // effects run before the parent's.
-  createLayoutEffect(externalIndex, (currentExternalIndex) => {
-    if (currentExternalIndex != null) {
-      return undefined;
-    }
-
-    return subscribeMapChange((map: Map<Element, CompositeMetadata<Metadata>>) => {
-      const i = componentRef ? map.get(componentRef)?.index : null;
-
-      if (i != null) {
-        setInternalIndex(i);
-      }
-    });
   });
 
   return { setRef, index };
