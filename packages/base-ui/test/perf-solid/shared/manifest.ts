@@ -122,7 +122,9 @@ const staticPart = (name: string) => `native static part cost > ${name} (dev)`;
 const GROUPED_TOGGLE =
   'native toggles cost > Toggle in a ToggleGroup: ≤ 5 nodes beyond a hand-written grouped toggle';
 const RADIO =
-  'native toggles cost > Radio.Root + Indicator in a RadioGroup: ≤ 18 nodes beyond a hand-written radio';
+  'native toggles cost > Radio.Root + Indicator in a RadioGroup: ≤ 13 nodes beyond a hand-written radio';
+const RADIO_INDICATOR =
+  'native toggles cost > an unchecked Radio.Indicator: ≤ 7 nodes beyond its root, its transition machinery not yet made';
 
 /**
  * The `*.cost.test.tsx` tests each component owns, by full name (`describe > it`, as `vitest list`
@@ -146,7 +148,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'render core cost > Button costs at most 3 reactive nodes',
   ],
   checkbox: [
-    'native toggles cost > Checkbox.Root + Indicator: ≤ 19 nodes beyond a hand-written checkbox',
+    'native toggles cost > Checkbox.Root + Indicator: ≤ 13 nodes beyond a hand-written checkbox',
+    'native toggles cost > an unchecked Checkbox.Indicator: ≤ 7 nodes beyond its root, its transition machinery not yet made',
     'render core cost > Checkbox.Root costs at most 10 reactive nodes',
   ],
   collapsible: [
@@ -178,7 +181,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     staticPart('a Progress.Track costs at most 2 nodes'),
     staticPart('a Progress.Indicator costs at most 2 nodes'),
   ],
-  radio: [RADIO],
+  radio: [RADIO, RADIO_INDICATOR],
   'radio-group': [RADIO],
   select: [closedRoot('Select'), 'render core cost > Select.Item costs at most 27 reactive nodes'],
   separator: [

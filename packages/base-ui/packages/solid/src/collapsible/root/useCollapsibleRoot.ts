@@ -1,7 +1,6 @@
 import { createSignal, getObserver, getOwner, untrack } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { isServer } from '@solidjs/web';
 import { access } from '../../solid-helpers';
 import type { MaybeAccessor } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -9,9 +8,9 @@ import { REASONS } from '../../utils/reasons';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { createControlledDevChecks } from '../../utils/useControlled';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
-import { useTransitionStatus } from '../../utils/useTransitionStatus';
+import { createLazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
+import type { LazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
 import type { CollapsibleRoot, CollapsibleRootState } from './CollapsibleRoot';
-import { runInLazyScope } from '../../utils/runInLazyScope';
 import { createIdRegistry } from '../../utils/native/registration';
 
 /** How the root's `open` is read, fixed by the first render as in React. */
@@ -38,38 +37,6 @@ export class CollapsibleStateView {
 
   get transitionStatus() {
     return this.root.transitionStatus();
-  }
-}
-
-/** What a root reads from its transition: the status machinery, or its server stand-in. */
-interface RootTransition {
-  mounted(): boolean;
-  setMounted(mounted: boolean): unknown;
-  transitionStatus(): TransitionStatus;
-}
-
-/**
- * An initially open root's transition on the server (D9), where it renders once: mounted while
- * open, and `'idle'` while open, as `useTransitionStatus` starts with the idle state enabled.
- * Nothing changes it there; the client creates the real machinery while hydrating.
- */
-class ServerTransition implements RootTransition {
-  declare private readonly root: CollapsibleRootModel;
-
-  constructor(root: CollapsibleRootModel) {
-    this.root = root;
-  }
-
-  mounted() {
-    return this.root.open();
-  }
-
-  transitionStatus(): TransitionStatus {
-    return this.root.open() ? 'idle' : undefined;
-  }
-
-  setMounted() {
-    return false;
   }
 }
 
@@ -101,7 +68,7 @@ export class CollapsibleRootModel {
   declare private readonly writeOpen: Setter<boolean> | undefined;
   /** Untracked reads (event handlers, effect callbacks) see the latest write at once. */
   declare private latestWrite: boolean | undefined;
-  declare private transition: RootTransition | undefined;
+  declare private transition: LazyTransitionStatus | undefined;
   declare private readonly registeredPanelId: Accessor<string | null | undefined>;
   declare private publicState: CollapsibleRootState | undefined;
 
@@ -140,21 +107,13 @@ export class CollapsibleRootModel {
       }
     }
 
-    // A root that starts closed has no transition until it first opens: its status machinery
-    // (two computed signals) is created then, owned by the root, and reads before that return the
-    // closed values (`mounted` false, status `undefined`). Every reader also reads `open`, so it
-    // re-runs on the first open and creates the machinery; `animateInitialOpen` makes that open
-    // enter `'starting'`, as an eagerly created instance does when it goes from closed to open.
-    // A root that starts open creates it now, in a lazy scope as a later open does: the scope
-    // takes no slot of the root's owner, and no element takes a key inside it. On the server the
-    // root renders once, so its transition is the initial one, with nothing to schedule, and it
-    // creates no reactive node there (D9).
+    // A root that starts closed has no transition until it first opens: its status machinery is
+    // created then (`createLazyTransitionStatus`), and reads before that return the closed values.
     this.owner = getOwner();
-    if (untrack(() => this.open())) {
-      this.transition = isServer
-        ? new ServerTransition(this)
-        : runInLazyScope(this.owner, () => useTransitionStatus(() => this.open(), true, true))!;
-    }
+    this.transition = createLazyTransitionStatus(() => this.open(), {
+      enableIdleState: true,
+      deferEndingState: true,
+    });
 
     this.defaultPanelId = useBaseUiId();
     [this.registeredPanelId, this.setPanelIdState] = createIdRegistry();
@@ -207,20 +166,14 @@ export class CollapsibleRootModel {
    * enabled.
    */
   mounted(): boolean {
-    return this.ensureTransition()?.mounted() ?? false;
+    return this.transition!.mounted();
   }
 
   transitionStatus(): TransitionStatus {
-    return this.ensureTransition()?.transitionStatus();
+    return this.transition!.transitionStatus();
   }
 
   setMounted(mounted: boolean) {
-    if (this.transition === undefined) {
-      if (!mounted) {
-        return;
-      }
-      this.createTransition();
-    }
     this.transition!.setMounted(mounted);
   }
 
@@ -241,20 +194,6 @@ export class CollapsibleRootModel {
     }
 
     this.setOpen(nextOpen);
-  }
-
-  private createTransition() {
-    this.transition ??= runInLazyScope(this.owner, () =>
-      untrack(() => useTransitionStatus(() => this.open(), true, true, true)),
-    )!;
-    return this.transition;
-  }
-
-  private ensureTransition() {
-    if (this.transition === undefined && this.open()) {
-      this.createTransition();
-    }
-    return this.transition;
   }
 }
 
