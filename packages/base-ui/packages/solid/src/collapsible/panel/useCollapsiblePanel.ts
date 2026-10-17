@@ -63,12 +63,90 @@ function scheduleDimensionWrite(write: () => void) {
 }
 const EMPTY_PROPS: Accessor<HTMLProps> = () => ({});
 
+const noop = () => {};
+
+const autoStyles = new Map<string, JSX.CSSProperties>();
+
+/** The dimension variables at `auto`: one shared object per variable pair. */
+function autoDimensions(vars: { height: string; width: string }): JSX.CSSProperties {
+  const key = `${vars.height} ${vars.width}`;
+  let style = autoStyles.get(key);
+  if (!style) {
+    style = { [vars.height]: 'auto', [vars.width]: 'auto' };
+    autoStyles.set(key, style);
+  }
+  return style;
+}
+
+/**
+ * A native panel on the server (D9): the attributes its first client render writes, and none of
+ * the measurement and transition machinery, which only acts on a mounted element. A native part
+ * creates the hook in its lazy scope (`runInLazyScope`), whose ids no element takes, so the client
+ * builds the machinery there while hydrating and every server key stays where it was. Solid: the
+ * members are prototype methods, so a panel allocates one object; the part calls them on it.
+ */
+class ServerPanel implements UseCollapsiblePanelReturnValue {
+  declare readonly dimensionStyle: JSX.CSSProperties;
+  declare readonly props: Accessor<HTMLProps>;
+  declare readonly ref: (element: HTMLDivElement | null) => void;
+  declare private readonly parameters: UseCollapsiblePanelParameters;
+  /** The client suppresses an initially open panel's open animation until it first closes. */
+  declare private readonly initialOpen: boolean;
+
+  constructor(parameters: UseCollapsiblePanelParameters) {
+    this.parameters = parameters;
+    this.initialOpen = parameters.initialOpen ?? Boolean(untrack(() => access(parameters.open)));
+    this.dimensionStyle = autoDimensions(parameters.dimensionCssVars);
+    this.props = EMPTY_PROPS;
+    this.ref = noop;
+  }
+
+  private hidden() {
+    return !access(this.parameters.open) && !access(this.parameters.mounted);
+  }
+
+  hiddenAttribute() {
+    if (!this.hidden()) {
+      return undefined;
+    }
+    return access(this.parameters.hiddenUntilFound) ? 'until-found' : true;
+  }
+
+  /** No animation type is known before the client measures, as on the client's first render. */
+  shouldPersistHiddenTransitionStyles() {
+    return Boolean(access(this.parameters.hiddenUntilFound)) && this.hidden();
+  }
+
+  shouldPreventOpenAnimation() {
+    return Boolean(access(this.parameters.open)) && this.initialOpen;
+  }
+
+  shouldRender() {
+    const parameters = this.parameters;
+    return Boolean(
+      access(parameters.keepMounted) ||
+        access(parameters.hiddenUntilFound) ||
+        access(parameters.mounted) ||
+        access(parameters.open),
+    );
+  }
+
+  transitionStatus() {
+    return access(this.parameters.transitionStatus);
+  }
+}
+
 export function useCollapsiblePanel(
   parameters: UseCollapsiblePanelParameters,
 ): UseCollapsiblePanelReturnValue {
-  if (isServer && parameters.native === true) {
-    return createServerPanel(parameters);
-  }
+  // Separate functions: V8 allocates a function's closure context when it is entered, so the
+  // server would pay for the client's closures even when it returns before creating them.
+  return isServer && parameters.native === true
+    ? new ServerPanel(parameters)
+    : createClientPanel(parameters);
+}
+
+function createClientPanel(parameters: UseCollapsiblePanelParameters): UseCollapsiblePanelReturnValue {
   const hiddenUntilFound = () => access(parameters.hiddenUntilFound);
   const idParam = () => access(parameters.id);
   const keepMounted = () => access(parameters.keepMounted);
@@ -596,53 +674,6 @@ export function useCollapsiblePanel(
     shouldPreventOpenAnimation,
     shouldRender,
     transitionStatus: panelTransitionStatus,
-  };
-}
-
-const noop = () => {};
-
-const autoStyles = new Map<string, JSX.CSSProperties>();
-
-/** The dimension variables at `auto`: one shared object per variable pair. */
-function autoDimensions(vars: { height: string; width: string }): JSX.CSSProperties {
-  const key = `${vars.height} ${vars.width}`;
-  let style = autoStyles.get(key);
-  if (!style) {
-    style = { [vars.height]: 'auto', [vars.width]: 'auto' };
-    autoStyles.set(key, style);
-  }
-  return style;
-}
-
-/**
- * A native panel on the server (D9): the attributes its first client render writes, and none of
- * the measurement and transition machinery, which only acts on a mounted element. A native part
- * creates the hook in its lazy scope (`runInLazyScope`), whose ids no element takes, so the client
- * builds the machinery there while hydrating and every server key stays where it was.
- */
-function createServerPanel(parameters: UseCollapsiblePanelParameters): UseCollapsiblePanelReturnValue {
-  const hiddenUntilFound = () => access(parameters.hiddenUntilFound);
-  const keepMounted = () => access(parameters.keepMounted);
-  const mounted = () => access(parameters.mounted);
-  const open = () => access(parameters.open);
-  const hidden = () => !open() && !mounted();
-  // The client suppresses an initially open panel's open animation until it first closes.
-  const initialOpen = parameters.initialOpen ?? untrack(open);
-  return {
-    hiddenAttribute: () => {
-      if (!hidden()) {
-        return undefined;
-      }
-      return hiddenUntilFound() ? 'until-found' : true;
-    },
-    props: EMPTY_PROPS,
-    ref: noop,
-    // No animation type is known before the client measures, as on the client's first render.
-    shouldPersistHiddenTransitionStyles: () => hiddenUntilFound() && hidden(),
-    shouldPreventOpenAnimation: () => open() && initialOpen,
-    shouldRender: () => keepMounted() || hiddenUntilFound() || mounted() || open(),
-    dimensionStyle: autoDimensions(parameters.dimensionCssVars),
-    transitionStatus: () => access(parameters.transitionStatus),
   };
 }
 

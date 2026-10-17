@@ -213,21 +213,48 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
 
   return createNativeConditional(owner, shouldRender, () => {
     rendered ??= createRenderedPanel(props, root, owner, initialOpen);
+    const panel = rendered;
     return renderNativePanel(
       props,
-      rendered.state,
-      rendered.panel,
-      rendered.id,
+      () => panel.state,
+      panel.panel,
+      panel.id,
       collapsibleStateAttributesMapping,
       undefined,
       undefined,
       registerId,
       writeCollapsibleState,
+      panel.view,
     );
   }) as unknown as JSX.Element;
 }
 
 /** A native panel's machinery and state, created on its first render. */
+type PanelHook = ReturnType<typeof useCollapsiblePanel>;
+
+/** A panel's state keys as prototype getters, for `writeCollapsibleState`. */
+class CollapsiblePanelStateView {
+  declare private readonly root: ReturnType<typeof useCollapsibleRootContext>;
+  declare private readonly panel: PanelHook;
+
+  constructor(root: ReturnType<typeof useCollapsibleRootContext>, panel: PanelHook) {
+    this.root = root;
+    this.panel = panel;
+  }
+
+  get open() {
+    return this.root.open();
+  }
+
+  get disabled() {
+    return this.root.disabled();
+  }
+
+  get transitionStatus() {
+    return this.panel.transitionStatus();
+  }
+}
+
 function createRenderedPanel(
   props: CollapsiblePanel.Props,
   root: ReturnType<typeof useCollapsibleRootContext>,
@@ -253,8 +280,21 @@ function createRenderedPanel(
       }),
     ),
   )!;
-  const rootState = root.state;
-  const state: CollapsiblePanelState = {
+  let publicState: CollapsiblePanelState | undefined;
+  return {
+    id,
+    panel,
+    view: new CollapsiblePanelStateView(root, panel),
+    get state(): CollapsiblePanelState {
+      publicState ??= createPanelState(root.state, panel);
+      return publicState;
+    },
+  };
+}
+
+/** The public panel state, as consumer functions and render props receive it. */
+function createPanelState(rootState: CollapsibleRootState, panel: PanelHook): CollapsiblePanelState {
+  return {
     get open() {
       return rootState.open;
     },
@@ -265,7 +305,6 @@ function createRenderedPanel(
       return panel.transitionStatus();
     },
   };
-  return { id, panel, state };
 }
 
 /**
