@@ -117,6 +117,8 @@ const BUTTON_NATIVE =
   'native part cost > a native Button with literal props costs only the dev component root beyond its element';
 const BUTTON_REACTIVE =
   'native part cost > a native Button costs at most 2 reactive nodes with reactive children and props';
+/** A native static part's budget test (`utils/native/static.cost.test.tsx`). */
+const staticPart = (name: string) => `native static part cost > ${name} (dev)`;
 const GROUPED_TOGGLE =
   'native toggles cost > Toggle in a ToggleGroup: ≤ 5 nodes beyond a hand-written grouped toggle';
 const RADIO =
@@ -165,12 +167,24 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   dialog: [closedRoot('Dialog')],
   drawer: [closedRoot('Drawer')],
   menu: [closedRoot('Menu')],
+  meter: [
+    staticPart('a Meter.Track costs at most 1 node'),
+    staticPart('a Meter.Indicator costs at most 2 nodes'),
+  ],
   'navigation-menu': [closedRoot('NavigationMenu')],
   popover: [closedRoot('Popover')],
   'preview-card': [closedRoot('PreviewCard')],
+  progress: [
+    staticPart('a Progress.Track costs at most 2 nodes'),
+    staticPart('a Progress.Indicator costs at most 2 nodes'),
+  ],
   radio: [RADIO],
   'radio-group': [RADIO],
   select: [closedRoot('Select'), 'render core cost > Select.Item costs at most 27 reactive nodes'],
+  separator: [
+    staticPart('a Separator with a literal orientation costs at most 1 node'),
+    staticPart('a Separator with a reactive orientation costs at most 2 nodes'),
+  ],
   switch: ['native toggles cost > Switch.Root + Thumb: ≤ 10 nodes beyond a hand-written switch'],
   tabs: [
     'native disclosure part cost > a Tab and its hidden Panel cost at most 4 nodes together (dev)',
@@ -195,12 +209,9 @@ export const PENDING_COST: Partial<Record<ComponentName, string>> = {
   form: '6.1 forms family',
   input: '4.1 static parts family',
   menubar: '8.1 composite lists family',
-  meter: '1.13 cost tests for the slowest static mounts',
   'number-field': '6.1 forms family',
   'otp-field': '6.1 forms family',
-  progress: '1.13 cost tests for the slowest static mounts',
   'scroll-area': '7.1 Tabs and ScrollArea family',
-  separator: '1.13 cost tests for the slowest static mounts',
   slider: '6.1 forms family',
   toast: '10.1 toast family',
   toolbar: '5.1 toggles family',

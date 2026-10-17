@@ -125,7 +125,7 @@ Counting technique (all five files): set `DEV.hooks.onOwner` to count every non-
 | `src/utils/native/toggles.cost.test.tsx` | beyond hand-written markup: Checkbox+Indicator 19, Switch+Thumb 10, Toggle 5, grouped Toggle 5, Radio+Indicator 18 |
 | `src/utils/native/disclosure.cost.test.tsx` | Collapsible closed 12, open 18; closed Accordion item 14; Tab plus hidden Panel 4 |
 
-`shared/manifest.ts` maps each component to its cost tests by full name (`COST_TESTS`); components without one name the leaf that adds it (`PENDING_COST`), render-core guards are listed in `GENERIC_COST_TESTS`, and the manifest test checks every name against `vitest list` and fails on an unclaimed cost test. No cost test covers Progress, Meter, Avatar, Separator or `useRender`, the slowest mount scenarios in [baseline](baseline.md). No bench scenario covers Fieldset, FilterDropdown or `unstable-use-media-query`.
+`shared/manifest.ts` maps each component to its cost tests by full name (`COST_TESTS`); components without one name the leaf that adds it (`PENDING_COST`), render-core guards are listed in `GENERIC_COST_TESTS`, and the manifest test checks every name against `vitest list` and fails on an unclaimed cost test. No cost test covers Avatar, Input, the Progress and Meter Roots or `useRender`, the slowest mount scenarios in [baseline](baseline.md) after the static parts (`utils/native/static.cost.test.tsx`). No bench scenario covers Fieldset, FilterDropdown or `unstable-use-media-query`.
 
 ### Probing a count
 

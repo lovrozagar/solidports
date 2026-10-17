@@ -92,6 +92,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | components/popover.md | Popover | `popover`, `popup`, `floating`, `perf` | Popover is fully ported; a closed root still builds its trigger's hover and click hooks up front, so many roots mount 4… |
 | components/radio.md | Radio and RadioGroup | `radio`, `native`, `composite`, `perf` | Radio.Root, Radio.Indicator and RadioGroup render natively, registering with the group's composite list; interactions b… |
 | components/select.md | Select | `select`, `floating`, `composite`, `perf` | Select is fully ported on the slow `useRenderElement` path; opening a 1000-item list costs about 2x React, while close… |
+| components/static-parts.md | Static parts | `separator`, `progress`, `meter`, `native`, `perf` | Separator and the Progress and Meter Tracks and Indicators render natively on the client, the server and while hydratin… |
 | components/switch.md | Switch | `switch`, `native`, `perf`, `forms` | Switch.Root and Switch.Thumb render natively by default at 13 dev nodes against 57 on the slow path, and every interact… |
 | components/tabs.md | Tabs | `tabs`, `native`, `composite`, `perf` | Tabs renders every part natively when props are plain; a native tab costs 3 dev nodes versus 27 on the slow path, but e… |
 | components/toast.md | Toast | `toast`, `store`, `perf` | Toast is fully ported and beats React on add, update and dismiss, but every height write rebuilds the whole metadata Ma… |

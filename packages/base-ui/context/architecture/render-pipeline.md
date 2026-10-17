@@ -6,7 +6,7 @@ verified: 2026-10-17
 
 # Render pipeline
 
-Every part renders through `useRenderElement` (the slow path: lazy props-view proxies, per-key effects) unless it is one of 25 native-kit files that render direct DOM when `canRenderNative` allows. Both paths must produce identical DOM and handler order.
+Every part renders through `useRenderElement` (the slow path: lazy props-view proxies, per-key effects) unless it is one of 30 native-kit files that render direct DOM when `canRenderNative` allows. Both paths must produce identical DOM and handler order.
 
 ## Slow path: `useRenderElement`
 
@@ -71,13 +71,13 @@ Parts add conditions; `Button` also needs no composite root and a static, `true`
 - Server (`native/element.ts`): the part's own writes become one markup string (`takeServerMarkup`); the template, consumer, class and style keys stay in a copy-on-write object, and `ssrElement` renders the element with both, its children escaped as compiled JSX escapes them. Writing the markup without `ssrElement` was measured and removed (D13): most native elements have several children, which only `ssrElement`'s node walk resolves byte for byte.
 - Hydration (`native/element.ts`): the first write stands for the server markup (development checks it) and is kept by reference. An element reconciles after `hydrate()` returns only when its attribute effect applied again while hydrating (Solid records such writes without making them) or its spec sets `reconcileAfterHydration` (a panel with its machinery, whose measured animation type is a plain variable). Every such element reconciles in one shared microtask; the others queue nothing and write nothing (`hydrationCost.test.tsx`). Contract, as compiled JSX and React's hydration: an attribute the client computes differently from the server (an environment read: media query, locale, platform) keeps the server's value on a hydrated element. A part that needs the client's value makes it reactive and changes it after hydration, so its effect writes it.
 
-Two renderers coexist: `renderNativeElement(spec)` in `native/index.ts` (`CheckboxGroup`, `RadioGroup`) takes a part-built writer. `renderNativeElement(el, props, spec)` in `native/element.ts` (Collapsible, Accordion, Tabs) writes state attributes itself and skips re-writing an unchanged string `style`, since `assign` resets `cssText` and would wipe CSS variables a part set. Checkbox, Radio, and Switch roots use `createLayout` with module-level attribute functions.
+Two renderers coexist: `renderNativeElement(spec)` in `native/index.ts` (`CheckboxGroup`, `RadioGroup`) takes a part-built writer. `renderNativeElement(el, props, spec)` in `native/element.ts` (Collapsible, Accordion, Tabs, Separator, the Progress and Meter Tracks and Indicators) writes state attributes itself and skips re-writing an unchanged string `style`, since `assign` resets `cssText` and would wipe CSS variables a part set. Checkbox, Radio, and Switch roots use `createLayout` with module-level attribute functions.
 
 ### Coverage
 
-Native families: Button, Toggle, ToggleGroup, Checkbox (Root, Indicator), CheckboxGroup, Switch (Root, Thumb), Radio (Root, Indicator), RadioGroup, Collapsible, Accordion, Tabs. Of the 172 non-test files calling `useRenderElement(`, 150 have no native path.
+Native families: Button, Toggle, ToggleGroup, Checkbox (Root, Indicator), CheckboxGroup, Switch (Root, Thumb), Radio (Root, Indicator), RadioGroup, Collapsible, Accordion, Tabs, Separator, Progress (Track, Indicator), Meter (Track, Indicator). Of the 172 non-test files calling `useRenderElement(`, 145 have no native path.
 
-Guards: `utils/native/parity.test.tsx`, the seven per-family `*.parity.test.tsx` files (Accordion, Checkbox, Collapsible, Radio, Switch, Tabs, Toggle), the `utils/native/*.cost.test.tsx` budgets, and `useRenderElement.stableProps.test.tsx`.
+Guards: `utils/native/parity.test.tsx`, the ten per-family `*.parity.test.tsx` files (Accordion, Checkbox, Collapsible, Meter, Progress, Radio, Separator, Switch, Tabs, Toggle), the `utils/native/*.cost.test.tsx` budgets, and `useRenderElement.stableProps.test.tsx`.
 
 ## Node counts
 
