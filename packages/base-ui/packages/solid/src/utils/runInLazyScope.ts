@@ -1,4 +1,6 @@
-import { createOwner, runWithOwner } from 'solid-js';
+import { createOwner, isHydrating, runWithOwner } from 'solid-js';
+// `solid-js/internal` reads the same `sharedConfig` object as `solid-js`, with its type.
+import { sharedConfig } from 'solid-js/internal';
 import type { Owner } from 'solid-js';
 
 const scopeCounts = new WeakMap<Owner, number>();
@@ -27,5 +29,44 @@ export function runInLazyScope<T>(owner: Owner | null, create: () => T): T {
   const count = scopeCounts.get(owner) ?? 0;
   scopeCounts.set(owner, count + 1);
   const scope = runWithOwner(owner, () => createOwner({ id: `${owner.id}-${count}-` }));
+  if (process.env.NODE_ENV !== 'production' && isHydrating()) {
+    return runGuarded(scope, create);
+  }
   return runWithOwner(scope, create) as T;
+}
+
+type Registry = Map<string, Element>;
+
+/**
+ * Development: runs `create` while hydrating with Solid's claim registry guarded, so an element
+ * claimed inside the scope fails with the reason instead of a key miss that leaves the server's
+ * element inert. The stack names the scope's caller.
+ */
+function runGuarded<T>(scope: Owner, create: () => T): T {
+  const config = sharedConfig as unknown as { registry?: Registry | undefined };
+  const registry = config.registry;
+  if (registry === undefined) {
+    return runWithOwner(scope, create) as T;
+  }
+  config.registry = new Proxy(registry, {
+    get(target, key) {
+      if (key === 'get') {
+        return () => {
+          throw new Error(
+            'Base UI: An element was hydrated inside a lazy scope (`runInLazyScope`). ' +
+              "A scope's hydration ids differ between the server and the client, so the element " +
+              'cannot be claimed and the server markup stays inert. ' +
+              'Render the element outside the scope: a scope only hosts reactive machinery.',
+          );
+        };
+      }
+      const value = Reflect.get(target, key, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  try {
+    return runWithOwner(scope, create) as T;
+  } finally {
+    config.registry = registry;
+  }
 }
