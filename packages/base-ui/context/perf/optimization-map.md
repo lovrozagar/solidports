@@ -38,8 +38,11 @@ Line numbers were read at b9b813c9. Benchmark ratios are `solid/react` sync from
 - What: keyed selection on `createProjection`, two updates per change instead of one per item.
 - Evidence: each arrow key or hover is O(n) in items; select/1000 nav x50 1.09x, menu/500 nav x50 above React.
 - Expected: nav and hover sweeps become O(1) per step.
+- Status (plan 3, 4.9): done for the Select, Combobox and Menu stores (`keyedSelector` on `activeIndex`, Select's `selectedIndex`); a 2026-10-17 jsdom count had 1,000 `isActive` re-runs per move at 1,000 items. The composite roots' `isHighlighted` and the native Tabs and Radio copies remain (4.11).
 
 ## 5. Native list items and incremental registration
+
+- Re-measured 2026-10-17 (plan 3, 4.9, jsdom counts on the combobox and select benches): one flush per mounting step, none on a move, and the sort is near linear; registration is not where the list time goes.
 
 - Where: `internals/composite/list/CompositeList.tsx:273` re-sorts all automatic items by document position per batch; `:96` copies metadata per item.
 - What: native list items (`utils/native/listItem.ts`), creation-order guess plus binary-search fix-up.

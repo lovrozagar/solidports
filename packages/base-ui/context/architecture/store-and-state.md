@@ -27,7 +27,7 @@ Users: popup stores (`utils/popups/store.ts`, Dialog, Popover, Menu, Tooltip, Pr
 | Method | Behavior | Cost |
 | :--- | :--- | :--- |
 | `useState(key)` | A key, or a selector returning one key as is (probed once, `directSelectorKey`), reads the slot. A derived selector gets a transparent memo on first tracked read. | 0 or 1 memo |
-| `select(key, …args)` | Runs the selector; no memo. A selector declared with `keyedSelector(current)` ("is `id` the current one") reads, when tracked on the client, one keyed projection per store and selector (`createKeyedSelector` in `runInLazyScope` of the store's owner), so moving the current id re-runs two readers, not all of them. | Per call; 1 projection per keyed selector |
+| `select(key, …args)` | Runs the selector; no memo. A selector declared with `keyedSelector(current)` ("is `id` the current one": the item highlight `isActive` of Select, Combobox and Menu and Select's `isSelectedByFocus`, keyed by the item's index) reads, when tracked on the client, one keyed projection per store and selector (`createKeyedSelector` in `runInLazyScope` of the store's owner), so moving the current id re-runs two readers, not all of them. | Per call; 1 projection per keyed selector |
 | `useSyncedValue`, `useControlledProp`, `useSyncedValues` | `bindStoreKey`: a writable derived signal, created on first read. `set` overrides it until the source changes; cleanup keeps the last value (`useSyncedValueWithCleanup` clears it). | 1 signal on read |
 | `observe(selector, listener)` | Calls once, then after each changing write; records read keys through a Proxy and starts one notifier effect per watched binding. | 1 effect per watched binding |
 | `useStateSetter(key)` | Ref-style setter; `null` clears only its own write. | None |

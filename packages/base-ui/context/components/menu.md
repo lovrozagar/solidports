@@ -1,7 +1,7 @@
 ---
 tags: [menu, floating, composite, perf]
 sources: [packages/base-ui/packages/solid/src/menu, packages/base-ui/packages/solid/src/menu/root/MenuRoot.tsx, packages/base-ui/packages/solid/src/menu/item/MenuItem.tsx, packages/base-ui/packages/solid/src/context-menu, packages/base-ui/packages/solid/src/menubar, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Menu
@@ -63,7 +63,7 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync ms.
 
 - `MenuRoot.tsx:644` `createInteractions()` builds dismiss, list navigation and typeahead on a trigger's first intent (`activateInteractions`, `:760`); React mounts them up front. The many-roots mount cost is the remaining per-root store, trigger and floating setup.
 - `MenuRoot.tsx:783`, `:803`, `:820`: trigger and popup props are memos over `interactions()`, so they rebuild once when interactions activate.
-- `MenuItem.tsx:53`: every item subscribes to `isActive`, so each highlight move re-evaluates N items.
+- `MenuItem.tsx:53`: every item subscribes to `isActive`, a keyed selector, so after the first move a highlight move re-runs the old and the new item only.
 - Floating hooks hold 18 `createMemo(() => store().select(...))` reads, 6 of them for `open`, duplicated per popup.
 
 See [floating](../architecture/floating.md), [composite lists](../architecture/composite-lists.md), and the [optimization map](../perf/optimization-map.md).

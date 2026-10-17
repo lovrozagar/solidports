@@ -1,7 +1,7 @@
 ---
 tags: [combobox, floating, composite, perf]
 sources: [packages/base-ui/packages/solid/src/combobox, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/combobox/item/ComboboxItem.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Combobox
@@ -63,7 +63,7 @@ The slow steps all mount many items at once (open, clear back to the full list, 
 
 - `AriaCombobox.tsx:1715` defers click, dismiss and list navigation; `useInteractions` composes them at `:1721`, `:1727` and `:1751`.
 - `floating-ui-solid/hooks/useInteractions.ts:36`: the `lists` memo has no equality, so every live props view built from it re-merges when any hook's props change.
-- `ComboboxItem.tsx:81`: each item memoizes `store.select('isActive', index)`, so a highlight move re-evaluates N memos.
+- `ComboboxItem.tsx:81`: each item memoizes `store.select('isActive', index)`; `isActive` is a keyed selector, so after the first move a highlight move re-runs two of them.
 - `internals/composite/list/CompositeList.tsx:273` re-sorts all automatic items by document position on every registration batch, which mounting 1000 items at once pays in full.
 
 See [composite lists](../architecture/composite-lists.md), [floating](../architecture/floating.md), and the [optimization map](../perf/optimization-map.md).
