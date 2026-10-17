@@ -158,6 +158,30 @@ function WrappedItem(props: Accordion.Item.Props) {
   return <Accordion.Item {...props} />;
 }
 
+/** Every panel has a height transition: the motion branch of the panels' opening pass (D19). */
+const MOTION_CSS = `
+.motion-panel { height: var(--accordion-panel-height); overflow: hidden; transition: height 200ms ease-out; }
+.motion-panel[data-starting-style], .motion-panel[data-ending-style] { height: 0; }
+`;
+
+const MotionAccordion = controlledAccordion(300, (it) => (
+  <Accordion.Item key={it.value} value={it.value}>
+    <Accordion.Header>
+      <Accordion.Trigger>{it.label}</Accordion.Trigger>
+    </Accordion.Header>
+    <Accordion.Panel className="motion-panel">Content {it.label}</Accordion.Panel>
+  </Accordion.Item>
+));
+
+function AccordionMotion() {
+  return (
+    <React.Fragment>
+      <style>{MOTION_CSS}</style>
+      <MotionAccordion />
+    </React.Fragment>
+  );
+}
+
 export const fixtures: Record<string, React.FC> = {
   'collapsible/1': CollapsibleOne,
   'collapsible/1000': Collapsibles1000,
@@ -167,6 +191,7 @@ export const fixtures: Record<string, React.FC> = {
   'collapsible/render-component-300': CollapsiblesRenderComponent,
   'accordion/1': AccordionOne,
   'accordion/1000': controlledAccordion(1000, plainItem),
+  'accordion/motion-300': AccordionMotion,
   'accordion/wrapper-300': controlledAccordion(300, (it) => (
     <WrappedItem key={it.value} value={it.value}>
       <Accordion.Header>

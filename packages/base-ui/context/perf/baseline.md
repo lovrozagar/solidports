@@ -101,7 +101,11 @@ The hydrate script ratios above came from `ScriptDuration` and a hydrate time th
 
 No variant lays out or recalculates style while hydrating (0 in both steps), so the gap to the floor is script.
 
+These floor figures predate D19 (2026-10-17), which gave the floors the transition mechanism of every branch their components support; a floor measured after it is not comparable with them.
+
 ## Reactive-node counts
+
+Disclosure budgets after D19 (`collapsible.cost.test.tsx`, `accordion.cost.test.tsx`, dev mode, mount + first open against the floor's): Collapsible 16 + 5 against 20 + 3, Accordion 32 + 5 against 30 + 3.
 
 Closed popup root budgets (`closedRoot.cost.test.tsx`, dev mode; "before" is the count before interactions were deferred to first intent): Tooltip 83 (110), Menu 142 (189), ContextMenu 103 (153), Popover 94 (113), PreviewCard 83 (99), Dialog 73 (94), AlertDialog 73 (94), Drawer 101 (125), Select 123 (188), Combobox 149 (210), NavigationMenu 230 (not deferred).
 

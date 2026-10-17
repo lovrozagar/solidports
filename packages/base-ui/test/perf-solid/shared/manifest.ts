@@ -160,6 +160,10 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     "accordion cost against the hand-written floor > a closed Panel costs at most the floor's plus 25%",
     'accordion cost against the hand-written floor > an open item costs at most the open floor item plus 25%',
     ...renderFormCosts('accordion'),
+    'accordion cost against the hand-written floor > an accordion with a closed item mounts at most the floor plus 25%',
+    "accordion cost against the hand-written floor > an accordion's mount plus an item's first open costs at most the floor's plus 25%",
+    "accordion cost against the hand-written floor > the floor's starting-style timeline matches Accordion's without motion",
+    "accordion cost against the hand-written floor > the floor's starting-style timeline matches Accordion's with motion",
   ],
   'alert-dialog': [closedRoot('AlertDialog')],
   button: [
@@ -185,6 +189,10 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'collapsible cost against the hand-written floor > a closed Panel costs at most the floor closed panel plus 25%',
     'collapsible cost against the hand-written floor > an open Collapsible costs at most the open floor plus 25%',
     ...renderFormCosts('collapsible'),
+    'collapsible cost against the hand-written floor > a closed Collapsible mounts at most the floor plus 25%',
+    "collapsible cost against the hand-written floor > a Collapsible's mount plus its first open costs at most the floor's plus 25%",
+    "collapsible cost against the hand-written floor > the floor's starting-style timeline matches Collapsible's without motion",
+    "collapsible cost against the hand-written floor > the floor's starting-style timeline matches Collapsible's with motion",
   ],
   combobox: [
     closedRoot('Combobox'),
