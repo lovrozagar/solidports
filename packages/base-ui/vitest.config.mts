@@ -23,9 +23,10 @@ export default defineConfig({
 			"test/e2e/vitest.config.mts",
 			"test/regressions/vitest.config.mts",
 		],
+		// The filter guard fails a run whose file filters miss (scripts/vitest-filter-guard.mjs).
 		reporters: process.env.CI
-			? ["default", ["junit", { outputFile: "./test-results/junit.xml" }]]
-			: ["default"],
+			? ["default", "./scripts/vitest-filter-guard.mjs", ["junit", { outputFile: "./test-results/junit.xml" }]]
+			: ["default", "./scripts/vitest-filter-guard.mjs"],
 		sequence: {
 			hooks: "list",
 		},
