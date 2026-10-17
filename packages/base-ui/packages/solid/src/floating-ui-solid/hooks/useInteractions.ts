@@ -32,34 +32,51 @@ export interface UseInteractionsReturn {
  *
  * TODO: Object.assign from proxy is probably not the best way to do it
  */
-export function useInteractions(propsList: Array<ElementProps> = []): UseInteractionsReturn {
-  const lists = createMemo(() => {
-    const referenceList: JSX.HTMLAttributes<any>[] = [];
-    const floatingList: JSX.HTMLAttributes<any>[] = [];
-    const itemList: ElementProps['item'][] = [];
-    const triggerList: JSX.HTMLAttributes<any>[] = [];
-    for (const item of propsList) {
-      if (item?.reference) {
-        referenceList.push(item.reference);
-      }
-      if (item?.floating) {
-        floatingList.push(item.floating);
-      }
-      if (item?.item) {
-        itemList.push(item.item);
-      }
-      if (item?.trigger) {
-        triggerList.push(item.trigger);
-      }
-    }
+type Lists = Record<'floating' | 'item' | 'reference' | 'trigger', readonly unknown[]>;
 
-    return {
-      floating: floatingList.filter(Boolean),
-      item: itemList.filter(Boolean),
-      reference: referenceList.filter(Boolean),
-      trigger: triggerList.filter(Boolean),
-    };
-  });
+const sameEntries = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length === b.length && a.every((entry, index) => entry === b[index]);
+
+const sameLists = (a: Lists, b: Lists) =>
+  sameEntries(a.floating, b.floating) &&
+  sameEntries(a.item, b.item) &&
+  sameEntries(a.reference, b.reference) &&
+  sameEntries(a.trigger, b.trigger);
+
+export function useInteractions(propsList: Array<ElementProps> = []): UseInteractionsReturn {
+  // Solid: equal when every list holds the same entries. A hook's getter re-read without change
+  // (state read, same object back) then notifies nothing; otherwise every merged view below
+  // re-merges, and a list's every item re-enumerates its props on each open and close.
+  const lists = createMemo(
+    () => {
+      const referenceList: JSX.HTMLAttributes<any>[] = [];
+      const floatingList: JSX.HTMLAttributes<any>[] = [];
+      const itemList: ElementProps['item'][] = [];
+      const triggerList: JSX.HTMLAttributes<any>[] = [];
+      for (const item of propsList) {
+        if (item?.reference) {
+          referenceList.push(item.reference);
+        }
+        if (item?.floating) {
+          floatingList.push(item.floating);
+        }
+        if (item?.item) {
+          itemList.push(item.item);
+        }
+        if (item?.trigger) {
+          triggerList.push(item.trigger);
+        }
+      }
+
+      return {
+        floating: floatingList.filter(Boolean),
+        item: itemList.filter(Boolean),
+        reference: referenceList.filter(Boolean),
+        trigger: triggerList.filter(Boolean),
+      };
+    },
+    { equals: sameLists },
+  );
 
   // React calls these getters every render. In Solid they are called once, so each returns a
   // live view that re-merges when the hooks' prop lists change.
