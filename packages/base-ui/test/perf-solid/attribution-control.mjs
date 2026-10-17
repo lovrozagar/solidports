@@ -2,10 +2,11 @@
 // candidate of a copy of the library must come out credited to that candidate, through the real
 // builds, profiles and sourcemaps.
 //   cpu: an allocation-free busy loop at the top of the native kit's `renderClientElement`; on
-//        collapsible/300's mount, at least 80% of the added busy time must land in `native-kit`.
-//   alloc: a 32 KB array per native context owner (`createContextOwner`, once per root); on the
-//        same mount, at least 80% of the added bytes must land in `providers`, and its GC share
-//        must grow. The CPU control leaves out the time this one adds (its bucket and the GC).
+//        collapsible/300's mount, the time added to `native-kit` must be within ±25% of the added
+//        busy time (leaving out what the allocation control adds: its bucket and the GC).
+//   alloc: a 16 KB array per native context owner (`createContextOwner`), counted as it runs; on
+//        the same mount, the bytes added to `providers` must be within ±10% of the injected bytes
+//        (calls × the array's size), and its GC share must grow.
 // Usage (from packages/base-ui): node test/perf-solid/attribution-control.mjs [runs=4]
 // Exit 1 when a control fails.
 import fs from 'node:fs';
@@ -18,7 +19,15 @@ const baseUi = path.resolve(here, '../..');
 const repo = path.resolve(baseUi, '../..');
 const work = path.join(repo, '.tmp/grunt/attribution-control');
 const RUNS = process.argv[2] ?? '4';
-const SHARE = 0.8;
+/** The fixed bars: CPU within ±25% of the added time, allocation within ±10% of the bytes. */
+const CPU_TOLERANCE = 0.25;
+const BYTES_TOLERANCE = 0.1;
+/**
+ * One injected array in Chromium: 4096 small integers at 4 bytes each (V8 compresses pointers on
+ * 64-bit Chromium), plus its backing store's and the array's headers (16 bytes each).
+ */
+const INJECTED_BYTES = 4096 * 4 + 32;
+const PROBE = '__attributionAllocs';
 
 /** The injections, each into a source file of the copy: an anchor and the code put after it. */
 const INJECTIONS = [
@@ -32,7 +41,7 @@ const INJECTIONS = [
   {
     file: 'utils/native/context.ts',
     anchor: '  const owner = createOwner(TRANSPARENT);\n',
-    code: '  (globalThis as Record<string, unknown>).__attributionSink = new Array(4096).fill(0);\n',
+    code: '  (globalThis as Record<string, unknown>).__attributionSink = new Array(4096).fill(0);\n  (globalThis as Record<string, number>).__attributionAllocs =\n    ((globalThis as Record<string, number>).__attributionAllocs ?? 0) + 1;\n',
   },
 ];
 
@@ -45,6 +54,7 @@ function attribution(src, out, results) {
       ATTRIBUTION_OUT: out,
       RESULTS_FILE: results,
       BROWSER_ONLY: '1',
+      ATTRIBUTION_PROBE: PROBE,
     },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
@@ -94,18 +104,23 @@ const gcShare = delta(before.gcShare, after.gcShare);
   console.log(
     `cpu: added busy ${busy.toFixed(1)} ms outside the allocation control, native-kit +${kit.toFixed(1)} ms (${((100 * kit) / busy).toFixed(0)}%)`,
   );
-  if (!(busy > 5 && kit >= SHARE * busy)) {
-    failures.push(`cpu control: native-kit got ${kit.toFixed(1)} of ${busy.toFixed(1)} added ms`);
+  if (!(busy > 5 && Math.abs(kit - busy) <= CPU_TOLERANCE * busy)) {
+    failures.push(
+      `cpu control: native-kit got ${kit.toFixed(1)} of ${busy.toFixed(1)} added ms (bar ±${CPU_TOLERANCE * 100}%)`,
+    );
   }
 }
 {
   const added = sum(bytes);
   const providers = bytes.providers ?? 0;
+  const injected = (after.probe ?? 0) * INJECTED_BYTES;
   console.log(
-    `alloc: added ${(added / 1048576).toFixed(1)} MB, providers +${(providers / 1048576).toFixed(1)} MB (${((100 * providers) / added).toFixed(0)}%), its GC share +${(gcShare.providers ?? 0).toFixed(1)} ms`,
+    `alloc: injected ${after.probe ?? 0} arrays (${(injected / 1048576).toFixed(1)} MB), added ${(added / 1048576).toFixed(1)} MB, providers +${(providers / 1048576).toFixed(1)} MB (${((100 * providers) / injected).toFixed(0)}% of injected), its GC share +${(gcShare.providers ?? 0).toFixed(1)} ms`,
   );
-  if (!(added > 1048576 && providers >= SHARE * added)) {
-    failures.push(`alloc control: providers got ${providers} of ${added} added bytes`);
+  if (!(injected > 1048576 && Math.abs(providers - injected) <= BYTES_TOLERANCE * injected)) {
+    failures.push(
+      `alloc control: providers got ${providers} of ${injected} injected bytes (bar ±${BYTES_TOLERANCE * 100}%)`,
+    );
   }
   if (!((gcShare.providers ?? 0) > 0))
     failures.push('alloc control: the providers GC share did not grow');

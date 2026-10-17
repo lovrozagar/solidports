@@ -174,6 +174,14 @@ function merge(into, part) {
 
 const results = { browser: {}, ssr: {} };
 
+/**
+ * `ATTRIBUTION_PROBE=<global>`: a counter the page's code increments (the positive control's
+ * injection counts its own calls), recorded per measured step so a control knows exactly what it
+ * injected.
+ */
+const PROBE = process.env.ATTRIBUTION_PROBE;
+const readProbe = (page) => page.evaluate((name) => globalThis[name] ?? 0, PROBE);
+
 // --- Browser scenarios ---
 if (!process.env.SERVER_ONLY) {
   const root = path.join(builds, 'solid', BROWSER_OUT);
@@ -218,6 +226,7 @@ if (!process.env.SERVER_ONLY) {
       await page.evaluate('gc()');
       for (let index = 0; index < scenario.steps.length; index += 1) {
         const measured = cycle >= WARMUP;
+        const probeBefore = measured && PROBE ? await readProbe(page) : 0;
         if (measured) {
           await cdp.send('HeapProfiler.startSampling', HEAP_SAMPLING);
           await cdp.send('Profiler.start');
@@ -229,7 +238,9 @@ if (!process.env.SERVER_ONLY) {
         if (measured) {
           const { profile: cpu } = await cdp.send('Profiler.stop');
           const { profile: heap } = await cdp.send('HeapProfiler.stopSampling');
-          merge((entry.steps[scenario.steps[index]] ??= empty()), attribute(cpu, heap));
+          const step = (entry.steps[scenario.steps[index]] ??= empty());
+          merge(step, attribute(cpu, heap));
+          if (PROBE) step.probe = (step.probe ?? 0) + (await readProbe(page)) - probeBefore;
         }
       }
     }
@@ -294,6 +305,8 @@ const lines = [
   '# Main-thread attribution',
   '',
   "Shares only: the profile runs unminified builds, whose absolute speed differs from the minified bench. An expected gain in ms is a share here times the family's time in the latest minified `bench:component --compare` at main.",
+  '',
+  'Error bars from the positive controls (`attribution-control.mjs`, Linux Chromium, 2026-10-17): injected CPU work came out at 111–123% of the added time (the bar is ±25%), injected allocations at 101–103% of their bytes (the bar is ±10%). Read CPU shares as accurate to about a quarter.',
   '',
   `Library source ${SRC} · unminified production builds with sourcemaps · browser ${Object.keys(results.browser).length} scenarios × ${RUNS} measured cycles · SSR ${Object.keys(results.ssr).length} cases × ${SSR_RENDERS} renders · CPU every ${CPU_INTERVAL_US} µs, allocations every ${HEAP_SAMPLING.samplingInterval / 1024} KB on average.`,
   '',
