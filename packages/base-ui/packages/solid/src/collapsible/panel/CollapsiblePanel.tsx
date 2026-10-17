@@ -27,7 +27,7 @@ import { renderNativeElement } from '../../utils/native/element';
 import type { SetAttribute, StateWriter } from '../../utils/native/element';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { createIdRegistration } from '../../utils/native/registration';
-import { useCollapsiblePanel } from './useCollapsiblePanel';
+import { ServerPanel, useCollapsiblePanel } from './useCollapsiblePanel';
 import * as CollapsiblePanelCssVars from './CollapsiblePanelCssVars';
 import * as CollapsiblePanelDataAttributes from './CollapsiblePanelDataAttributes';
 import { runInLazyScope } from '../../utils/runInLazyScope';
@@ -255,6 +255,9 @@ class CollapsiblePanelStateView {
   }
 }
 
+/** The panel's dimension variables. */
+const PANEL_DIMENSIONS = { height: CollapsiblePanelCssVars.collapsiblePanelHeight, width: CollapsiblePanelCssVars.collapsiblePanelWidth };
+
 function createRenderedPanel(
   props: CollapsiblePanel.Props,
   root: ReturnType<typeof useCollapsibleRootContext>,
@@ -264,24 +267,22 @@ function createRenderedPanel(
   const hiddenUntilFound = () => props.hiddenUntilFound ?? false;
   const keepMounted = () => props.keepMounted ?? false;
   const id = () => (props.id || undefined) ?? root.defaultPanelId();
-  // The server's panel creates no reactive node (D9), so it needs no scope; a lazy scope takes no
-  // slot of its owner, so skipping it moves no id.
-  const createPanel = () =>
-    untrack(() =>
-    useCollapsiblePanel({
-      dimensionCssVars: {
-        height: CollapsiblePanelCssVars.collapsiblePanelHeight,
-        width: CollapsiblePanelCssVars.collapsiblePanelWidth,
-      },
-      hiddenUntilFound,
-      id,
-      initialOpen,
-      keepMounted,
-      native: true,
-      ...panelRootParameters(root),
-    }),
-  );
-  const panel = isServer ? createPanel() : runInLazyScope(owner, createPanel)!;
+  // The server's panel creates no reactive node (D9), so it needs no lazy scope.
+  const panel = isServer
+    ? new ServerPanel(root, hiddenUntilFound, keepMounted, PANEL_DIMENSIONS, initialOpen)
+    : runInLazyScope(owner, () =>
+        untrack(() =>
+          useCollapsiblePanel({
+            dimensionCssVars: PANEL_DIMENSIONS,
+            hiddenUntilFound,
+            id,
+            initialOpen,
+            keepMounted,
+            native: true,
+            ...panelRootParameters(root),
+          }),
+        ),
+      )!;
   let publicState: CollapsiblePanelState | undefined;
   return {
     id,

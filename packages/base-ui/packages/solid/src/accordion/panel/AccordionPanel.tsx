@@ -7,7 +7,7 @@ import {
   renderNativePanel,
   warnKeepMountedIgnored,
 } from '../../collapsible/panel/CollapsiblePanel';
-import { useCollapsiblePanel } from '../../collapsible/panel/useCollapsiblePanel';
+import { ServerPanel, useCollapsiblePanel } from '../../collapsible/panel/useCollapsiblePanel';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { panelRootParameters } from '../../collapsible/root/useCollapsibleRoot';
 import { createDepsRenderEffect, isStaticProp, splitComponentProps } from '../../solid-helpers';
@@ -255,6 +255,9 @@ class AccordionPanelStateView {
   }
 }
 
+/** The panel's dimension variables. */
+const PANEL_DIMENSIONS = { height: AccordionPanelCssVars.accordionPanelHeight, width: AccordionPanelCssVars.accordionPanelWidth };
+
 /** The machinery, ids and state of a panel that renders, created on its first render. */
 function createRenderedPanel(
   props: AccordionPanel.Props,
@@ -266,24 +269,22 @@ function createRenderedPanel(
   keepMounted: () => boolean,
 ) {
   const id = () => props.id ?? root.defaultPanelId();
-  // The server's panel creates no reactive node (D9), so it needs no scope; a lazy scope takes no
-  // slot of its owner, so skipping it moves no id.
-  const createPanel = () =>
-    untrack(() =>
-    useCollapsiblePanel({
-      dimensionCssVars: {
-        height: AccordionPanelCssVars.accordionPanelHeight,
-        width: AccordionPanelCssVars.accordionPanelWidth,
-      },
-      hiddenUntilFound,
-      id,
-      initialOpen,
-      keepMounted,
-      native: true,
-      ...panelRootParameters(root),
-    }),
-  );
-  const panel = isServer ? createPanel() : runInLazyScope(owner, createPanel)!;
+  // The server's panel creates no reactive node (D9), so it needs no lazy scope.
+  const panel = isServer
+    ? new ServerPanel(root, hiddenUntilFound, keepMounted, PANEL_DIMENSIONS, initialOpen)
+    : runInLazyScope(owner, () =>
+        untrack(() =>
+          useCollapsiblePanel({
+            dimensionCssVars: PANEL_DIMENSIONS,
+            hiddenUntilFound,
+            id,
+            initialOpen,
+            keepMounted,
+            native: true,
+            ...panelRootParameters(root),
+          }),
+        ),
+      )!;
   let publicState: AccordionPanelState | undefined;
   return {
     id,
