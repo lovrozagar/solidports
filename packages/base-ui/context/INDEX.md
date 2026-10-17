@@ -89,7 +89,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | components/collapsible.md | Collapsible | `collapsible`, `native`, `disclosure`, `perf` | Collapsible renders all three parts natively when props are plain; the panel's measurement and transition machinery is… |
 | components/combobox.md | Combobox | `combobox`, `floating`, `composite`, `perf` | Combobox is fully ported on the slow `useRenderElement` path; filtering and closing beat React by large margins, while… |
 | components/menu.md | Menu | `menu`, `floating`, `composite`, `perf` | Menu (with ContextMenu and Menubar) is fully ported on the slow `useRenderElement` path; mounting many roots and openin… |
-| components/navigation-menu.md | Navigation menu | `navigation-menu`, `popup`, `floating`, `perf` | NavigationMenu is fully ported and is the costliest closed popup root (189-node budget) because its triggers are not de… |
+| components/navigation-menu.md | Navigation menu | `navigation-menu`, `popup`, `floating`, `perf` | NavigationMenu is fully ported and is the costliest closed popup root (185-node budget) because its triggers are not de… |
 | components/popover.md | Popover | `popover`, `popup`, `floating`, `perf` | Popover is fully ported; a closed root still builds its trigger's hover and click hooks up front, so many roots mount 4… |
 | components/radio.md | Radio and RadioGroup | `radio`, `native`, `composite`, `perf` | Radio.Root, Radio.Indicator and RadioGroup render natively, registering with the group's composite list; interactions b… |
 | components/select.md | Select | `select`, `floating`, `composite`, `perf` | Select is fully ported on the slow `useRenderElement` path; opening a 1000-item list costs about 2x React, while close… |

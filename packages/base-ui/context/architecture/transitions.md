@@ -1,7 +1,7 @@
 ---
 tags: [transitions, animation, collapsible, state]
-sources: [packages/base-ui/packages/solid/src/utils/useTransitionStatus.ts, packages/base-ui/packages/solid/src/utils/useOpenChangeComplete.tsx, packages/base-ui/packages/solid/src/utils/useAnimationsFinished.ts, packages/base-ui/packages/solid/src/utils/useAnimationFrame.ts, packages/base-ui/packages/solid/src/collapsible/root/useCollapsibleRoot.ts, packages/base-ui/packages/solid/src/collapsible/panel/useCollapsiblePanel.ts, packages/base-ui/packages/solid/src/internals]
-verified: 2026-10-16
+sources: [packages/base-ui/packages/solid/src/utils/useTransitionStatus.ts, packages/base-ui/packages/solid/src/utils/createLazyTransitionStatus.ts, packages/base-ui/packages/solid/src/utils/useUnmountAfterClose.ts, packages/base-ui/packages/solid/src/utils/useOpenChangeComplete.tsx, packages/base-ui/packages/solid/src/utils/useAnimationsFinished.ts, packages/base-ui/packages/solid/src/utils/useAnimationFrame.ts, packages/base-ui/packages/solid/src/collapsible/root/useCollapsibleRoot.ts, packages/base-ui/packages/solid/src/collapsible/panel/useCollapsiblePanel.ts, packages/base-ui/packages/solid/src/internals]
+verified: 2026-10-17
 ---
 
 # Transitions
@@ -40,6 +40,15 @@ Signature: `useTransitionStatus(open, enableIdleState?, deferEndingState?, anima
 - The callback runs inside `flushSync` (`utils/flushSync.ts`, a wrapper over Solid `flush`) so unmount commits before paint. With `batch`, completions ready in one microtask share a single flush.
 
 `useOpenChangeComplete({ open, ref, enabled?, batch?, onComplete })` wraps it in one `createEffect` keyed on `open` and `enabled`, aborting the run on change and dropping a completion whose `open` no longer matches.
+
+## Lazy machinery for parts that start closed
+
+`createLazyTransitionStatus` (`utils/createLazyTransitionStatus.ts`) is the one implementation for parts that start closed and may never open: checkbox and radio indicators, the Collapsible root, and every popup through `useUnmountAfterClose` (`useOpenStateTransitions` for the popup roots, and Select, Combobox and NavigationMenu directly).
+
+- The status machine and any extra machinery (`onCreate`: a popup's unmount effect and close-completion hook) are created in a lazy scope of the caller's owner on the first open a reader of `mounted` or `transitionStatus` sees. Every caller reads `mounted`, since it decides what renders. Until then `mounted` is false, the status `undefined`, and a popup's `forceUnmount` does nothing.
+- That first open enters `'starting'`, as an instance created at mount does. A part that mounts open creates it at once, with `animateInitialOpen` deciding `'starting'`.
+- The lazy scope takes no slot of the owner, so hydration ids stay aligned. On the server the part renders once, and a stand-in returns the initial status `useTransitionStatus` would (D9).
+- A closed popup root saves 4 nodes this way (plan 3, 4.8): its two status memos, its unmount effect and its close-completion hook.
 
 ## Collapsible panel orchestration
 

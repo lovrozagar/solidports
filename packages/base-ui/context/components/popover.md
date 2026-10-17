@@ -34,7 +34,7 @@ No. No Popover file imports `utils/native`; every part renders through `useRende
 | :--- | ---: |
 | Closed root (dev probe 2026-10-14, rc.13) | 91 |
 | Open root (dev probe 2026-10-14, rc.13) | 365 |
-| Closed-root budget, `closedRoot.cost.test.tsx:110` | 84 (before: 113) |
+| Closed-root budget, `closedRoot.cost.test.tsx:110` | 80 (before: 113) |
 
 There is no open-root budget.
 

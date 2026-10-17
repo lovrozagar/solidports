@@ -19,7 +19,18 @@ export interface LazyTransitionStatusOptions {
    * Unmounts once the close animation on `ref` completes (`useOpenChangeComplete`), as an
    * indicator does when it is unchecked.
    */
-  closeComplete?: { ref: () => HTMLElement | null | undefined; batch?: boolean | undefined } | undefined;
+  closeComplete?:
+    { ref: () => HTMLElement | null | undefined; batch?: boolean | undefined } | undefined;
+  /**
+   * Whether a part that mounts already open still plays its enter transition
+   * (`useTransitionStatus`'s `animateInitialOpen`). A part created on its first open always does.
+   */
+  animateInitialOpen?: (() => boolean) | undefined;
+  /**
+   * Creates the rest of a part's open-state machinery beside the status, in the same lazy scope,
+   * once the status exists (client only): a popup's unmount-after-close effects.
+   */
+  onCreate?: ((status: LazyTransitionStatus) => void) | undefined;
 }
 
 /**
@@ -47,9 +58,16 @@ export function createLazyTransitionStatus(
       return transition;
     }
     if (isServer) {
+      // `useTransitionStatus`'s initial status: the server renders once, so it stays.
+      let initial: TransitionStatus;
+      if (untrack(open) && animateInitialOpen) {
+        initial = 'starting';
+      } else if (untrack(open) && options.enableIdleState) {
+        initial = 'idle';
+      }
       transition = {
         mounted: open,
-        transitionStatus: () => (open() && options.enableIdleState ? 'idle' : undefined),
+        transitionStatus: () => initial,
         setMounted() {},
       };
       return transition;
@@ -76,20 +94,22 @@ export function createLazyTransitionStatus(
             },
           });
         }
-        return {
+        const created: LazyTransitionStatus = {
           mounted: status.mounted,
           transitionStatus: status.transitionStatus,
           setMounted: (mounted: boolean) => {
             status.setMounted(mounted);
           },
         };
+        options.onCreate?.(created);
+        return created;
       }),
     )!;
     return transition;
   };
 
   if (untrack(open)) {
-    create(false);
+    create(Boolean(options.animateInitialOpen && untrack(options.animateInitialOpen)));
   }
   const ensure = () => (transition === undefined && open() ? create(true) : transition);
 
