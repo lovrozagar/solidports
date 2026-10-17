@@ -49,3 +49,4 @@ One row per unit. A shared-core unit fills Expected with the profiling pass's es
 | Date | Unit | Wall time | Expected | Actual |
 | :--- | :--- | ---: | :--- | :--- |
 | 2026-10-17 | Separator, Progress and Meter Tracks and Indicators | 75 min to the gate | – | 11–15 nodes to 1–2; progress-meter-1000 mount 6.73x to 4.36x React, heap 25.2 to 14.2 MB; one chromium-only test bug (`toHaveStyle`) caught by the gate |
+| 2026-10-17 | 4.3a: `useInteractions` lists compared by entry | 3 h (two wrong guesses before the probe) | 350 ms target, 505 ms bound (both families) | select script −146 ms, sync −613 ms (open/close x20 sync 1066 to 533 ms); combobox unchanged. 42% of target: the target assumed both families shared the mechanism, but no Combobox step moved, so its lists did not re-merge its items on the measured steps. Probe each family a unit's target counts on |
