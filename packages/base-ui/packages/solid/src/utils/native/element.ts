@@ -399,7 +399,7 @@ function renderServerElement<State extends object>(
   const source = props as Record<string, any>;
   const consumer = classifyConsumerProps(props, spec.own);
   const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
-  const reactive = top ? consumer.reactive.filter((key) => !(key in top)) : consumer.reactive;
+  const reactive = top ? keysNotIn(consumer.reactive, top) : consumer.reactive;
 
   const previousObject = serverObject;
   const previousShared = serverObjectShared;
@@ -722,13 +722,9 @@ function renderConsumerElement<State extends object>(
   top?: Record<string, unknown>,
 ): Element {
   const source = props as Record<string, any>;
-  const { literal, writer, needsEffect } = createClientWriter(
-    props,
-    spec,
-    template.attributes,
-    top,
-    true,
-  );
+  const writer = createClientWriter(props, spec, template.attributes, top, true);
+  const literal = writer.literal;
+  const needsEffect = writer.needsEffect;
   const view: Record<string, unknown> = Object.assign({}, literal);
   if (!needsEffect || isServer) {
     writer.write(view, false);
@@ -812,17 +808,6 @@ function renderConsumerElement<State extends object>(
 }
 
 /**
- * The client's attribute writer for one element: the attributes written once (`literal`) and
- * `write`, which writes everything that can change into the object it is given. `needsEffect` says
- * whether anything can change. Shared by the part's own element and a consumer's element.
- */
-interface ClientWriter {
-  literal: Record<string, unknown>;
-  writer: ElementWriter<any>;
-  needsEffect: boolean;
-}
-
-/**
  * The client's attribute writer for one element (`createClientWriter`). `write` writes everything
  * that can change into the object it is given; `set`, which parts call, writes into that object
  * the keys the consumer does not set, `undefined` values only when `keepUndefined` (the effect's
@@ -831,6 +816,12 @@ interface ClientWriter {
  * scope they would keep.
  */
 class ElementWriter<State extends object> implements SetAttribute {
+  /**
+   * The attributes written once, and whether anything can change (an attribute effect is needed):
+   * set by `createClientWriter`. Shared by the part's own element and a consumer's element.
+   */
+  declare literal: Record<string, unknown>;
+  declare needsEffect: boolean;
   /** The element and the attributes its effect last wrote (`attach`); unset on a consumer's element. */
   declare protected el: Element;
   declare protected previous: Record<string, unknown>;
@@ -950,19 +941,11 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
   declare firstWrite: Record<string, unknown> | undefined;
   declare private scheduled: boolean;
   declare private templateAttributes: Record<string, unknown>;
-  declare private literal: Record<string, unknown>;
-  declare private needsEffect: boolean;
 
-  hydrate(
-    templateAttributes: Record<string, unknown>,
-    literal: Record<string, unknown>,
-    needsEffect: boolean,
-  ) {
+  hydrate(templateAttributes: Record<string, unknown>) {
     this.firstWrite = undefined;
     this.scheduled = false;
     this.templateAttributes = templateAttributes;
-    this.literal = literal;
-    this.needsEffect = needsEffect;
   }
 
   takeFirstWrite(written: Record<string, unknown>) {
@@ -1045,7 +1028,7 @@ function createClientWriter<State extends object>(
   top?: Record<string, unknown>,
   handlerFunctions = false,
   hydrating = false,
-): ClientWriter {
+): ElementWriter<State> {
   const source = props as Record<string, any>;
   // The tables' keys are bound below, the always-bound ones whether or not the consumer passes them.
   const consumer = classifyConsumerProps(
@@ -1054,7 +1037,7 @@ function createClientWriter<State extends object>(
     spec.handlers || spec.handlersIfPassed ? tableHandled(spec) : undefined,
   );
   const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
-  const reactive = top ? consumer.reactive.filter((key) => !(key in top)) : consumer.reactive;
+  const reactive = top ? keysNotIn(consumer.reactive, top) : consumer.reactive;
 
   const literal: Record<string, unknown> = {};
   if (base) {
@@ -1076,26 +1059,13 @@ function createClientWriter<State extends object>(
   const handlers = spec.handlers;
   const handlersIfPassed = spec.handlersIfPassed;
   if ((handlers || handlersIfPassed) && !isServer) {
-    // One record for every key. A consumer's element gets plain functions: its render function
-    // may call `props.onClick(event)` itself, as a React consumer's does.
+    // One record for every key.
     const record = new HandlerRecord(props, spec.handlerTarget);
-    const bind = (key: string, dispatch: Dispatch<any>) => {
-      if (!(top && key in top)) {
-        literal[key] = handlerFunctions
-          ? (event: Event) => dispatch(record, event)
-          : [dispatch, record];
-      }
-    };
-    // `for…in` over the module-level tables: no key array per element.
-    for (const key in handlers) {
-      if (Object.hasOwn(handlers, key)) {
-        bind(key, handlers[key]);
-      }
+    if (handlers) {
+      bindHandlers(literal, handlers, undefined, record, top, handlerFunctions);
     }
-    for (const key in handlersIfPassed) {
-      if (Object.hasOwn(handlersIfPassed, key) && consumer.keys.has(key)) {
-        bind(key, handlersIfPassed[key]);
-      }
+    if (handlersIfPassed) {
+      bindHandlers(literal, handlersIfPassed, consumer.keys, record, top, handlerFunctions);
     }
   }
 
@@ -1121,7 +1091,40 @@ function createClientWriter<State extends object>(
     writeState,
     writtenState,
   );
-  return { literal, writer, needsEffect };
+  writer.literal = literal;
+  writer.needsEffect = needsEffect;
+  return writer;
+}
+
+/**
+ * Binds a module-level handler table into `literal` (`for…in`: no key array per element), the keys
+ * of `passed` only when given and none `top` sets. A consumer's element gets plain functions
+ * (`functions`): its render function may call `props.onClick(event)` itself, as a React consumer's
+ * does; the part's own element gets `[dispatch, record]` tuples. No closure here, so a call
+ * allocates no context.
+ */
+function bindHandlers(
+  literal: Record<string, unknown>,
+  table: Readonly<Record<string, Dispatch<any>>>,
+  passed: ReadonlySet<string> | undefined,
+  record: HandlerRecord,
+  top: Record<string, unknown> | undefined,
+  functions: boolean,
+) {
+  for (const key in table) {
+    if (Object.hasOwn(table, key) && (!passed || passed.has(key)) && !(top && key in top)) {
+      literal[key] = functions ? handlerFunction(table[key], record) : [table[key], record];
+    }
+  }
+}
+
+function handlerFunction(dispatch: Dispatch<any>, record: HandlerRecord) {
+  return (event: Event) => dispatch(record, event);
+}
+
+/** The keys `top` does not set (a closure here would give `createClientWriter` a context). */
+function keysNotIn(keys: readonly string[], top: Record<string, unknown>): readonly string[] {
+  return keys.filter((key) => !(key in top));
 }
 
 /** `keys` with `extra`'s keys added (a render config's attributes, which the part must not write). */
@@ -1147,14 +1150,9 @@ function renderClientElement<State extends object>(
   // allocates no context for captured variables.
   const source = props as Record<string, any>;
   const hydrating = isHydrating();
-  const { literal, writer, needsEffect } = createClientWriter(
-    props,
-    spec,
-    undefined,
-    top,
-    false,
-    hydrating,
-  );
+  const writer = createClientWriter(props, spec, undefined, top, false, hydrating);
+  const literal = writer.literal;
+  const needsEffect = writer.needsEffect;
   const consumerChildren = spec.consumerChildren !== false && 'children' in props;
 
   const el = isTemplate(element) ? element.create() : element;
@@ -1164,11 +1162,7 @@ function renderClientElement<State extends object>(
   // never written (the compiled element carries them).
   const hydration = hydrating ? (writer as HydratingWriter<State>) : undefined;
   if (hydration) {
-    hydration.hydrate(
-      (isTemplate(element) && element.attributes) || NO_ATTRIBUTES,
-      literal,
-      needsEffect,
-    );
+    hydration.hydrate((isTemplate(element) && element.attributes) || NO_ATTRIBUTES);
   }
 
   if (!needsEffect) {
