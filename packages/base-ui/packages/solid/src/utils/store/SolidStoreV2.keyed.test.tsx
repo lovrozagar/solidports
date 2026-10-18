@@ -199,8 +199,12 @@ describe('SolidStore keyed selectors', () => {
       const [store, disposeStore] = ownedStore();
       let dispose!: () => void;
       const owners = ownersCreatedBy(() => {
-        [, dispose] = inRoot(() => createMemo(() => store.select('isActive', () => '0'))());
-        // The projection is created on the first change of the current id.
+        // Readers of two ids: a projection is created on the first change of the current id once
+        // its readers ask about more than one.
+        [, dispose] = inRoot(() => {
+          createMemo(() => store.select('isActive', () => '0'))();
+          return createMemo(() => store.select('isActive', () => '2'))();
+        });
         store.set('active', '1');
         flush();
       });
