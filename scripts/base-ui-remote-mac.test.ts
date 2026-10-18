@@ -222,8 +222,10 @@ describe("stopping a Mac run", () => {
 			await Bun.sleep(1000)
 		}
 		expect(alive(command)).toBe(true)
-		// No longer refreshed: the run stops while its session is still alive.
-		expect(waitFor(() => !alive(command), 10_000)).toBe(true)
+		// No longer refreshed: the run stops while its session is still alive, before its 30 s command
+		// would end on its own. The watcher needs about 3 s (a 2 s stale threshold, a 1 s poll); the wait
+		// allows 20, because at load 77 one stamp's run took over 10.
+		expect(waitFor(() => !alive(command), 20_000)).toBe(true)
 		expect(alive(session.pid)).toBe(true)
 		expect(await run.exited).toBe(143)
 		// The run removes its own heartbeat file: a driver stopped by force never does.
