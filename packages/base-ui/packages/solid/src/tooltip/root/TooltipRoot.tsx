@@ -159,7 +159,9 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   });
 
   const shouldRenderInteractions = () =>
-    open() || mounted() || (!disabled() && trackCursorAxis() !== 'none');
+    // `mounted()` first: the gate then reads the lazy unmount machinery on the open that builds it, not
+    // first on a close, which re-heaped everything under the gate (regate2's select and combobox close).
+    mounted() || open() || (!disabled() && trackCursorAxis() !== 'none');
 
   if (!isAbsentProp(props, 'handle')) {
     createHandleAttachment(() => props.handle, store);

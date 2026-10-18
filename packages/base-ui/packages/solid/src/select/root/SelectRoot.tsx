@@ -552,7 +552,9 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       return { click, dismiss, listNavigation, typeahead };
     },
     triggerElement,
-    () => open() || mounted(),
+    // `mounted()` first: the gate then reads the lazy unmount machinery on the open that builds it, not
+    // first on a close, which re-heaped everything under the gate (regate2's select and combobox close).
+    () => mounted() || open(),
   );
   const deferred = (key: 'click' | 'dismiss' | 'listNavigation' | 'typeahead'): ElementProps => ({
     get reference() {

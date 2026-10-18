@@ -1704,7 +1704,9 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
       return { click, dismiss, listNavigation };
     },
     () => (inputInsidePopup() ? triggerElement() : inputElement()),
-    () => open() || mounted() || inline(),
+    // `mounted()` first: the gate then reads the lazy unmount machinery on the open that builds it, not
+    // first on a close, which re-heaped everything under the gate (regate2's select and combobox close).
+    () => mounted() || open() || inline(),
   );
   const deferred = (key: 'click' | 'dismiss' | 'listNavigation'): ElementProps => ({
     get reference() {
