@@ -31,6 +31,7 @@ import { markRenderPath } from '../renderPath';
 import { isHandlerKey as isConsumerHandlerKey } from './consumer';
 import { serverElement } from './serverElement';
 import { HydrationState } from './hydrationState';
+import type { AttributeWriter } from './hydrationState';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
 import { warn } from '../warn';
 import {
@@ -720,15 +721,20 @@ function renderConsumerElement<State extends object>(
   top?: Record<string, unknown>,
 ): Element {
   const source = props as Record<string, any>;
-  const { literal, write, needsEffect } = createClientWriter(props, spec, template.attributes, top);
+  const { literal, writer, needsEffect } = createClientWriter(
+    props,
+    spec,
+    template.attributes,
+    top,
+  );
   const view: Record<string, unknown> = Object.assign({}, literal);
   if (!needsEffect || isServer) {
-    write(view, false);
+    writer.write(view, false);
   } else {
     let defined: Set<string> | undefined;
     const current = createMemo(
       () => {
-        const next = write({}, true);
+        const next = writer.write({}, true);
         for (const key in next) {
           if (!defined?.has(key)) {
             (defined ??= new Set()).add(key);
@@ -810,31 +816,87 @@ function renderConsumerElement<State extends object>(
  */
 interface ClientWriter {
   literal: Record<string, unknown>;
-  write: (into: Record<string, unknown>, keepUndefined: boolean) => Record<string, unknown>;
+  writer: AttributeWriter;
   needsEffect: boolean;
 }
 
 /**
- * The client's attribute writer for one element (`createClientWriter`): writes into `target`
+ * The client's attribute writer for one element (`createClientWriter`). `write` writes everything
+ * that can change into the object it is given; `set`, which parts call, writes into that object
  * the keys the consumer does not set, `undefined` values only when `keepUndefined` (the effect's
- * writes, which remove an attribute) and not in the literal pass. Solid: the method is on the
- * prototype, so an element allocates one object, not a closure per mode.
+ * writes, which remove an attribute) and not in the literal pass. Solid: both are methods on the
+ * prototype and the inputs are fields, so an element allocates one object, not closures and the
+ * scope they would keep.
  */
-class ElementWriter implements SetAttribute {
-  declare target: Record<string, unknown>;
-  declare keepUndefined: boolean;
+class ElementWriter<State extends object> implements SetAttribute, AttributeWriter {
+  declare private target: Record<string, unknown>;
+  declare private keepUndefined: boolean;
   declare private readonly keys: ReadonlySet<string>;
+  declare private readonly props: Record<string, any>;
+  declare private readonly spec: NativeElementSpec<State>;
+  declare private readonly reactive: readonly string[];
+  declare private readonly writeState: StateWriter | undefined;
+  declare private readonly writtenState: object | undefined;
+  declare private readonly hasClass: boolean;
+  declare private readonly hasStyle: boolean;
 
-  constructor(keys: ReadonlySet<string>, target: Record<string, unknown>) {
-    this.keys = keys;
-    this.target = target;
+  constructor(
+    keys: ReadonlySet<string>,
+    props: object,
+    spec: NativeElementSpec<State>,
+    reactive: readonly string[],
+    writeState: StateWriter | undefined,
+    writtenState: object | undefined,
+  ) {
+    this.target = NO_ATTRIBUTES;
     this.keepUndefined = false;
+    this.keys = keys;
+    this.props = props as Record<string, any>;
+    this.spec = spec;
+    this.reactive = reactive;
+    this.writeState = writeState;
+    this.writtenState = writtenState;
+    this.hasClass = 'class' in props;
+    this.hasStyle = 'style' in props;
   }
 
   set(key: string, value: unknown) {
     if ((this.keepUndefined || value !== undefined) && !this.keys.has(key)) {
       this.target[key] = value;
     }
+  }
+
+  write(into: Record<string, unknown>, keepUndefined: boolean): Record<string, unknown> {
+    this.target = into;
+    this.keepUndefined = keepUndefined;
+    const spec = this.spec;
+    const source = this.props;
+    this.writeState?.(this.writtenState!, this);
+    spec.attributes?.(this);
+    readReactiveProps(source, this.reactive, into);
+    if (this.hasClass) {
+      const value = resolveClass(source.class, consumerState(spec, source.class));
+      if (keepUndefined || value !== undefined) {
+        into.class = value;
+      }
+    }
+    const styleOverride = spec.styleOverride;
+    const partStyle = spec.partStyle;
+    if (this.hasStyle || styleOverride || partStyle) {
+      let value = this.hasStyle
+        ? resolveStyle(source.style, consumerState(spec, source.style), partStyle?.())
+        : partStyle?.();
+      const override = styleOverride?.();
+      if (override) {
+        value = value ? combineStyle(value, override) : override;
+      }
+      if (keepUndefined || value !== undefined) {
+        into.style = value;
+      }
+    }
+    // The last target is not kept: the element holds no reference to a write's result.
+    this.target = NO_ATTRIBUTES;
+    return into;
   }
 }
 
@@ -892,36 +954,8 @@ function createClientWriter<State extends object>(
     (hasClass && (!isStatic(props, 'class') || typeof source.class === 'function')) ||
     (hasStyle && (!isStatic(props, 'style') || typeof source.style === 'function'));
 
-  // One writer object per element; `write` points it at the object being written.
-  const writer = new ElementWriter(keys, literal);
-  const write = (into: Record<string, unknown>, keepUndefined: boolean) => {
-    writer.target = into;
-    writer.keepUndefined = keepUndefined;
-    const target = into;
-    writeState?.(writtenState!, writer);
-    spec.attributes?.(writer);
-    readReactiveProps(props, reactive, target);
-    if (hasClass) {
-      const value = resolveClass(source.class, consumerState(spec, source.class));
-      if (keepUndefined || value !== undefined) {
-        target.class = value;
-      }
-    }
-    if (hasStyle || styleOverride || partStyle) {
-      let value = hasStyle
-        ? resolveStyle(source.style, consumerState(spec, source.style), partStyle?.())
-        : partStyle?.();
-      const override = styleOverride?.();
-      if (override) {
-        value = value ? combineStyle(value, override) : override;
-      }
-      if (keepUndefined || value !== undefined) {
-        target.style = value;
-      }
-    }
-    return target;
-  };
-  return { literal, write, needsEffect };
+  const writer = new ElementWriter(keys, props, spec, reactive, writeState, writtenState);
+  return { literal, writer, needsEffect };
 }
 
 /** `keys` with `extra`'s keys added (a render config's attributes, which the part must not write). */
@@ -942,7 +976,7 @@ function renderClientElement<State extends object>(
   // The body runs untracked (`createComponent`): reads here subscribe to nothing.
   const owner = getOwner();
   const source = props as Record<string, any>;
-  const { literal, write, needsEffect } = createClientWriter(props, spec, undefined, top);
+  const { literal, writer, needsEffect } = createClientWriter(props, spec, undefined, top);
   const consumerChildren = spec.consumerChildren !== false && 'children' in props;
 
   const el = isTemplate(element) ? element.create() : element;
@@ -964,14 +998,14 @@ function renderClientElement<State extends object>(
         el,
         isTemplate(element) ? (element.attributes ?? {}) : {},
         literal,
-        write,
+        writer,
         needsEffect,
         previous,
       )
     : undefined;
 
   if (!needsEffect) {
-    write(literal, false);
+    writer.write(literal, false);
     if (hydration && process.env.NODE_ENV !== 'production') {
       hydration.takeFirstWrite({});
     }
@@ -986,7 +1020,7 @@ function renderClientElement<State extends object>(
     // Transparent: the server has no counterpart, so it takes no hydration id.
     runWithOwner(owner, () =>
       createRenderEffect(
-        () => write({}, true),
+        () => writer.write({}, true),
         (next) => {
           if (hydration) {
             if (hydration.firstWrite === undefined) {

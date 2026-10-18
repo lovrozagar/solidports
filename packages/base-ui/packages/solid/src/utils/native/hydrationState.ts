@@ -10,7 +10,10 @@ import { warn } from '../warn';
 import { isHandlerKey } from './consumer';
 
 /** The element's attribute writer (`createClientWriter`'s `write`). */
-type Write = (into: Record<string, unknown>, keepUndefined: boolean) => Record<string, unknown>;
+/** An element's attribute writer: writes everything that can change into `into` and returns it. */
+export interface AttributeWriter {
+  write(into: Record<string, unknown>, keepUndefined: boolean): Record<string, unknown>;
+}
 
 let pendingReconciles: Array<[Element, () => void]> | undefined;
 
@@ -89,7 +92,7 @@ export class HydrationState {
   declare private readonly el: Element;
   declare private readonly templateAttributes: Record<string, unknown>;
   declare private readonly literal: Record<string, unknown>;
-  declare private readonly write: Write;
+  declare private readonly writer: AttributeWriter;
   declare private readonly needsEffect: boolean;
   declare private readonly previous: Record<string, unknown>;
 
@@ -97,7 +100,7 @@ export class HydrationState {
     el: Element,
     templateAttributes: Record<string, unknown>,
     literal: Record<string, unknown>,
-    write: Write,
+    writer: AttributeWriter,
     needsEffect: boolean,
     previous: Record<string, unknown>,
   ) {
@@ -106,7 +109,7 @@ export class HydrationState {
     this.el = el;
     this.templateAttributes = templateAttributes;
     this.literal = literal;
-    this.write = write;
+    this.writer = writer;
     this.needsEffect = needsEffect;
     this.previous = previous;
   }
@@ -130,7 +133,9 @@ export class HydrationState {
   }
 
   private reconcile() {
-    const written = this.needsEffect ? attributesOf(untrack(() => this.write({}, true))) : {};
+    const written = this.needsEffect
+      ? attributesOf(untrack(() => this.writer.write({}, true)))
+      : {};
     const hydratedWrite = { ...attributesOf(this.literal), ...attributesOf(this.firstWrite ?? {}) };
     assign(this.el, { ...attributesOf(this.literal), ...written }, true, hydratedWrite, true);
     Object.assign(this.previous, written);
