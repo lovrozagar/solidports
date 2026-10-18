@@ -1,7 +1,7 @@
 ---
 tags: [solid, perf, primitives, compiler, ssr]
-sources: [packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts]
-verified: 2026-10-17
+sources: [packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/createKeyedSelector.ts, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts]
+verified: 2026-10-18
 ---
 
 # Primitive costs
@@ -62,6 +62,15 @@ What helps instead: bind the read once per key (`isSelected.forKey(key)`, about 
 | `For` | `solid.js:1473` | Lazy `mapArray` under the caller's owner |
 | `dynamic(source)` | `web.js:2153`, `solid.js:1376` | One shared lazy memo per `dynamic()` call, plus 2 memos per instance |
 | `<Dynamic>` | `web.js:2163` | `dynamic()` plus `omit`. `@deprecated` in rc.15 types. `useRenderElement` uses it on the slow path (`src/utils/useRenderElement.tsx:816`) |
+
+## Per-run allocations
+
+Measured with the SSR profile's allocation sampling (`ssr/profile.mjs hydrate`, readable build, 2026-10-18).
+
+| Runtime path | What allocates | Consequence here |
+| --- | --- | --- |
+| `handleAsync` (every computation's result) | A result that is an object is checked for a promise or an async iterator inside `untrack(() => …)`: one closure per run. A primitive result skips the check. | A computation that returns an object pays it on every run, so a writer returns a run counter and keeps its record itself (`ElementWriter.compute`, 575b18ce: 85.7 KB per hydrated accordion/300 page). |
+| `pullFamily` (a projection or store read) | A read whose node is clean goes through `untrack(() => read(n))`: one closure per read, tracked or not. | Each keyed-selector read allocates (`createKeyedSelector`; about 47 B a read, 10 reads per Accordion item at mount, 138 KB per page). A memo per item in front of the projection traded the same bytes for its nodes and was reverted. A runtime cost to report upstream. |
 
 ## Compiler output
 
