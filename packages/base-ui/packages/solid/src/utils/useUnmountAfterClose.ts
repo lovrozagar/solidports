@@ -122,9 +122,10 @@ export function useUnmountAfterClose(parameters: UseUnmountAfterCloseParameters)
     unmount();
   }
 
+  // The handle's methods read `this`: its consumers call these unbound.
   return {
-    mounted: status.mounted,
-    transitionStatus: status.transitionStatus,
+    mounted: () => status.mounted(),
+    transitionStatus: () => status.transitionStatus(),
     preventUnmountingOnClose,
     forceUnmount,
   };

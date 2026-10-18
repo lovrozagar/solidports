@@ -1,4 +1,5 @@
 import { getOwner, untrack } from 'solid-js';
+import type { Owner } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { runInLazyScope } from './runInLazyScope';
 import { useOpenChangeComplete } from './useOpenChangeComplete';
@@ -43,30 +44,63 @@ export interface LazyTransitionStatusOptions {
   onCreate?: ((status: LazyTransitionStatus) => void) | undefined;
 }
 
-/**
- * `useTransitionStatus` for a part that starts closed and may never open (a closed collapsible, an
- * unchecked indicator): its machinery (two writable memos, and the close-complete effect) is
- * created the first time `open` reads true, and reads before that return the closed values
- * (`mounted` false, status `undefined`). Every reader also reads `open`, so it re-runs on the first
- * open and creates the machinery; that open enters `'starting'`, as an instance created at mount
- * does when it goes from closed to open. A part that starts open creates it at once.
- *
- * The machinery lives in a lazy scope of the caller's owner (`runInLazyScope`): it takes no slot of
- * the owner, so hydration ids stay aligned, and no element is claimed inside it. On the server the
- * part renders once, so its status is the initial one, with nothing to schedule, and it creates no
- * reactive node there (D9).
- */
-export function createLazyTransitionStatus(
-  open: () => boolean,
-  options: LazyTransitionStatusOptions = {},
-): LazyTransitionHandle {
-  const owner = getOwner();
-  let transition: LazyTransitionStatus | undefined;
+const NO_OPTIONS: LazyTransitionStatusOptions = {};
 
-  const create = (animateInitialOpen: boolean): LazyTransitionStatus => {
-    if (transition) {
+/**
+ * `createLazyTransitionStatus`'s handle. Solid: the methods are on the prototype and the inputs are
+ * fields, so a part that never opens holds one object and no closure.
+ */
+class LazyTransition implements LazyTransitionHandle {
+  declare private readonly open: () => boolean;
+  declare private readonly options: LazyTransitionStatusOptions;
+  declare private readonly owner: Owner | null;
+  /** The status once created; reads go straight to it from then on. */
+  declare private transition: LazyTransitionStatus | undefined;
+
+  constructor(open: () => boolean, options: LazyTransitionStatusOptions) {
+    this.open = open;
+    this.options = options;
+    this.owner = getOwner();
+    this.transition = undefined;
+    if (untrack(open)) {
+      this.create(Boolean(options.animateInitialOpen && untrack(options.animateInitialOpen)));
+    }
+  }
+
+  mounted(): boolean {
+    return this.ensure()?.mounted() ?? false;
+  }
+
+  mountedWhileClosed(): boolean {
+    return this.transition?.mounted() ?? false;
+  }
+
+  transitionStatus(): TransitionStatus {
+    return this.ensure()?.transitionStatus();
+  }
+
+  setMounted(mounted: boolean) {
+    let transition = this.transition;
+    if (transition === undefined) {
+      if (!mounted) {
+        return;
+      }
+      transition = this.create(true);
+    }
+    transition.setMounted(mounted);
+  }
+
+  private ensure(): LazyTransitionStatus | undefined {
+    const transition = this.transition;
+    if (transition !== undefined) {
       return transition;
     }
+    return this.open() ? this.create(true) : undefined;
+  }
+
+  private create(animateInitialOpen: boolean): LazyTransitionStatus {
+    const open = this.open;
+    const options = this.options;
     if (isServer) {
       // `useTransitionStatus`'s initial status: the server renders once, so it stays.
       let initial: TransitionStatus;
@@ -75,14 +109,14 @@ export function createLazyTransitionStatus(
       } else if (untrack(open) && options.enableIdleState) {
         initial = 'idle';
       }
-      transition = {
+      this.transition = {
         mounted: open,
         transitionStatus: () => initial,
         setMounted() {},
       };
-      return transition;
+      return this.transition;
     }
-    transition = runInLazyScope(owner, () =>
+    this.transition = runInLazyScope(this.owner, () =>
       untrack(() => {
         const status = useTransitionStatus(
           open,
@@ -115,26 +149,26 @@ export function createLazyTransitionStatus(
         return created;
       }),
     )!;
-    return transition;
-  };
-
-  if (untrack(open)) {
-    create(Boolean(options.animateInitialOpen && untrack(options.animateInitialOpen)));
+    return this.transition;
   }
-  const ensure = () => (transition === undefined && open() ? create(true) : transition);
+}
 
-  return {
-    mounted: () => ensure()?.mounted() ?? false,
-    mountedWhileClosed: () => transition?.mounted() ?? false,
-    transitionStatus: () => ensure()?.transitionStatus(),
-    setMounted(mounted) {
-      if (transition === undefined) {
-        if (!mounted) {
-          return;
-        }
-        create(true);
-      }
-      transition!.setMounted(mounted);
-    },
-  };
+/**
+ * `useTransitionStatus` for a part that starts closed and may never open (a closed collapsible, an
+ * unchecked indicator): its machinery (two writable memos, and the close-complete effect) is
+ * created the first time `open` reads true, and reads before that return the closed values
+ * (`mounted` false, status `undefined`). Every reader also reads `open`, so it re-runs on the first
+ * open and creates the machinery; that open enters `'starting'`, as an instance created at mount
+ * does when it goes from closed to open. A part that starts open creates it at once.
+ *
+ * The machinery lives in a lazy scope of the caller's owner (`runInLazyScope`): it takes no slot of
+ * the owner, so hydration ids stay aligned, and no element is claimed inside it. On the server the
+ * part renders once, so its status is the initial one, with nothing to schedule, and it creates no
+ * reactive node there (D9).
+ */
+export function createLazyTransitionStatus(
+  open: () => boolean,
+  options: LazyTransitionStatusOptions = NO_OPTIONS,
+): LazyTransitionHandle {
+  return new LazyTransition(open, options);
 }

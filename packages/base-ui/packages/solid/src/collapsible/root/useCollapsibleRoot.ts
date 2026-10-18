@@ -9,12 +9,21 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { createControlledDevChecks } from '../../utils/useControlled';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { createLazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
-import type { LazyTransitionHandle } from '../../utils/createLazyTransitionStatus';
+import type {
+  LazyTransitionHandle,
+  LazyTransitionStatusOptions,
+} from '../../utils/createLazyTransitionStatus';
 import type { CollapsibleRoot, CollapsibleRootState } from './CollapsibleRoot';
 import { createIdRegistry } from '../../utils/native/registration';
 
 /** How the root's `open` is read, fixed by the first render as in React. */
 type OpenMode = 'always' | 'controlled' | 'uncontrolled';
+
+/** Every root's transition options (one object, not one per root). */
+const TRANSITION_OPTIONS: LazyTransitionStatusOptions = {
+  enableIdleState: true,
+  deferEndingState: true,
+};
 
 /**
  * A root's state keys as prototype getters, for the parts' precompiled attribute writers: creating
@@ -113,10 +122,7 @@ export class CollapsibleRootModel {
     // A root that starts closed has no transition until it first opens: its status machinery is
     // created then (`createLazyTransitionStatus`), and reads before that return the closed values.
     this.owner = getOwner();
-    this.transition = createLazyTransitionStatus(() => this.open(), {
-      enableIdleState: true,
-      deferEndingState: true,
-    });
+    this.transition = createLazyTransitionStatus(() => this.open(), TRANSITION_OPTIONS);
 
     this.defaultPanelId = useBaseUiId();
     [this.registeredPanelId, this.setPanelIdState] = createIdRegistry();
