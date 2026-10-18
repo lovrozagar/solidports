@@ -60,6 +60,9 @@ export function keyedSelector<State extends object, Id = string>(
 
 type KeyedSelector = (state: any, id: Accessor<unknown>) => boolean;
 
+/** `readIds`' mark for a key whose readers asked about more than one id. */
+const MANY_IDS = Symbol('many ids');
+
 // `key(state)` read untracked through module-level state, so a reader's call makes no closure
 // (every item reads its keyed selector on the current id's first change).
 let pendingKey: ((state: any) => unknown) | undefined;
@@ -107,6 +110,10 @@ export function SolidStore<
   const storeOwner = getOwner();
   const memberships = new Map<Function, (id: unknown) => boolean>();
   const firstKeys = new Map<Function, unknown>();
+  // The id readers asked about, per key, until a second one appears (`MANY_IDS`): a projection
+  // keyed by id re-runs nothing less while every reader asks about the same one (a popup root
+  // with one trigger), so it is created only once they ask about more than one.
+  const readIds = new Map<Function, unknown>();
 
   function selectKeyed(selector: KeyedSelector, id: Accessor<unknown>): boolean {
     if (isServer || storeOwner === null || getObserver() === null || isDisposed(storeOwner)) {
@@ -114,21 +121,32 @@ export function SolidStore<
     }
     const { key, gate } = keyedSelectorKeys.get(selector)!;
     let isCurrent = memberships.get(key);
+    let value: unknown;
     if (isCurrent === undefined) {
       // Compared untracked: the reader that sees the change reads through the projection only, so
       // it does not stay subscribed to the raw current id.
       const current = readKeyUntracked(key, state);
+      value = id();
+      if (value !== undefined) {
+        if (!readIds.has(key)) {
+          readIds.set(key, value);
+        } else if (!Object.is(readIds.get(key), value)) {
+          readIds.set(key, MANY_IDS);
+        }
+      }
       if (!firstKeys.has(key)) {
         firstKeys.set(key, current);
       }
-      if (Object.is(firstKeys.get(key), current)) {
-        // Subscribes to what the current id reads, so its first change re-runs this reader.
+      if (Object.is(firstKeys.get(key), current) || readIds.get(key) !== MANY_IDS) {
+        // Until a change with readers of more than one id: compared directly, subscribed to what
+        // the current id reads, so its next change re-runs this reader.
+        firstKeys.set(key, current);
         key(state);
-        const value = id();
         // `gate` read after the key matched: only the current id's readers subscribe to it.
         return value !== undefined && current === value && (gate === undefined || gate(state));
       }
       firstKeys.delete(key);
+      readIds.delete(key);
       isCurrent = runInLazyScope(storeOwner, () =>
         createKeyedSelector(() => {
           const next = key(state);
@@ -136,8 +154,9 @@ export function SolidStore<
         }),
       );
       memberships.set(key, isCurrent);
+    } else {
+      value = id();
     }
-    const value = id();
     return value !== undefined && isCurrent(value) && (gate === undefined || gate(state));
   }
 
