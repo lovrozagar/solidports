@@ -60,6 +60,26 @@ export function keyedSelector<State extends object, Id = string>(
 
 type KeyedSelector = (state: any, id: Accessor<unknown>) => boolean;
 
+// `key(state)` read untracked through module-level state, so a reader's call makes no closure
+// (every item reads its keyed selector on the current id's first change).
+let pendingKey: ((state: any) => unknown) | undefined;
+let pendingState: object | undefined;
+function readPendingKey() {
+  return pendingKey!(pendingState);
+}
+function readKeyUntracked(key: (state: any) => unknown, state: object): unknown {
+  const previousKey = pendingKey;
+  const previousState = pendingState;
+  pendingKey = key;
+  pendingState = state;
+  try {
+    return untrack(readPendingKey);
+  } finally {
+    pendingKey = previousKey;
+    pendingState = previousState;
+  }
+}
+
 /**
  * A Store that supports controlled state keys, non-reactive values and provides utility methods for React.
  */
@@ -93,13 +113,11 @@ export function SolidStore<
       return selector(state, id);
     }
     const { key, gate } = keyedSelectorKeys.get(selector)!;
-    // Read after the key matched: only the current id's readers subscribe to it.
-    const passes = () => gate === undefined || gate(state);
     let isCurrent = memberships.get(key);
     if (isCurrent === undefined) {
       // Compared untracked: the reader that sees the change reads through the projection only, so
       // it does not stay subscribed to the raw current id.
-      const current = untrack(() => key(state));
+      const current = readKeyUntracked(key, state);
       if (!firstKeys.has(key)) {
         firstKeys.set(key, current);
       }
@@ -107,7 +125,8 @@ export function SolidStore<
         // Subscribes to what the current id reads, so its first change re-runs this reader.
         key(state);
         const value = id();
-        return value !== undefined && current === value && passes();
+        // `gate` read after the key matched: only the current id's readers subscribe to it.
+        return value !== undefined && current === value && (gate === undefined || gate(state));
       }
       firstKeys.delete(key);
       isCurrent = runInLazyScope(storeOwner, () =>
@@ -119,7 +138,7 @@ export function SolidStore<
       memberships.set(key, isCurrent);
     }
     const value = id();
-    return value !== undefined && isCurrent(value) && passes();
+    return value !== undefined && isCurrent(value) && (gate === undefined || gate(state));
   }
 
   function update<const Key extends keyof State>(statePart: Pick<State, Key>) {
@@ -605,20 +624,32 @@ export function createStoreState<State extends object>(
   // Bound keys whose derived changes notify listeners; `true` once a listener reads every key.
   let watched: Set<PropertyKey> | true | undefined;
 
+  // The key `readLatest` reads: one function per store instead of a closure per read, saved and
+  // restored around the read since a computed getter reads other keys through `latest`.
+  let latestKey: PropertyKey = '';
+  const readLatest = () => {
+    const key = latestKey;
+    const getter = computedGetters.get(key);
+    if (getter) {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define -- the state proxy reads through `latest`; both exist before any read
+      return getter.call(state);
+    }
+    const binding = bindings.get(key);
+    const value = binding ? binding.value() : peekSlot(key);
+    return isBinding(value) ? value.value() : value;
+  };
+
   const latest = (key: PropertyKey) => {
     if (written.has(key)) {
       return written.get(key);
     }
-    return untrack(() => {
-      const getter = computedGetters.get(key);
-      if (getter) {
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define -- the state proxy reads through `latest`; both exist before any read
-        return getter.call(state);
-      }
-      const binding = bindings.get(key);
-      const value = binding ? binding.value() : peekSlot(key);
-      return isBinding(value) ? value.value() : value;
-    });
+    const previousKey = latestKey;
+    latestKey = key;
+    try {
+      return untrack(readLatest);
+    } finally {
+      latestKey = previousKey;
+    }
   };
 
   const listeners = new Set<(state: State) => void>();
