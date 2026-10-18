@@ -22,9 +22,15 @@ const scenarios: Scenario[] = [
     components: ['checkbox'],
     tags: ['scale-1000', 'uncontrolled', 'pointer', 'keyboard'],
     steps: [
-      { name: 'click 1', run: () => click(qa('[role="checkbox"]')[500]), verify: () => checked() },
+      {
+        name: 'click 1',
+        firstOpen: true,
+        run: () => click(qa('[role="checkbox"]')[500]),
+        verify: () => checked(),
+      },
       {
         name: 'click 100',
+        firstOpen: true,
         run: () => {
           const boxes = qa('[role="checkbox"]');
           for (let i = 0; i < 100; i += 1) {
@@ -35,6 +41,7 @@ const scenarios: Scenario[] = [
       },
       {
         name: 'space x50',
+        firstOpen: true,
         run: async (ctx) => {
           const boxes = qa('[role="checkbox"]');
           for (let i = 0; i < 50; i += 1) {
@@ -54,7 +61,12 @@ const scenarios: Scenario[] = [
     components: ['checkbox'],
     tags: ['scale-1000', 'controlled', 'reactive-props', 'toggle-all'],
     steps: [
-      { name: 'toggle all', run: (ctx) => ctx.lib.set('checked', true), verify: () => checked() },
+      {
+        name: 'toggle all',
+        firstOpen: true,
+        run: (ctx) => ctx.lib.set('checked', true),
+        verify: () => checked(),
+      },
       {
         name: 'toggle all back',
         run: (ctx) => ctx.lib.set('checked', false),
@@ -71,6 +83,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'parent all/none x10',
+        firstOpen: true,
         run: async (ctx) => {
           const parent = qa('[data-testid="parent"]')[0];
           for (let i = 0; i < 10; i += 1) {

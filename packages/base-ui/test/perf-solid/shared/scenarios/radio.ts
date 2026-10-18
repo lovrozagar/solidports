@@ -20,9 +20,15 @@ const scenarios: Scenario[] = [
     components: ['radio', 'radio-group'],
     tags: ['scale-100', 'controlled', 'reactive-props', 'pointer', 'keyboard'],
     steps: [
-      { name: 'click 1', run: () => click(qa('[role="radio"]')[150]), verify: state },
+      {
+        name: 'click 1',
+        firstOpen: true,
+        run: () => click(qa('[role="radio"]')[150]),
+        verify: state,
+      },
       {
         name: 'click 100',
+        firstOpen: true,
         run: async (ctx) => {
           const all = qa('[role="radio"]');
           for (let i = 0; i < 100; i += 1) {

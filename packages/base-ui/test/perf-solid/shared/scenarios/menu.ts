@@ -41,7 +41,7 @@ const scenarios: Scenario[] = [
     components: ['menu'],
     tags: ['scale-100', 'controlled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
-      openStep,
+      { ...openStep, firstOpen: true },
       {
         name: 'nav x50',
         run: (ctx) => keys(ctx, 'ArrowDown', 50),
@@ -103,7 +103,7 @@ const scenarios: Scenario[] = [
     components: ['menu'],
     tags: ['scale-100', 'pointer', 'open', 'portal'],
     steps: [
-      openStep,
+      { ...openStep, firstOpen: true },
       {
         name: 'toggle checkbox x50',
         run: async (ctx) => {
@@ -136,9 +136,10 @@ const scenarios: Scenario[] = [
     components: ['menu'],
     tags: ['scale-1', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal', 'nested'],
     steps: [
-      openStep,
+      { ...openStep, firstOpen: true },
       {
         name: 'hover open 3 levels',
+        firstOpen: true,
         run: async (ctx) => {
           for (let level = 1; level <= 3; level += 1) {
             hover(levelTriggers(level)[0]);

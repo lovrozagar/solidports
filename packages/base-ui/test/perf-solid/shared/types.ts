@@ -40,6 +40,14 @@ export interface Step {
    */
   timerMs?: number;
   /**
+   * The step is the scenario's first open of something a part builds on its first open instead of
+   * at mount (a panel's transition machinery, a popup's unmount machinery): its heap growth is
+   * judged together with the mount's heap, as one budget (`openBudgetKB`, the two-budget rule), so
+   * memory moved from mount to the first open is not counted twice. Marked by hand, never
+   * inferred from the step's name or position.
+   */
+  firstOpen?: boolean;
+  /**
    * Reads the DOM after the step and returns a JSON-able summary. The runner fails the scenario
    * when the summaries differ between libraries; throw for a hard expectation.
    */

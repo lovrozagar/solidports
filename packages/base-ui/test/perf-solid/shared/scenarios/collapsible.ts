@@ -10,7 +10,13 @@ const scenarios: Scenario[] = [
     components: ['collapsible'],
     tags: ['scale-100', 'controlled', 'reactive-props', 'open', 'close', 'toggle-all'],
     steps: [
-      { name: 'open all', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: expanded },
+      {
+        name: 'open all',
+        firstOpen: true,
+        run: (ctx) => ctx.lib.set('open', true),
+        settle: true,
+        verify: expanded,
+      },
       {
         name: 'close all',
         run: (ctx) => ctx.lib.set('open', false),
@@ -27,12 +33,14 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'click 1',
+        firstOpen: true,
         run: () => click(qa('[aria-expanded]')[150]),
         settle: true,
         verify: expanded,
       },
       {
         name: 'click 100',
+        firstOpen: true,
         run: async (ctx) => {
           const triggers = qa('[aria-expanded]');
           for (let i = 0; i < 100; i += 1) {
@@ -55,6 +63,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'click open',
+        firstOpen: true,
         run: () => click(qa('[aria-expanded]')[0]),
         settle: true,
         verify: expanded,
@@ -82,7 +91,13 @@ const scenarios: Scenario[] = [
     components: ['collapsible'],
     tags: [...tags, 'open', 'close', 'toggle-all'],
     steps: [
-      { name: 'open all', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: expanded },
+      {
+        name: 'open all',
+        firstOpen: true,
+        run: (ctx) => ctx.lib.set('open', true),
+        settle: true,
+        verify: expanded,
+      },
       {
         name: 'close all',
         run: (ctx) => ctx.lib.set('open', false),

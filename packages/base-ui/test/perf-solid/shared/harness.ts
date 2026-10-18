@@ -48,6 +48,9 @@ export function installHarness(lib: Lib) {
             .filter((step) => step.timerMs !== undefined)
             .map((step) => [step.name, step.timerMs]),
         ),
+        firstOpen: allSteps(scenario)
+          .filter((step) => step.firstOpen)
+          .map((step) => step.name),
       })),
     async step(id: string, index: number): Promise<StepResult> {
       const scenario = byId.get(id);

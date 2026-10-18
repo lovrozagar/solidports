@@ -5,6 +5,14 @@ import { GATED, judge, judgeAll, median, p90 } from './regression.mjs';
 const HEAP = 'heap after mount KB';
 /** A step's judged metrics: its times and what it leaves on the heap. */
 const STEP_METRICS = ['sync', 'script', 'settled', 'growthKB'];
+/** A first-open step's: its times, and its growth together with the mount's heap. */
+const FIRST_OPEN_METRICS = ['sync', 'script', 'settled', 'openBudgetKB'];
+function metricsOf(key, entry) {
+  if (key.endsWith(HEAP)) {
+    return ['heapKB'];
+  }
+  return entry.firstOpen ? FIRST_OPEN_METRICS : STEP_METRICS;
+}
 /** A variant that did not measure a step: no samples, which `unmeasuredPairs` reports. */
 const NO_SAMPLES = {
   sync: [],
@@ -22,13 +30,17 @@ const NO_SAMPLES = {
  *   growthKB) and heapKB.
  * @param {string[]} names variant names; ratios are taken against the first.
  * @param {Record<string, Record<string, number>>} timers timers[scenario][step]: the declared `timerMs`.
+ * @param {Record<string, readonly string[] | undefined>} [firstOpens] firstOpens[scenario]: the
+ *   steps marked `firstOpen`, judged as `openBudgetKB` (the mount's median heap plus each growth
+ *   sample) instead of `growthKB`.
  */
-export function summarize(results, names, timers) {
+export function summarize(results, names, timers, firstOpens = {}) {
   const summary = {};
   for (const [id, byName] of Object.entries(results)) {
     for (const step of Object.keys(byName[names[0]].steps)) {
       const timer = timers[id]?.[step];
-      const entry = { ratios: {} };
+      const firstOpen = firstOpens[id]?.includes(step) ?? false;
+      const entry = firstOpen ? { ratios: {}, firstOpen } : { ratios: {} };
       for (const name of names) {
         const s = byName[name].steps[step] ?? NO_SAMPLES;
         const settled = timer === undefined ? [] : (s.settled ?? []).map((value) => value - timer);
@@ -43,6 +55,13 @@ export function summarize(results, names, timers) {
           growthKB: s.growthKB?.length ? median(s.growthKB) : null,
           samples: { sync: s.sync, script: s.script, settled, growthKB: s.growthKB ?? [] },
         };
+        if (firstOpen) {
+          // One budget: this step's growth on top of what the mount left on the heap.
+          const mount = byName[name].heapKB?.length ? median(byName[name].heapKB) : null;
+          const budget = mount === null ? [] : (s.growthKB ?? []).map((kb) => kb + mount);
+          entry[name].openBudgetKB = budget.length ? median(budget) : null;
+          entry[name].samples.openBudgetKB = budget;
+        }
       }
       for (const name of names.slice(1)) {
         entry.ratios[`${name}/${names[0]}`] = {
@@ -98,7 +117,7 @@ export function variantPairs(summary, base, cur, options = {}) {
   const raw = new Set(options.raw ?? []);
   const pairs = [];
   for (const [key, entry] of Object.entries(summary)) {
-    const metrics = key.endsWith(HEAP) ? ['heapKB'] : STEP_METRICS;
+    const metrics = metricsOf(key, entry);
     for (const metric of metrics) {
       const a = entry[base].samples[metric];
       const b = entry[cur].samples[metric];
@@ -120,7 +139,7 @@ export function variantPairs(summary, base, cur, options = {}) {
 export function unmeasuredPairs(summary, base, cur) {
   const lines = [];
   for (const [key, entry] of Object.entries(summary)) {
-    const metrics = key.endsWith(HEAP) ? ['heapKB'] : STEP_METRICS;
+    const metrics = metricsOf(key, entry);
     for (const metric of metrics) {
       const a = entry[base].samples[metric]?.length ?? 0;
       const b = entry[cur].samples[metric]?.length ?? 0;

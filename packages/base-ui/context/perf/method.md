@@ -59,6 +59,7 @@ node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 | layout, style | change in `LayoutDuration`, `RecalcStyleDuration` (JSON only) |
 | heap after mount KB | `usedJSHeapSize` after the mount step minus before it, both after a full collection, in a heap cycle (`collectGarbage`: CDP `HeapProfiler.collectGarbage`, `shared/measure.mjs`) |
 | heap growth KB (`growthKB`) | change in CDP `JSHeapUsedSize` over a timed step that started after a full collection: what the step leaves on the heap, garbage included. Judged as the heap after mount is, only where both sides' medians exceed 100 KB. Chromium only (CDP) |
+| first-open budget KB (`openBudgetKB`) | a step marked `firstOpen` (the scenario's first open of something built on first open instead of at mount): the mount's median heap after mount plus each of the step's growth samples, judged instead of its `growthKB` with the same rule (both sides' medians over 100 KB). The two-budget rule's second budget: memory a part moves from mount to its first open is judged once, not as a mount saving and an open regression. Marks are written by hand in the scenario files, never inferred from a step's name or position |
 | settled | steps with `until` only: ms from step start until `until` first held, minus the step's `timerMs` |
 
 - Settle steps (mount, unmount, and any step with `settle`) wait two more frames before `verify`.

@@ -13,12 +13,14 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'open one',
+        firstOpen: true,
         run: (ctx) => ctx.lib.set('value', ['item-150']),
         settle: true,
         verify: expanded,
       },
       {
         name: 'open all',
+        firstOpen: true,
         run: (ctx) => ctx.lib.set('value', all()),
         settle: true,
         verify: expanded,
@@ -46,6 +48,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'toggle x20',
+        firstOpen: true,
         run: async (ctx) => {
           const trigger = qa('[aria-expanded]')[0];
           for (let i = 0; i < 20; i += 1) {
@@ -70,6 +73,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'open all',
+        firstOpen: true,
         run: (ctx) => ctx.lib.set('value', all()),
         settle: true,
         // Opened panels sit at height 0 under the starting style before their transition starts,
@@ -103,6 +107,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'click open',
+        firstOpen: true,
         run: () => click(qa('[aria-expanded]')[0]),
         settle: true,
         verify: expanded,
@@ -132,6 +137,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'open all',
+        firstOpen: true,
         run: (ctx) => ctx.lib.set('value', all()),
         settle: true,
         verify: expanded,

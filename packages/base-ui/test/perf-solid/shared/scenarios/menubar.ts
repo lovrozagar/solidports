@@ -16,6 +16,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'open first',
+        firstOpen: true,
         run: () => click(q('[data-bar="item-0"]')),
         settle: true,
         verify: summary,
