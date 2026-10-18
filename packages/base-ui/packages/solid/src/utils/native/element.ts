@@ -45,8 +45,6 @@ import {
   resolveStyle,
 } from './index';
 
-type Handler = (...args: any[]) => unknown;
-
 /**
  * A part's element as a template: `create` makes it from compiled JSX on the client (claiming the
  * server's node while hydrating), and the server renders `tag` with the same attributes instead.
@@ -102,19 +100,9 @@ export interface NativeElementSpec<State extends object> {
   /** Whether the state or the part attributes can change (an attribute effect is created). */
   reactive: boolean;
   /**
-   * Composes a handler key the part takes part in: `read` resolves the consumer's handler at
-   * event time (`undefined` when the consumer has none). Returns `undefined` for keys the part
-   * leaves alone.
-   */
-  wrapHandler?:
-    | ((key: string, read: (() => Handler | undefined) | undefined) => Handler | undefined)
-    | undefined;
-  /** Handler keys the part needs even when the consumer passes none. */
-  handlerKeys?: readonly string[] | undefined;
-  /**
    * The part's handlers by key, created once at module level (`partHandler`): each element binds
    * them as `[dispatch, record]` tuples over one `HandlerRecord` holding the consumer's props and
-   * `handlerTarget`, so it allocates no closure per key. Replaces `wrapHandler` and `handlerKeys`.
+   * `handlerTarget`, so it allocates no closure per key.
    */
   handlers?: Readonly<Record<string, Dispatch<any>>> | undefined;
   /** Handlers as `handlers` binds them, for keys bound only when the consumer passes them. */
@@ -913,8 +901,8 @@ class ElementWriter<State extends object> implements SetAttribute, AttributeWrit
 }
 
 /**
- * A `wrapHandler` that claims the keys of a spec's handler tables (bound from them) and leaves the
- * rest, cached per table pair (parts pass module-level tables).
+ * The classification's `wrap`: claims the keys of a spec's handler tables (bound from them) and
+ * leaves the rest, cached per table pair (parts pass module-level tables).
  */
 const tableWraps = new WeakMap<object, WeakMap<object, (key: string) => unknown>>();
 const NO_TABLE: Readonly<Record<string, unknown>> = Object.freeze({});
@@ -945,12 +933,11 @@ function createClientWriter<State extends object>(
   handlerFunctions = false,
 ): ClientWriter {
   const source = props as Record<string, any>;
-  const wrap = spec.wrapHandler;
-  // The table's keys are bound below, whether or not the consumer passes them.
+  // The tables' keys are bound below, the always-bound ones whether or not the consumer passes them.
   const consumer = classifyConsumerProps(
     props,
     spec.own,
-    wrap ?? (spec.handlers || spec.handlersIfPassed ? tableHandled(spec) : undefined),
+    spec.handlers || spec.handlersIfPassed ? tableHandled(spec) : undefined,
   );
   const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
   const reactive = top ? consumer.reactive.filter((key) => !(key in top)) : consumer.reactive;
@@ -994,16 +981,6 @@ function createClientWriter<State extends object>(
       for (const key of Object.keys(handlersIfPassed)) {
         if (consumer.keys.has(key)) {
           bind(key, handlersIfPassed[key]);
-        }
-      }
-    }
-  }
-  if (wrap && spec.handlerKeys) {
-    for (const key of spec.handlerKeys) {
-      if (!keys.has(key)) {
-        const handler = wrap(key, undefined);
-        if (handler) {
-          literal[key] = handler;
         }
       }
     }

@@ -10,12 +10,14 @@ import {
   attachNativeAttributes,
   canRenderNative,
   classifyConsumerProps,
-  composeHandler,
+  HandlerRecord,
+  partHandler,
   readReactiveProps,
   resolveClass,
   resolveStyle,
   stateAttr,
 } from '../utils/native';
+import type { Dispatch } from '../utils/native';
 import type { BaseUIComponentProps, BaseUIEvent, NativeButtonProps } from '../utils/types';
 import { useRenderElement } from '../utils/useRenderElement';
 
@@ -97,36 +99,38 @@ function gateKeyDown(props: Button.Props, event: KeyboardEvent) {
   }
 }
 
-/** The consumer's handler for one of the button's keys, behind the part's gate. */
-function wrapButtonHandler(
-  props: Button.Props,
-  key: string,
-  read: () => ((...args: unknown[]) => unknown) | undefined,
-) {
-  switch (key.toLowerCase()) {
-    case 'onclick':
-    case 'onpointerdown':
-      return composeHandler<MouseEvent>(read, undefined, (event) => {
-        if (isDisabled(props)) {
-          event.preventDefault();
-          return false;
-        }
-        return true;
-      });
-    case 'onmousedown':
-    case 'onkeyup':
-      return composeHandler<Event>(read, undefined, () => !isDisabled(props));
-    case 'onkeydown':
-      return composeHandler<KeyboardEvent>(read, undefined, (event) => {
-        if (isDisabled(props) && isFocusableWhenDisabled(props) && event.key !== 'Tab') {
-          event.preventDefault();
-        }
-        return !isDisabled(props);
-      });
-    default:
-      return undefined;
+/** A disabled button cancels the event and runs no handler. */
+function preventWhileDisabled(props: Button.Props, event: Event) {
+  if (isDisabled(props)) {
+    event.preventDefault();
+    return false;
   }
+  return true;
 }
+
+const runWhileEnabled = (props: Button.Props) => !isDisabled(props);
+
+/**
+ * The consumer's handlers behind the part's gate, created once and bound only for the keys the
+ * consumer passes, over one record per button (its props are also the gates' target).
+ */
+const BUTTON_HANDLERS: Readonly<Record<string, Dispatch<Button.Props>>> = {
+  onClick: partHandler<Button.Props, MouseEvent>('onClick', undefined, preventWhileDisabled),
+  onPointerDown: partHandler<Button.Props, PointerEvent>(
+    'onPointerDown',
+    undefined,
+    preventWhileDisabled,
+  ),
+  onMouseDown: partHandler<Button.Props>('onMouseDown', undefined, runWhileEnabled),
+  onKeyUp: partHandler<Button.Props>('onKeyUp', undefined, runWhileEnabled),
+  onKeyDown: partHandler<Button.Props, KeyboardEvent>('onKeyDown', undefined, (props, event) => {
+    if (isDisabled(props) && isFocusableWhenDisabled(props) && event.key !== 'Tab') {
+      event.preventDefault();
+    }
+    return !isDisabled(props);
+  }),
+};
+const claimButtonHandler = (key: string) => (key in BUTTON_HANDLERS ? true : undefined);
 
 /**
  * The part's attributes in the slow path's order (a consumer key always wins), the reactive
@@ -178,9 +182,7 @@ function buttonAttributes(
 function NativeButton(props: Button.Props): JSX.Element {
   // The body runs untracked (`createComponent`): reads here subscribe to nothing.
   const owner = getOwner();
-  const consumer = classifyConsumerProps(props, OWN_KEYS, (key, read) =>
-    wrapButtonHandler(props, key, read),
-  );
+  const consumer = classifyConsumerProps(props, OWN_KEYS, claimButtonHandler);
   const keys = consumer.keys;
   const hasHandler = (key: string) => keys.has(key) || keys.has(key.toLowerCase());
   // `class`/`style` functions receive the state; nothing else reads it.
@@ -210,6 +212,12 @@ function NativeButton(props: Button.Props): JSX.Element {
     }
   }
   Object.assign(literal, consumer.literal);
+  let record: HandlerRecord<Button.Props> | undefined;
+  for (const key of Object.keys(BUTTON_HANDLERS)) {
+    if (keys.has(key)) {
+      literal[key] = [BUTTON_HANDLERS[key], (record ??= new HandlerRecord(props, props))];
+    }
+  }
   // `onMouseDown`/`onKeyUp` only gate the consumer's handler: nothing to do without one.
   if (mayBeDisabled) {
     if (!hasHandler('onClick')) {

@@ -6,7 +6,9 @@
 import { flush } from 'solid-js';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { describe, expect, it, vi } from 'vitest';
+import { Button } from '@solidports/base-ui/button';
 import { Collapsible } from '@solidports/base-ui/collapsible';
+import { Tabs } from '@solidports/base-ui/tabs';
 import { createRenderer } from '#test-utils';
 import { HandlerRecord } from './consumer';
 
@@ -35,6 +37,50 @@ describe('native handler table', () => {
       expect(a[`${key}Data`]).toBeInstanceOf(HandlerRecord);
     }
     expect(b._$$clickData).not.toBe(a._$$clickData);
+  });
+
+  it('shares the dispatchers of tabs, a tab list and buttons with consumer handlers', () => {
+    const noop = () => {};
+    render(() => (
+      <div>
+        <Tabs.Root defaultValue="a">
+          <Tabs.List data-testid="list-a">
+            <Tabs.Tab value="a" data-testid="tab-a">
+              A
+            </Tabs.Tab>
+            <Tabs.Tab value="b" data-testid="tab-b">
+              B
+            </Tabs.Tab>
+          </Tabs.List>
+        </Tabs.Root>
+        <Tabs.Root defaultValue="c">
+          <Tabs.List data-testid="list-b">
+            <Tabs.Tab value="c">C</Tabs.Tab>
+          </Tabs.List>
+        </Tabs.Root>
+        <Button data-testid="button-a" onClick={noop} onKeyDown={noop}>
+          A
+        </Button>
+        <Button data-testid="button-b" onClick={noop} onKeyDown={noop}>
+          B
+        </Button>
+      </div>
+    ));
+    flush();
+    const pairs: Array<[string, string, string[]]> = [
+      ['tab-a', 'tab-b', ['_$$click', '_$$pointerdown', '_$$keydown', '_$$keyup']],
+      ['list-a', 'list-b', ['_$$focusin', '_$$keydown']],
+      ['button-a', 'button-b', ['_$$click', '_$$keydown']],
+    ];
+    for (const [first, second, delegated] of pairs) {
+      const a = screen.getByTestId(first) as unknown as Delegated;
+      const b = screen.getByTestId(second) as unknown as Delegated;
+      for (const key of delegated) {
+        expect(typeof a[key]).toBe('function');
+        expect(b[key]).toBe(a[key]);
+        expect(a[`${key}Data`]).toBeInstanceOf(HandlerRecord);
+      }
+    }
   });
 
   it('calls the consumer, then the part, and keeps the order a consumer can prevent', () => {

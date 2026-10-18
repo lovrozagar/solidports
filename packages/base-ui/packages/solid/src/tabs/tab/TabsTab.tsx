@@ -9,7 +9,8 @@ import { useButton } from '../../internals/use-button';
 import { makeEventPreventable } from '../../merge-props/mergeProps';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
-import { canRenderNative, composeHandler } from '../../utils/native';
+import { canRenderNative, partHandler, readHandler } from '../../utils/native';
+import type { Dispatch } from '../../utils/native';
 import { renderNativeElement } from '../../utils/native/element';
 import { createNativeListItem } from '../../utils/native/listItem';
 import { ownerDocument } from '../../utils/owner';
@@ -30,9 +31,6 @@ const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'value', 'id', 'nativ
 const TAB: Record<string, unknown> = { role: 'tab' };
 /** Tabs rendered in DOM order get their index on the first render (the list's flush confirms it). */
 const GUESS_INDEX = { guessIndex: true };
-/** Handler keys the tab needs even without a consumer handler. */
-const HANDLER_KEYS = ['onClick', 'onFocus', 'onPointerDown', 'onKeyDown', 'onKeyUp'] as const;
-
 /**
  * An individual interactive tab button that toggles the corresponding panel.
  * Renders a `<button>` element.
@@ -46,7 +44,6 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     untrack(() => componentProps.nativeButton ?? true) === true
   ) {
-     
     return NativeTabsTab(componentProps);
   }
 
@@ -271,7 +268,6 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
   return element();
 }
 
-type Handler = (...args: any[]) => unknown;
 type TabEvent<T extends Event> = BaseUIEvent<T>;
 
 /**
@@ -297,6 +293,74 @@ function compositeButtonKeyUpAfterConsumer(event: TabEvent<KeyboardEvent>) {
     event.preventDefault();
   }
 }
+
+/** What a native tab's handlers act on: its `disabled` accessor and its own handlers. */
+interface TabHandlerTarget {
+  disabled(): boolean;
+  click(event: MouseEvent): void;
+  focus(event: FocusEvent): void;
+  pointerDown(event: PointerEvent): void;
+}
+
+/** A disabled tab cancels the event and runs no handler. */
+function preventWhileDisabled(tab: TabHandlerTarget, event: Event) {
+  if (tab.disabled()) {
+    event.preventDefault();
+    return false;
+  }
+  return true;
+}
+
+/**
+ * `useButton`'s composite keyup: a composite native button cancels Space's keyup activation even
+ * when the consumer prevented the Base UI handler, so this runs outside `partHandler`'s gate.
+ */
+const tabKeyUp: Dispatch<TabHandlerTarget> = (record, nativeEvent) => {
+  const event = makeEventPreventable(nativeEvent as TabEvent<KeyboardEvent>);
+  return untrack(() => {
+    if (record.target.disabled()) {
+      return undefined;
+    }
+    const consumer = readHandler(record.props, 'onKeyUp');
+    const result = consumer ? consumer(event) : undefined;
+    compositeButtonKeyUpAfterConsumer(event);
+    return result;
+  });
+};
+
+/** A native tab's handlers, in `useButton` and the tab's own order, created once. */
+const TAB_HANDLERS: Readonly<Record<string, Dispatch<TabHandlerTarget>>> = {
+  onClick: partHandler<TabHandlerTarget, MouseEvent>(
+    'onClick',
+    (tab, event) => tab.click(event),
+    preventWhileDisabled,
+  ),
+  onFocus: partHandler<TabHandlerTarget, FocusEvent>('onFocus', (tab, event) => tab.focus(event)),
+  onPointerDown: partHandler<TabHandlerTarget, PointerEvent>(
+    'onPointerDown',
+    (tab, event) => tab.pointerDown(event),
+    preventWhileDisabled,
+  ),
+  onKeyDown: partHandler<TabHandlerTarget, KeyboardEvent>(
+    'onKeyDown',
+    (_tab, event) => compositeButtonKeyDownAfterConsumer(event),
+    (tab, event) => {
+      // Allow Tabbing away from the focusable-when-disabled button; block every other key.
+      if (tab.disabled() && event.key !== 'Tab') {
+        event.preventDefault();
+      }
+      return !tab.disabled();
+    },
+  ),
+  onKeyUp: tabKeyUp,
+};
+
+/** Bound only when the consumer passes them: the gate on `onMouseDown`, and `onMouseMove`. */
+const TAB_HANDLERS_IF_PASSED: Readonly<Record<string, Dispatch<TabHandlerTarget>>> = {
+  // Tabs.List never highlights on hover: the composite's mouse-move handler does nothing.
+  onMouseMove: partHandler<TabHandlerTarget>('onMouseMove'),
+  onMouseDown: partHandler<TabHandlerTarget>('onMouseDown', undefined, (tab) => !tab.disabled()),
+};
 
 function NativeTabsTab(props: TabsTab.Props): JSX.Element {
   const disabled = () => props.disabled ?? false;
@@ -452,56 +516,11 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
 
   // `useCompositeItem`'s hover highlight (`highlightItemOnHover` is always `false` for a tab list,
   // so this never focuses).
-  function compositeMouseMove() {
-    /* Tabs.List never highlights on hover. */
-  }
-
-  const disabledGate = (event: Event) => {
-    if (disabled()) {
-      event.preventDefault();
-      return false;
-    }
-    return true;
-  };
-
-  const wrapHandler = (key: string, read: (() => Handler | undefined) | undefined) => {
-    switch (key.toLowerCase()) {
-      case 'onclick':
-        return composeHandler<MouseEvent>(read, tabClick, disabledGate);
-      case 'onpointerdown':
-        return composeHandler<PointerEvent>(read, tabPointerDown, disabledGate);
-      case 'onfocus':
-        return composeHandler<FocusEvent>(read, tabFocus);
-      case 'onmousemove':
-        return read ? composeHandler<MouseEvent>(read, compositeMouseMove) : undefined;
-      case 'onmousedown':
-        return composeHandler<MouseEvent>(read, undefined, () => !disabled());
-      case 'onkeydown':
-        return composeHandler<KeyboardEvent>(read, compositeButtonKeyDownAfterConsumer, (event) => {
-          // Allow Tabbing away from the focusable-when-disabled button; block every other key.
-          if (disabled() && event.key !== 'Tab') {
-            event.preventDefault();
-          }
-          return !disabled();
-        });
-      case 'onkeyup':
-        // `useButton`: a composite native button cancels Space's keyup activation even when the
-        // consumer prevented the Base UI handler, so this runs outside `composeHandler`'s gate.
-        return (nativeEvent: KeyboardEvent) => {
-          const event = makeEventPreventable(nativeEvent as TabEvent<KeyboardEvent>);
-          return untrack(() => {
-            if (disabled()) {
-              return undefined;
-            }
-            const consumer = read?.();
-            const result = consumer ? consumer(event) : undefined;
-            compositeButtonKeyUpAfterConsumer(event);
-            return result;
-          });
-        };
-      default:
-        return undefined;
-    }
+  const handlerTarget: TabHandlerTarget = {
+    disabled,
+    click: tabClick,
+    focus: tabFocus,
+    pointerDown: tabPointerDown,
   };
 
   const state: TabsTabState = {
@@ -545,8 +564,9 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
       w.set('id', id());
       w.set(ACTIVE_COMPOSITE_ITEM, active() ? '' : undefined);
     },
-    wrapHandler,
-    handlerKeys: HANDLER_KEYS,
+    handlers: TAB_HANDLERS,
+    handlersIfPassed: TAB_HANDLERS_IF_PASSED,
+    handlerTarget,
     refs: [listItem.setRef, observeTabElement],
   }) as unknown as JSX.Element;
 }
