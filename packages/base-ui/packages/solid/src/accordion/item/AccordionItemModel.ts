@@ -3,7 +3,7 @@ import type { Accessor, Owner, Setter } from 'solid-js';
 import type { CollapsibleRoot } from '../../collapsible/root/CollapsibleRoot';
 import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
 import type { CollapsibleRootModel } from '../../collapsible/root/useCollapsibleRoot';
-import { isStaticProp } from '../../solid-helpers';
+import { isStaticProp, mayBeTruthy } from '../../solid-helpers';
 import { compileStateWriter } from '../../utils/native/element';
 import { createIdRegistry } from '../../utils/native/registration';
 import { createBaseUiId } from '../../utils/useBaseUiId';
@@ -110,6 +110,7 @@ export class AccordionItemModel {
       // Solid: a handler reading the latest props is React's stable callback.
       onOpenChange: (nextOpen, eventDetails) => this.onOpenChange(nextOpen, eventDetails),
       disabled: () => this.disabled(),
+      mayBeDisabled: this.root.mayBeDisabled || mayBeTruthy(local, 'disabled'),
     });
     this.generatedTriggerId = createBaseUiId();
     [this.registeredTriggerId, this.setTriggerId] = createIdRegistry();

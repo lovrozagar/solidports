@@ -4,7 +4,12 @@ import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { canRenderNative } from '../../utils/native';
 import { provideNativeContext } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
-import { createDepsEffect, provideContext, splitComponentProps } from '../../solid-helpers';
+import {
+  createDepsEffect,
+  mayBeTruthy,
+  provideContext,
+  splitComponentProps,
+} from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { EMPTY_ARRAY } from '../../utils/empty';
 import type { REASONS } from '../../utils/reasons';
@@ -48,7 +53,7 @@ export function AccordionRoot<Value = any>(
   // list stays `CompositeList`.
   if (canRenderNative(componentProps, undefined, true)) {
     const root = createAccordionRoot(componentProps);
-     
+
     return provideNativeContext(AccordionRootContext, root.contextValue, () =>
       createComponent(CompositeList, {
         refs: { elements: root.accordionItemElements },
@@ -176,6 +181,7 @@ function createAccordionRoot<Value>(
 
   const contextValue: AccordionRootContext<Value> = {
     disabled,
+    mayBeDisabled: mayBeTruthy(local, 'disabled'),
     handleValueChange,
     hiddenUntilFound: () => local.hiddenUntilFound ?? false,
     // One keyed selector for every item: an item re-reads only its own membership (S4).

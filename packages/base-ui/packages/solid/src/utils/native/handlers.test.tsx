@@ -3,7 +3,7 @@
  * delegated handler (Solid's `_$$<event>`, with `_$$<event>Data`) is the table's shared dispatcher,
  * with one `HandlerRecord` per element as its data, so an element allocates no closure per key.
  */
-import { flush } from 'solid-js';
+import { createSignal, flush } from 'solid-js';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { describe, expect, it, vi } from 'vitest';
 import { Button } from '@solidports/base-ui/button';
@@ -18,13 +18,19 @@ describe('native handler table', () => {
   const { render } = createRenderer();
 
   it('binds one shared dispatcher per key, with the element record as its data', () => {
+    // A reactive `disabled`: a trigger that can never be disabled binds only its click.
+    const [disabled] = createSignal(false);
     render(() => (
       <div>
         <Collapsible.Root>
-          <Collapsible.Trigger data-testid="a">A</Collapsible.Trigger>
+          <Collapsible.Trigger data-testid="a" disabled={disabled()}>
+            A
+          </Collapsible.Trigger>
         </Collapsible.Root>
         <Collapsible.Root>
-          <Collapsible.Trigger data-testid="b">B</Collapsible.Trigger>
+          <Collapsible.Trigger data-testid="b" disabled={disabled()}>
+            B
+          </Collapsible.Trigger>
         </Collapsible.Root>
       </div>
     ));

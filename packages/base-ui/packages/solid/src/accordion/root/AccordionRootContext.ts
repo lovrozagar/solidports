@@ -5,6 +5,8 @@ import type { KeyedSelector } from '../../utils/createKeyedSelector';
 
 export interface AccordionRootContext<Value = any> {
   disabled: Accessor<boolean>;
+  /** Whether `disabled` can ever be true: false lets a trigger bind no disabled gates. */
+  mayBeDisabled: boolean;
   handleValueChange: (
     newValue: AccordionRoot.Value<Value>[number],
     nextOpen: boolean,

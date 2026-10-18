@@ -1,7 +1,7 @@
 import { createMemo, createSignal, getObserver, getOwner, untrack } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access } from '../../solid-helpers';
+import { access, mayBeTruthy } from '../../solid-helpers';
 import type { MaybeAccessor } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
@@ -69,6 +69,8 @@ export class CollapsibleRootModel {
   ) => void;
   /** What the parts' attribute writers read: `state`'s keys, live (see `CollapsibleStateView`). */
   declare readonly stateView: CollapsibleStateView;
+  /** Whether `disabled` can ever be true: false lets a trigger bind no disabled gates. */
+  declare readonly mayBeDisabled: boolean;
   /** Toggles the panel from a trigger's press. A field: triggers pass it on as a callback. */
   declare readonly handleTrigger: (event: MouseEvent | KeyboardEvent) => void;
 
@@ -86,6 +88,7 @@ export class CollapsibleRootModel {
 
   constructor(parameters: UseCollapsibleRootParameters, staticOpen: boolean) {
     this.parameters = parameters;
+    this.mayBeDisabled = parameters.mayBeDisabled ?? mayBeTruthy(parameters, 'disabled');
     // Solid: a handler reading the latest parameter is React's stable callback.
     this.onOpenChange = (open, eventDetails) => parameters.onOpenChange?.(open, eventDetails);
     // Every member is assigned in the same order on every root, so roots share one shape.
@@ -245,6 +248,11 @@ export interface UseCollapsibleRootParameters {
    * @default false
    */
   disabled?: MaybeAccessor<boolean | undefined> | undefined;
+  /**
+   * Solid: whether `disabled` can ever be true, when `disabled` is an accessor over other inputs
+   * (an Accordion item's); else decided from `disabled` itself.
+   */
+  mayBeDisabled?: boolean | undefined;
 }
 
 /**
