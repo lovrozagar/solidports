@@ -165,7 +165,9 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
       </Match>
 
       {/* Solid: `open` also renders, since `mounted` lags it by a flush. */}
-      <Match when={portalContainer() && (open() || mounted() || keepMounted())}>
+      {/* `mounted()` first: read on the open that builds the lazy unmount machinery, not first on a
+          close, which re-heaps everything under the condition. */}
+      <Match when={portalContainer() && (mounted() || open() || keepMounted())}>
         <Portal mount={portalContainer() ?? undefined}>
           <FloatingNode id={nodeId?.()}>
             <CompositeRoot

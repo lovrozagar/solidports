@@ -95,7 +95,9 @@ function PopoverRootComponent<Payload>(
   // Detached triggers share this one root, so mounting its interactions eagerly is cheap. The
   // trigger props they publish then stay stable, so opening and closing doesn't re-render inactive
   // triggers.
-  const shouldRenderInteractions = () => open() || mounted() || props.handle != null;
+  // `mounted()` first: the gate then reads the lazy unmount machinery on the open that builds it, not
+  // first on a close, which re-heaped everything under the gate (regate2's select and combobox close).
+  const shouldRenderInteractions = () => mounted() || open() || props.handle != null;
 
   if (!isAbsentProp(props, 'handle')) {
     createHandleAttachment(() => props.handle, store);

@@ -755,7 +755,9 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
   const { interactions, activateOnIntent } = useDeferredInteractions(
     createInteractions,
     // A submenu renders inside its open parent, so it builds them up front, as React does.
-    () => parent().type === 'menu' || open() || mounted() || positionerElement() != null,
+    // `mounted()` first: the gate then reads the lazy unmount machinery on the open that builds it, not
+    // first on a close, which re-heaped everything under the gate (regate2's select and combobox close).
+    () => mounted() || parent().type === 'menu' || open() || positionerElement() != null,
   );
   store.context.activateInteractions = activateOnIntent;
 
