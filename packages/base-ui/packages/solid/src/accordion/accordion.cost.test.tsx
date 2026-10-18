@@ -321,14 +321,15 @@ describe('accordion cost against the hand-written floor', () => {
   // projection lookup, 12% of open all at 300.
   // A closed item reads its membership once per element's attribute pass and per panel condition
   // (plan 3 leaf 5.1.4): `hidden` and the panel's condition read `mounted` after `open`, which a
-  // closed item answers without reading `open` again.
-  it("an item's mount reads its membership at most 10 times", () => {
+  // closed item answers without reading `open` again. Within one attribute pass, `open` reuses the
+  // value `hidden` read (plan 3 leaf 5.1.6): each read of the root's projection allocates.
+  it("an item's mount reads its membership at most 7 times", () => {
     membership.reads = 0;
     const view = render(() => controlled.part(() => false));
     flush();
     const reads = membership.reads;
     view.unmount();
-    expect(reads, `membership reads ${reads}`).toBeLessThanOrEqual(10);
+    expect(reads, `membership reads ${reads}`).toBeLessThanOrEqual(7);
   });
 
   it("an item's open reads its membership at most 20 times", async () => {

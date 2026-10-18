@@ -163,6 +163,13 @@ export function writeStateAttributes<State extends object>(
   }
 }
 
+/**
+ * The current element write: a number every write (client or server) takes anew, so a state view
+ * can reuse a value it read earlier in the same write and never across writes.
+ */
+let writePass = 0;
+export const currentWritePass = () => writePass;
+
 /** Writes a state's `data-*` attributes, reading the state live (see `compileStateWriter`). */
 export type StateWriter = (state: object, set: SetAttribute) => void;
 
@@ -460,6 +467,7 @@ function renderServerElement<State extends object>(
       Object.assign(ownServerObject(), top);
     }
 
+    writePass += 1;
     stateWriterOf(spec)?.(writtenStateOf(spec), setServerAttribute);
     spec.attributes?.(setServerAttribute, spec.handlerTarget);
 
@@ -940,6 +948,7 @@ class ElementWriter<State extends object> implements SetAttribute {
   }
 
   write(into: Record<string, unknown>, keepUndefined: boolean): Record<string, unknown> {
+    writePass += 1;
     this.target = into;
     this.keepUndefined = keepUndefined;
     const spec = this.spec;
