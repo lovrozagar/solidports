@@ -11,7 +11,6 @@ import {
   createRenderEffect,
   getOwner,
   isHydrating,
-  isStatic,
   onCleanup,
   runWithOwner,
   untrack,
@@ -28,7 +27,7 @@ import {
 import type { JSX } from '@solidjs/web';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
 import { markRenderPath } from '../renderPath';
-import { HandlerRecord, isHandlerKey as isConsumerHandlerKey } from './consumer';
+import { HandlerRecord, isHandlerKey as isConsumerHandlerKey, isStaticKey } from './consumer';
 import type { Dispatch } from './consumer';
 import { serverElement } from './serverElement';
 import { afterHydration, attributesOf, checkHydratedAttributes } from './hydrationState';
@@ -142,8 +141,10 @@ export function writeStateAttributes<State extends object>(
     if (mapper) {
       const custom = mapper(value as never);
       if (custom != null) {
-        for (const attribute of Object.keys(custom)) {
-          set.set(attribute, custom[attribute]);
+        for (const attribute in custom) {
+          if (Object.hasOwn(custom, attribute)) {
+            set.set(attribute, custom[attribute]);
+          }
         }
       }
       continue;
@@ -185,8 +186,11 @@ export function compileStateWriter(
       if (mapper) {
         const custom = mapper(value as never);
         if (custom != null) {
-          for (const attribute of Object.keys(custom)) {
-            set.set(attribute, custom[attribute]);
+          // `for…in` over the mapper's plain object: no key array per write.
+          for (const attribute in custom) {
+            if (Object.hasOwn(custom, attribute)) {
+              set.set(attribute, custom[attribute]);
+            }
           }
         }
       } else if (value === true) {
@@ -470,7 +474,7 @@ function renderServerElement<State extends object>(
   if (spec.children) {
     children = escape(spec.children);
   } else if (spec.consumerChildren !== false && 'children' in props) {
-    children = isStatic(props, 'children')
+    children = isStaticKey(props, 'children')
       ? escape(source.children)
       : () => escape(source.children);
   }
@@ -499,7 +503,7 @@ export function renderNativeElement<State extends object>(
   props: object,
   spec: NativeElementSpec<State>,
 ): Element {
-  if ('render' in props && !isStatic(props, 'render')) {
+  if ('render' in props && !isStaticKey(props, 'render')) {
     return renderDynamicRender(element, props, spec);
   }
   // A static `render` the part let through `canRenderNative` (`isNativeRender`).
@@ -755,7 +759,7 @@ function renderConsumerElement<State extends object>(
     const children = spec.children;
     Object.defineProperty(view, 'children', { get: children, enumerable: true });
   } else if (spec.consumerChildren !== false && 'children' in props) {
-    if (isStatic(props, 'children')) {
+    if (isStaticKey(props, 'children')) {
       view.children = source.children;
     } else {
       Object.defineProperty(view, 'children', {
@@ -1083,16 +1087,15 @@ function createClientWriter<State extends object>(
           : [dispatch, record];
       }
     };
-    if (handlers) {
-      for (const key of Object.keys(handlers)) {
+    // `for…in` over the module-level tables: no key array per element.
+    for (const key in handlers) {
+      if (Object.hasOwn(handlers, key)) {
         bind(key, handlers[key]);
       }
     }
-    if (handlersIfPassed) {
-      for (const key of Object.keys(handlersIfPassed)) {
-        if (consumer.keys.has(key)) {
-          bind(key, handlersIfPassed[key]);
-        }
+    for (const key in handlersIfPassed) {
+      if (Object.hasOwn(handlersIfPassed, key) && consumer.keys.has(key)) {
+        bind(key, handlersIfPassed[key]);
       }
     }
   }
@@ -1108,8 +1111,8 @@ function createClientWriter<State extends object>(
     styleOverride !== undefined ||
     partStyle !== undefined ||
     reactive.length > 0 ||
-    (hasClass && (!isStatic(props, 'class') || typeof source.class === 'function')) ||
-    (hasStyle && (!isStatic(props, 'style') || typeof source.style === 'function'));
+    (hasClass && (!isStaticKey(props, 'class') || typeof source.class === 'function')) ||
+    (hasStyle && (!isStaticKey(props, 'style') || typeof source.style === 'function'));
 
   const writer = new (hydrating ? HydratingWriter : ElementWriter)(
     keys,
@@ -1213,7 +1216,7 @@ function renderClientElement<State extends object>(
   if (spec.children) {
     insert(el, spec.children);
   } else if (consumerChildren) {
-    if (isStatic(props, 'children')) {
+    if (isStaticKey(props, 'children')) {
       insert(el, source.children);
     } else {
       insert(el, () => source.children);

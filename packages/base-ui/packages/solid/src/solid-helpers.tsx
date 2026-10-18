@@ -138,6 +138,24 @@ export function createDepsRenderEffect<T>(deps: () => T, effect: DepsEffectFn<T>
   createLayoutEffect(createMemo(deps, { equals: shallowEqual }), effect);
 }
 
+const objectPrototype = Object.prototype as unknown as {
+  __lookupGetter__(key: string): unknown;
+  __lookupSetter__(key: string): unknown;
+};
+const lookupGetter = objectPrototype.__lookupGetter__;
+const lookupSetter = objectPrototype.__lookupSetter__;
+
+/**
+ * Solid's `isStatic` for props that are not a Solid proxy: whether `key` is absent or a plain value
+ * (no getter or setter). Looked up without a property descriptor, which `isStatic` builds for every
+ * key it checks: a native part checks every consumer key of every element, and the descriptors
+ * were a share of hydration's allocation.
+ */
+export function isStaticKey(props: object, key: string): boolean {
+  // Called through `Object.prototype`: split props have a null prototype.
+  return lookupGetter.call(props, key) === undefined && lookupSetter.call(props, key) === undefined;
+}
+
 /**
  * Whether `props[key]` can never change: a plain value, or a key that is absent from props whose
  * key set is fixed. A Solid proxy (a `merge` result, a dynamic spread) with a changing key set can
@@ -145,7 +163,9 @@ export function createDepsRenderEffect<T>(deps: () => T, effect: DepsEffectFn<T>
  */
 export function isStaticProp(props: object, key: string) {
   if (key in props) {
-    return isStatic(props, key);
+    return (props as Record<PropertyKey, unknown>)[$PROXY]
+      ? isStatic(props, key)
+      : isStaticKey(props, key);
   }
   return !(props as Record<PropertyKey, unknown>)[$PROXY] || hasStaticKeys(props);
 }

@@ -6,9 +6,10 @@
  * cleanup: no reactive node. A reactive id keeps the memo + render effect, on the server too: they
  * take hydration ids, which the client's must match.
  */
-import { createMemo, createSignal, isDisposed, isStatic, onCleanup, untrack } from 'solid-js';
+import { createMemo, createSignal, isDisposed, onCleanup, untrack } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import { isServer } from '@solidjs/web';
+import { isStaticKey } from './consumer';
 import { createLayoutEffect, shallowEqual } from '../../solid-helpers';
 
 type IdSetter = Setter<string | null | undefined>;
@@ -50,14 +51,14 @@ export function createIdRegistration(
   /** The registry's owner: when it is disposed with the part, the unmount write has no reader. */
   registryOwner?: Owner | null,
 ): ((element: Element | null) => void) | undefined {
-  const isStaticKey = !(key in props) || isStatic(props, key);
+  const fixed = !(key in props) || isStaticKey(props, key);
   // The server never calls refs and never unmounts: a static id has nothing to register.
-  if (isStaticKey && isServer) {
+  if (fixed && isServer) {
     return undefined;
   }
   const read = () =>
     ((props as Record<string, string | undefined>)[key] || undefined) as string | undefined;
-  if (isStaticKey) {
+  if (fixed) {
     const registered = untrack(read);
     void onCleanup(() => {
       if (registryOwner && isDisposed(registryOwner)) {

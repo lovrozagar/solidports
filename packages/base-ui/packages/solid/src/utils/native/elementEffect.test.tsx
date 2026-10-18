@@ -56,4 +56,32 @@ describe('native element attribute effect', () => {
     expect(effects.names.length).toBeGreaterThan(0);
     expect(new Set(effects.names)).toEqual(new Set(['bound compute|bound apply']));
   });
+
+  // Static checks of a native part's plain props allocate nothing: a descriptor object per key and
+  // element was a share of hydration's allocation (plan 3 leaf 5.1.6).
+  it('reads no property descriptors of plain props', () => {
+    // Solid's `isStatic` and the library's own reads; jsdom reads descriptors of its own.
+    const original = Reflect.getOwnPropertyDescriptor;
+    let calls = 0;
+    const descriptors = vi
+      .spyOn(Reflect, 'getOwnPropertyDescriptor')
+      .mockImplementation((target: object, key: PropertyKey) => {
+        const caller = (new Error().stack ?? '').split('\n')[3] ?? '';
+        if (caller.includes('isStatic') || caller.includes('packages/solid/src/')) {
+          calls += 1;
+        }
+        return original(target, key);
+      });
+    render(() => (
+      <Collapsible.Root defaultOpen data-testid="root" title="root">
+        <Collapsible.Trigger id="trigger" title="trigger">
+          Toggle
+        </Collapsible.Trigger>
+        <Collapsible.Panel title="panel">Content</Collapsible.Panel>
+      </Collapsible.Root>
+    ));
+    flush();
+    descriptors.mockRestore();
+    expect(calls).toBe(0);
+  });
 });

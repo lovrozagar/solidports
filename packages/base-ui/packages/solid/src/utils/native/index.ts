@@ -12,7 +12,6 @@ import {
   onCleanup,
   onSettled,
   isHydrating,
-  isStatic,
   runWithOwner,
   untrack,
 } from 'solid-js';
@@ -41,7 +40,13 @@ import { DEFAULT_LABELABLE_CONTEXT } from '../../internals/labelable-provider/La
 import type { LabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useCompositeListContext } from '../../internals/composite/list/CompositeListContext';
 import type { CompositeListRegistration } from '../../internals/composite/list/CompositeListContext';
-import { classifyConsumerProps, composeHandler, readHandler, readReactiveProps } from './consumer';
+import {
+  classifyConsumerProps,
+  composeHandler,
+  isStaticKey,
+  readHandler,
+  readReactiveProps,
+} from './consumer';
 
 type AnyProps = Record<string, any>;
 type Handler = (...args: any[]) => unknown;
@@ -52,6 +57,7 @@ export {
   composeHandler,
   HandlerRecord,
   isHandlerKey,
+  isStaticKey,
   partHandler,
   readHandler,
   readReactiveProps,
@@ -86,19 +92,19 @@ export function canRenderNative(
   if ((props as Record<PropertyKey, unknown>)[$PROXY]) {
     return false;
   }
-  if (!isStatic(props, 'ref')) {
+  if (!isStaticKey(props, 'ref')) {
     return false;
   }
   if (
     'render' in props &&
     (render === undefined ||
-      (!dynamicRender && !isStatic(props, 'render')) ||
+      (!dynamicRender && !isStaticKey(props, 'render')) ||
       !render(untrack(() => (props as { render?: unknown }).render)))
   ) {
     return false;
   }
-  for (const key of staticKeys) {
-    if (!isStatic(props, key)) {
+  for (let i = 0; i < staticKeys.length; i += 1) {
+    if (!isStaticKey(props, staticKeys[i])) {
       return false;
     }
   }
@@ -515,9 +521,9 @@ export function renderNativeElement<State>(spec: NativeElementSpec<State>): JSX.
   const hasClass = 'class' in props;
   const hasStyle = 'style' in props;
   const classIsStatic =
-    !hasClass || (isStatic(props, 'class') && typeof source.class !== 'function');
+    !hasClass || (isStaticKey(props, 'class') && typeof source.class !== 'function');
   const styleIsStatic =
-    !hasStyle || (isStatic(props, 'style') && typeof source.style !== 'function');
+    !hasStyle || (isStaticKey(props, 'style') && typeof source.style !== 'function');
   if (hasClass && classIsStatic) {
     const value = resolveClass(source.class, state);
     if (value !== undefined) {
@@ -571,7 +577,7 @@ export function renderNativeElement<State>(spec: NativeElementSpec<State>): JSX.
     elementRefs(el, spec.partRefs, source.ref),
   );
   if (spec.children !== false && 'children' in props) {
-    if (isStatic(props, 'children')) {
+    if (isStaticKey(props, 'children')) {
       insert(el, source.children);
     } else {
       insert(el, () => source.children);
@@ -727,7 +733,7 @@ export function createLayout<Model>(
 ): NativeLayout<Model> {
   const consumer = classifyConsumerProps(props, own, wrap);
   const source = props as AnyProps;
-  const staticProp = (key: string) => !(key in props) || isStatic(props, key);
+  const staticProp = (key: string) => !(key in props) || isStaticKey(props, key);
   return {
     m: model,
     props: source,
