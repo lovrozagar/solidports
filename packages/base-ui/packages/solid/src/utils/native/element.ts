@@ -9,7 +9,6 @@
 import {
   createMemo,
   createRenderEffect,
-  getOwner,
   isHydrating,
   onCleanup,
   runWithOwner,
@@ -1134,14 +1133,18 @@ function withKeys(keys: ReadonlySet<string>, extra: Record<string, unknown>): Re
   return all;
 }
 
+// Frozen: one options object for every element's effect, which the runtime only reads.
+const TRANSPARENT = Object.freeze({ transparent: true });
+
 function renderClientElement<State extends object>(
   element: Element | NativeElementTemplate,
   props: object,
   spec: NativeElementSpec<State>,
   top?: Record<string, unknown>,
 ): Element {
-  // The body runs untracked (`createComponent`): reads here subscribe to nothing.
-  const owner = getOwner();
+  // The body runs untracked (`createComponent`): reads here subscribe to nothing. It creates no
+  // closure (the refs' cleanup and the children's accessor are made in helpers), so a call
+  // allocates no context for captured variables.
   const source = props as Record<string, any>;
   const hydrating = isHydrating();
   const { literal, writer, needsEffect } = createClientWriter(
@@ -1174,16 +1177,12 @@ function renderClientElement<State extends object>(
       hydration.takeFirstWrite({});
     }
   }
-  attachNativeAttributes(el, literal, undefined, owner);
+  attachNativeAttributes(el, literal, undefined, null);
   if (needsEffect) {
     // As `attachNativeAttributes`' effect, its compute and apply the writer's methods (see
-    // `ElementWriter.apply` for the one difference). Transparent: the server has no counterpart, so
-    // it takes no hydration id.
-    runWithOwner(owner, () =>
-      createRenderEffect(writer.compute.bind(writer), writer.apply.bind(writer), {
-        transparent: true,
-      }),
-    );
+    // `ElementWriter.apply` for the one difference), under the part's owner, which is current here.
+    // Transparent: the server has no counterpart, so it takes no hydration id.
+    createRenderEffect(writer.compute.bind(writer), writer.apply.bind(writer), TRANSPARENT);
   }
 
   if (hydration && needsEffect && spec.reconcileAfterHydration) {
@@ -1197,30 +1196,41 @@ function renderClientElement<State extends object>(
   }
   const refs = spec.refs;
   if (refs && refs.length > 0) {
-    const plain = applyPartRefs(el, refs);
-    void onCleanup(() => {
-      if (plain) {
-        runWithOwner(null, () =>
-          untrack(() => {
-            for (const ref of refs) {
-              (ref as (element: null) => void)(null);
-            }
-          }),
-        );
-      } else {
-        releasePartRefs(el, ...refs);
-      }
-    });
+    attachPartRefs(el, refs);
   }
 
   if (spec.children) {
     insert(el, spec.children);
   } else if (consumerChildren) {
-    if (isStaticKey(props, 'children')) {
-      insert(el, source.children);
-    } else {
-      insert(el, () => source.children);
-    }
+    insertConsumerChildren(el, props);
   }
   return el;
+}
+
+/** Applies the part's refs and releases them with `null` on cleanup (React's ref contract). */
+function attachPartRefs(el: Element, refs: readonly unknown[]) {
+  const plain = applyPartRefs(el, refs);
+  void onCleanup(() => {
+    if (plain) {
+      runWithOwner(null, () =>
+        untrack(() => {
+          for (const ref of refs) {
+            (ref as (element: null) => void)(null);
+          }
+        }),
+      );
+    } else {
+      releasePartRefs(el, ...refs);
+    }
+  });
+}
+
+/** Inserts the consumer's children: as they are when literal, else through an accessor. */
+function insertConsumerChildren(el: Element, props: object) {
+  const source = props as Record<string, any>;
+  if (isStaticKey(props, 'children')) {
+    insert(el, source.children);
+  } else {
+    insert(el, () => source.children);
+  }
 }
