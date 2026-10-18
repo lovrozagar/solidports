@@ -3,9 +3,9 @@
 import { GATED, judge, judgeAll, median, p90 } from './regression.mjs';
 
 const HEAP = 'heap after mount KB';
-/** A step's judged metrics: its times and what it leaves on the heap. */
-const STEP_METRICS = ['sync', 'script', 'settled', 'growthKB'];
-/** A first-open step's: its times, and its growth together with the mount's heap. */
+/** A step's judged metrics: its times and what it retains on the heap (`growthKB` is reported only). */
+const STEP_METRICS = ['sync', 'script', 'settled', 'retainedKB'];
+/** A first-open step's: its times, and what it retains together with the mount's heap. */
 const FIRST_OPEN_METRICS = ['sync', 'script', 'settled', 'openBudgetKB'];
 function metricsOf(key, entry) {
   if (key.endsWith(HEAP)) {
@@ -22,17 +22,18 @@ const NO_SAMPLES = {
   style: [],
   settled: [],
   growthKB: [],
+  retainedKB: [],
 };
 
 /**
  * @param {Record<string, Record<string, { steps: Record<string, Record<string, number[]>>, heapKB: number[] }>>} results
  *   results[scenario][variant]: per-step samples (sync, paint, script, layout, style, settled,
- *   growthKB) and heapKB.
+ *   growthKB, retainedKB) and heapKB.
  * @param {string[]} names variant names; ratios are taken against the first.
  * @param {Record<string, Record<string, number>>} timers timers[scenario][step]: the declared `timerMs`.
  * @param {Record<string, readonly string[] | undefined>} [firstOpens] firstOpens[scenario]: the
- *   steps marked `firstOpen`, judged as `openBudgetKB` (the mount's median heap plus each growth
- *   sample) instead of `growthKB`.
+ *   steps marked `firstOpen`, judged as `openBudgetKB` (the mount's median heap plus each retained
+ *   sample) instead of `retainedKB`.
  */
 export function summarize(results, names, timers, firstOpens = {}) {
   const summary = {};
@@ -53,12 +54,19 @@ export function summarize(results, names, timers, firstOpens = {}) {
           style: median(s.style),
           settled: settled.length ? median(settled) : null,
           growthKB: s.growthKB?.length ? median(s.growthKB) : null,
-          samples: { sync: s.sync, script: s.script, settled, growthKB: s.growthKB ?? [] },
+          retainedKB: s.retainedKB?.length ? median(s.retainedKB) : null,
+          samples: {
+            sync: s.sync,
+            script: s.script,
+            settled,
+            growthKB: s.growthKB ?? [],
+            retainedKB: s.retainedKB ?? [],
+          },
         };
         if (firstOpen) {
-          // One budget: this step's growth on top of what the mount left on the heap.
+          // One budget: what this step retains on top of what the mount left on the heap.
           const mount = byName[name].heapKB?.length ? median(byName[name].heapKB) : null;
-          const budget = mount === null ? [] : (s.growthKB ?? []).map((kb) => kb + mount);
+          const budget = mount === null ? [] : (s.retainedKB ?? []).map((kb) => kb + mount);
           entry[name].openBudgetKB = budget.length ? median(budget) : null;
           entry[name].samples.openBudgetKB = budget;
         }

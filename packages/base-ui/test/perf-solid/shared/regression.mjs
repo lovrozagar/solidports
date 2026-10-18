@@ -42,9 +42,11 @@ export const GATED = {
   serverMs: { floor: 0.1 },
   hydrateSyncMs: { floor: 0.1 },
   heapKB: { floor: 0, minBoth: 100 },
-  // A step's heap growth: read, as the heap after mount, only where both sides grow over 100 KB.
-  growthKB: { floor: 0, minBoth: 100 },
-  // A first-open step's growth with the mount's heap (`firstOpen`): one budget, judged as heap is.
+  // What a step retains (collected heap after it minus before it): read, as the heap after mount,
+  // only where both sides retain over 100 KB. Its growth with the garbage is not judged: it moves
+  // with when the engine scavenged (perf/method.md).
+  retainedKB: { floor: 0, minBoth: 100 },
+  // A first-open step's retention with the mount's heap (`firstOpen`): one budget, judged as heap is.
   openBudgetKB: { floor: 0, minBoth: 100 },
 };
 
