@@ -449,6 +449,33 @@ function runCommand(command, cwd, log, runDir) {
   });
 }
 
+/**
+ * Why a vitest suite's log does not show a complete run, or `undefined` when every run in it
+ * reached all of its test files. A run that ends early (a browser that lost its iframe, a run cut
+ * off) can still exit 0 with files that never ran: every \`Test Files\` summary must account for
+ * all of its files (passed, failed, skipped or todo), and a log with none is incomplete too.
+ * @param {string} log
+ * @returns {string | undefined}
+ */
+export function vitestIncomplete(log) {
+  // eslint-disable-next-line no-control-regex -- vitest colors its summary with ANSI escapes
+  const plain = log.replace(/\u001b\[[0-9;]*m/g, '');
+  const summaries = [...plain.matchAll(/^\s*Test Files\s+(.*?)\s*\((\d+)\)\s*$/gm)];
+  if (summaries.length === 0) {
+    return 'no vitest summary in the log';
+  }
+  for (const [, counts, total] of summaries) {
+    const reached = [...counts.matchAll(/(\d+)\s+(?:passed|failed|skipped|todo)/g)].reduce(
+      (sum, [, n]) => sum + Number(n),
+      0,
+    );
+    if (reached < Number(total)) {
+      return `ran ${reached} of ${total} test files`;
+    }
+  }
+  return undefined;
+}
+
 async function runSuite(suite, runDir) {
   const log = path.join(runDir, `${suite.name}.log`);
   fs.writeFileSync(log, '');
@@ -461,6 +488,12 @@ async function runSuite(suite, runDir) {
     // eslint-disable-next-line no-await-in-loop -- a suite's commands run in order
     if (!(await runCommand(commandFor(suite, command), suite.cwd, log, runDir))) {
       return { status: 'fail', detail: `\`${command}\` failed` };
+    }
+  }
+  if (suite.vitest) {
+    const incomplete = vitestIncomplete(fs.readFileSync(log, 'utf8'));
+    if (incomplete) {
+      return { status: 'fail', detail: `incomplete: ${incomplete}` };
     }
   }
   if (before !== null) {
