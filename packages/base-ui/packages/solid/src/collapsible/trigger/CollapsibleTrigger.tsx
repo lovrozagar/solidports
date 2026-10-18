@@ -1,5 +1,4 @@
 import type { JSX } from '@solidjs/web';
-import { isServer } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
@@ -15,6 +14,7 @@ import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useCollapsibleRootContext } from '../root/CollapsibleRootContext';
+import type { CollapsibleRootContext } from '../root/CollapsibleRootContext';
 import type { CollapsibleRootState } from '../root/CollapsibleRoot';
 
 const stateAttributesMapping: StateAttributesMapping<CollapsibleRootState> = {
@@ -88,19 +88,31 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
   return element();
 }
 
-/** What a disclosure trigger's handlers act on: its `disabled` accessor and its root. */
+/**
+ * What a disclosure trigger's handlers, attributes and state act on: its props and its root, with
+ * `disabled` as a method, so a trigger allocates this one object and no closures.
+ */
 export class DisclosureTriggerTarget {
-  declare readonly disabled: () => boolean;
-  declare readonly root: { handleTrigger(event: MouseEvent | KeyboardEvent): void };
+  declare readonly props: { readonly disabled?: boolean | undefined };
+  declare readonly root: CollapsibleRootContext;
 
-  constructor(
-    disabled: () => boolean,
-    root: { handleTrigger(event: MouseEvent | KeyboardEvent): void },
-  ) {
-    this.disabled = disabled;
+  constructor(props: object, root: CollapsibleRootContext) {
+    this.props = props as { readonly disabled?: boolean | undefined };
     this.root = root;
   }
+
+  disabled(): boolean {
+    return Boolean(this.props.disabled ?? this.root.disabled());
+  }
 }
+
+/** A disclosure trigger's attributes (the spec's `attributes`), from its target. */
+export function writeTargetTriggerAttributes(w: SetAttribute, target: DisclosureTriggerTarget) {
+  const root = target.root;
+  writeDisclosureTriggerAttributes(w, root.open(), root.panelId(), target.disabled());
+}
+
+const rootStateOf = (target: DisclosureTriggerTarget) => target.root.state;
 
 /** A disabled trigger cancels the event and runs no handler. */
 function preventWhileDisabled(target: DisclosureTriggerTarget, event: Event) {
@@ -164,20 +176,18 @@ export function writeDisclosureTriggerAttributes(
 
 function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element {
   const root = useCollapsibleRootContext();
-  const disabled = () => Boolean(props.disabled ?? root.disabled());
-
   return renderNativeElement(BUTTON, props, {
     own: OWN_KEYS,
-    state: () => root.state,
+    state: rootStateOf,
     stateView: root.stateView,
     mapping: stateAttributesMapping,
     stateWriter: writeTriggerState,
     reactive: true,
-    attributes: (w) => writeDisclosureTriggerAttributes(w, root.open(), root.panelId(), disabled()),
+    attributes: writeTargetTriggerAttributes,
     handlers: DISCLOSURE_TRIGGER_HANDLERS,
     handlersIfPassed: DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED,
-    // The server renders no handlers: nothing to act on.
-    handlerTarget: isServer ? undefined : new DisclosureTriggerTarget(disabled, root),
+    // The server too: its attributes and state read it.
+    handlerTarget: new DisclosureTriggerTarget(props, root),
   }) as unknown as JSX.Element;
 }
 

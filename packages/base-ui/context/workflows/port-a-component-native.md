@@ -25,7 +25,7 @@ Popup families carry a heap gap the core phase does not close: 500 closed Toolti
 
 ## Recipes
 
-- Kit shape: `canRenderNative(props, undefined, true)` (client, server, hydration), a module-level `{ tag, create: () => <div /> }` template, a module-level `OWN_KEYS` set, `literal` for fixed part attributes (consumer keys win), `attributes(set)` for reactive ones, `reactive: false` when nothing can change (no effect at all).
+- Kit shape: `canRenderNative(props, undefined, true)` (client, server, hydration), a module-level `{ tag, create: () => <div /> }` template, a module-level `OWN_KEYS` set, `literal` for fixed part attributes (consumer keys win), `attributes(set, target)` for reactive ones (a module-level function reading the part's `handlerTarget`, which a `state` factory receives too, so a part allocates one target object and no closures), `reactive: false` when nothing can change (no effect at all).
 - State attributes: compile the writer once at module level (`compileStateWriter(keys, mapping)`). A part with no state on the slow path passes `state: EMPTY_OBJECT` with `stateAttributes: false`, so `class`/`style` functions receive the same empty state.
 - Contexts: `provideNativeContext`, which renders the provider on the server and rebuilds its owners while hydrating.
 - A part style below the consumer's goes in `partStyle`; return `undefined`, not `{}`, for no style: an empty object writes `style=""` where React writes nothing.

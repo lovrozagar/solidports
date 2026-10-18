@@ -77,9 +77,10 @@ export interface NativeElementSpec<State extends object> {
   /**
    * The part's state: `class`/`style` functions receive it and, unless `stateAttributes` is
    * `false`, every key becomes a `data-*` attribute as `getStateAttributesProps` maps it. A
-   * factory is called on first use, so a part whose consumer passes no function never builds it.
+   * factory is called on first use with `handlerTarget`, so a part whose consumer passes no function
+   * never builds it, and a module-level factory reads it from the target.
    */
-  state?: State | (() => State) | undefined;
+  state?: State | ((target: any) => State) | undefined;
   mapping?: StateAttributesMapping<State> | undefined;
   /** `state`'s attributes precompiled at module level (`compileStateWriter`); else compiled here. */
   stateWriter?: StateWriter | undefined;
@@ -92,8 +93,11 @@ export interface NativeElementSpec<State extends object> {
   stateAttributes?: boolean | undefined;
   /** Literal part attributes (`role`, …), written once below `attributes`. */
   literal?: Record<string, unknown> | undefined;
-  /** The part's attributes that follow reactive sources; runs inside the attribute effect. */
-  attributes?: ((set: SetAttribute) => void) | undefined;
+  /**
+   * The part's attributes that follow reactive sources; runs inside the attribute effect, with
+   * `handlerTarget`, so a part passes a module-level function and no closure per element.
+   */
+  attributes?: ((set: SetAttribute, target: any) => void) | undefined;
   /** Whether the state or the part attributes can change (an attribute effect is created). */
   reactive: boolean;
   /**
@@ -104,7 +108,10 @@ export interface NativeElementSpec<State extends object> {
   handlers?: Readonly<Record<string, Dispatch<any>>> | undefined;
   /** Handlers as `handlers` binds them, for keys bound only when the consumer passes them. */
   handlersIfPassed?: Readonly<Record<string, Dispatch<any>>> | undefined;
-  /** What `handlers` act on: the part's model, the same object for every key. */
+  /**
+   * What `handlers`, `attributes` and a `state` factory act on: the part's model, the same object
+   * for every key.
+   */
   handlerTarget?: unknown;
   /** A part style combined below the consumer's (the consumer's keys win), e.g. measured CSS variables. */
   partStyle?: (() => JSX.CSSProperties | undefined) | undefined;
@@ -265,7 +272,7 @@ function partState<State extends object>(spec: NativeElementSpec<State>): State 
   const state = spec.state;
   if (typeof state === 'function') {
     // The spec is the element's own object: the created state replaces its factory.
-    const created = (state as () => State)();
+    const created = (state as (target: unknown) => State)(spec.handlerTarget);
     spec.state = created;
     return created;
   }
@@ -434,7 +441,7 @@ function renderServerElement<State extends object>(
     }
 
     stateWriterOf(spec)?.(writtenStateOf(spec), setServerAttribute);
-    spec.attributes?.(setServerAttribute);
+    spec.attributes?.(setServerAttribute, spec.handlerTarget);
 
     if ('class' in props) {
       const value = resolveClass(source.class, consumerState(spec, source.class));
@@ -899,7 +906,7 @@ class ElementWriter<State extends object> implements SetAttribute {
     const spec = this.spec;
     const source = this.props;
     this.writeState?.(this.writtenState!, this);
-    spec.attributes?.(this);
+    spec.attributes?.(this, spec.handlerTarget);
     readReactiveProps(source, this.reactive, into);
     if (this.hasClass) {
       const value = resolveClass(source.class, consumerState(spec, source.class));

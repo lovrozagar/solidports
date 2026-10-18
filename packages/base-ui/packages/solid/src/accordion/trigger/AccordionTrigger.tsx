@@ -1,12 +1,12 @@
 import type { JSX } from '@solidjs/web';
-import { isServer } from '@solidjs/web';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import {
   DISCLOSURE_TRIGGER_HANDLERS,
   DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED,
   DisclosureTriggerTarget,
-  writeDisclosureTriggerAttributes,
+  writeTargetTriggerAttributes,
 } from '../../collapsible/trigger/CollapsibleTrigger';
+import type { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
@@ -18,11 +18,13 @@ import {
   isNativeButtonRender,
   renderNativeElement,
 } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { createIdRegistration } from '../../utils/native/registration';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { AccordionItemState } from '../item/AccordionItem';
 import { useAccordionItemContext } from '../item/AccordionItemContext';
+import type { AccordionItemContext } from '../item/AccordionItemContext';
 import { ITEM_STATE_KEYS } from '../item/AccordionItemModel';
 
 /** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
@@ -115,31 +117,50 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
   return element();
 }
 
+/** An Accordion trigger's target: the disclosure trigger's, plus its item (its id and state). */
+class AccordionTriggerTarget extends DisclosureTriggerTarget {
+  declare readonly item: AccordionItemContext;
+
+  constructor(
+    props: AccordionTrigger.Props,
+    root: CollapsibleRootContext,
+    item: AccordionItemContext,
+  ) {
+    super(props, root);
+    this.item = item;
+  }
+
+  override disabled(): boolean {
+    return (this.props.disabled ?? false) || this.root.disabled();
+  }
+}
+
+function writeAccordionTriggerAttributes(w: SetAttribute, target: AccordionTriggerTarget) {
+  writeTargetTriggerAttributes(w, target);
+  const props = target.props as AccordionTrigger.Props;
+  w.set('id', (props.id || undefined) ?? target.item.defaultTriggerId?.());
+}
+
+const itemStateOf = (target: AccordionTriggerTarget) => target.item.state;
+
 function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
   const root = useCollapsibleRootContext();
   const item = useAccordionItemContext();
-  const { defaultTriggerId, setTriggerId } = item;
-  const disabled = () => (props.disabled ?? false) || root.disabled();
-  const id = () => (props.id || undefined) ?? defaultTriggerId?.();
-
-  const registerId = createIdRegistration(props, 'id', setTriggerId, item.owner);
+  const registerId = createIdRegistration(props, 'id', item.setTriggerId, item.owner);
 
   return renderNativeElement(BUTTON, props, {
     refs: registerId ? [registerId] : undefined,
     own: OWN_KEYS,
-    state: () => item.state,
+    state: itemStateOf,
     stateView: item.stateView,
     stateWriter: writeTriggerState,
     mapping: stateAttributesMapping,
     reactive: true,
-    attributes: (w) => {
-      writeDisclosureTriggerAttributes(w, root.open(), root.panelId(), disabled());
-      w.set('id', id());
-    },
+    attributes: writeAccordionTriggerAttributes,
     handlers: DISCLOSURE_TRIGGER_HANDLERS,
     handlersIfPassed: DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED,
-    // The server renders no handlers: nothing to act on.
-    handlerTarget: isServer ? undefined : new DisclosureTriggerTarget(disabled, root),
+    // The server too: its attributes and state read it.
+    handlerTarget: new AccordionTriggerTarget(props, root, item),
   }) as unknown as JSX.Element;
 }
 
