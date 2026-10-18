@@ -84,6 +84,54 @@ export function composeHandler<E extends Event>(
   };
 }
 
+/**
+ * What a part's handlers act on, one per element: the consumer's props (its handler is read from
+ * them at event time) and the part's own target (its model). The element holds it as the data of
+ * each `[dispatch, record]` handler tuple, so a native element allocates this one object for all
+ * its handlers, not a closure and a scope per key.
+ */
+export class HandlerRecord<Target = unknown> {
+  declare readonly props: object;
+  declare readonly target: Target;
+
+  constructor(props: object, target: Target) {
+    this.props = props;
+    this.target = target;
+  }
+}
+
+/** A module-level handler: one element's record, then the event (Solid's tuple handler order). */
+export type Dispatch<Target = unknown> = (record: HandlerRecord<Target>, event: Event) => unknown;
+
+/**
+ * A part's handler for `key`, created once at module level: in React's `mergeProps` order, the
+ * event is made preventable, then `gate` (the part's check, as a React prop getter runs before
+ * calling the consumer; returning `false` ends the chain), the consumer's handler (read when the
+ * event fires, so it never subscribes), then `part` unless the consumer called
+ * `event.preventBaseUIHandler()`. `gate` and `part` receive the element's target.
+ */
+export function partHandler<Target, E extends Event = Event>(
+  key: string,
+  part?: ((target: Target, event: BaseUIEvent<E>) => void) | undefined,
+  gate?: ((target: Target, event: BaseUIEvent<E>) => boolean | void) | undefined,
+): Dispatch<Target> {
+  return (record, nativeEvent) => {
+    const event = makeEventPreventable(nativeEvent as BaseUIEvent<E>);
+    return untrack(() => {
+      const target = record.target;
+      if (gate && gate(target, event) === false) {
+        return undefined;
+      }
+      const handler = readHandler(record.props, key);
+      const result = handler ? handler(event) : undefined;
+      if (part && !event.baseUIHandlerPrevented) {
+        part(target, event);
+      }
+      return result;
+    });
+  };
+}
+
 export interface ConsumerProps {
   /** Every consumer key the element receives (handlers, literals and reactive keys). */
   keys: ReadonlySet<string>;

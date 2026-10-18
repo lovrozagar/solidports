@@ -28,7 +28,8 @@ import {
 import type { JSX } from '@solidjs/web';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
 import { markRenderPath } from '../renderPath';
-import { isHandlerKey as isConsumerHandlerKey } from './consumer';
+import { HandlerRecord, isHandlerKey as isConsumerHandlerKey } from './consumer';
+import type { Dispatch } from './consumer';
 import { serverElement } from './serverElement';
 import { HydrationState } from './hydrationState';
 import type { AttributeWriter } from './hydrationState';
@@ -110,6 +111,16 @@ export interface NativeElementSpec<State extends object> {
     | undefined;
   /** Handler keys the part needs even when the consumer passes none. */
   handlerKeys?: readonly string[] | undefined;
+  /**
+   * The part's handlers by key, created once at module level (`partHandler`): each element binds
+   * them as `[dispatch, record]` tuples over one `HandlerRecord` holding the consumer's props and
+   * `handlerTarget`, so it allocates no closure per key. Replaces `wrapHandler` and `handlerKeys`.
+   */
+  handlers?: Readonly<Record<string, Dispatch<any>>> | undefined;
+  /** Handlers as `handlers` binds them, for keys bound only when the consumer passes them. */
+  handlersIfPassed?: Readonly<Record<string, Dispatch<any>>> | undefined;
+  /** What `handlers` act on: the part's model, the same object for every key. */
+  handlerTarget?: unknown;
   /** A part style combined below the consumer's (the consumer's keys win), e.g. measured CSS variables. */
   partStyle?: (() => JSX.CSSProperties | undefined) | undefined;
   /** A part style combined above the consumer's (its keys win), e.g. a temporary `animation-name`. */
@@ -726,6 +737,7 @@ function renderConsumerElement<State extends object>(
     spec,
     template.attributes,
     top,
+    true,
   );
   const view: Record<string, unknown> = Object.assign({}, literal);
   if (!needsEffect || isServer) {
@@ -900,15 +912,46 @@ class ElementWriter<State extends object> implements SetAttribute, AttributeWrit
   }
 }
 
+/**
+ * A `wrapHandler` that claims the keys of a spec's handler tables (bound from them) and leaves the
+ * rest, cached per table pair (parts pass module-level tables).
+ */
+const tableWraps = new WeakMap<object, WeakMap<object, (key: string) => unknown>>();
+const NO_TABLE: Readonly<Record<string, unknown>> = Object.freeze({});
+function tableHandled(spec: {
+  handlers?: Readonly<Record<string, unknown>> | undefined;
+  handlersIfPassed?: Readonly<Record<string, unknown>> | undefined;
+}) {
+  const always = spec.handlers ?? NO_TABLE;
+  const ifPassed = spec.handlersIfPassed ?? NO_TABLE;
+  let byPassed = tableWraps.get(always);
+  if (!byPassed) {
+    byPassed = new WeakMap();
+    tableWraps.set(always, byPassed);
+  }
+  let wrap = byPassed.get(ifPassed);
+  if (!wrap) {
+    wrap = (key: string) => (key in always || key in ifPassed ? true : undefined);
+    byPassed.set(ifPassed, wrap);
+  }
+  return wrap;
+}
+
 function createClientWriter<State extends object>(
   props: object,
   spec: NativeElementSpec<State>,
   base?: Record<string, unknown>,
   top?: Record<string, unknown>,
+  handlerFunctions = false,
 ): ClientWriter {
   const source = props as Record<string, any>;
   const wrap = spec.wrapHandler;
-  const consumer = classifyConsumerProps(props, spec.own, wrap);
+  // The table's keys are bound below, whether or not the consumer passes them.
+  const consumer = classifyConsumerProps(
+    props,
+    spec.own,
+    wrap ?? (spec.handlers || spec.handlersIfPassed ? tableHandled(spec) : undefined),
+  );
   const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
   const reactive = top ? consumer.reactive.filter((key) => !(key in top)) : consumer.reactive;
 
@@ -929,6 +972,32 @@ function createClientWriter<State extends object>(
     }
   }
   Object.assign(literal, consumer.literal, top);
+  const handlers = spec.handlers;
+  const handlersIfPassed = spec.handlersIfPassed;
+  if ((handlers || handlersIfPassed) && !isServer) {
+    // One record for every key. A consumer's element gets plain functions: its render function
+    // may call `props.onClick(event)` itself, as a React consumer's does.
+    const record = new HandlerRecord(props, spec.handlerTarget);
+    const bind = (key: string, dispatch: Dispatch<any>) => {
+      if (!(top && key in top)) {
+        literal[key] = handlerFunctions
+          ? (event: Event) => dispatch(record, event)
+          : [dispatch, record];
+      }
+    };
+    if (handlers) {
+      for (const key of Object.keys(handlers)) {
+        bind(key, handlers[key]);
+      }
+    }
+    if (handlersIfPassed) {
+      for (const key of Object.keys(handlersIfPassed)) {
+        if (consumer.keys.has(key)) {
+          bind(key, handlersIfPassed[key]);
+        }
+      }
+    }
+  }
   if (wrap && spec.handlerKeys) {
     for (const key of spec.handlerKeys) {
       if (!keys.has(key)) {

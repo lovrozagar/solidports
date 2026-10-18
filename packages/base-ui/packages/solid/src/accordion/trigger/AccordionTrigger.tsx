@@ -2,7 +2,9 @@ import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import {
-  wrapDisclosureTriggerHandler,
+  DISCLOSURE_TRIGGER_HANDLERS,
+  DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED,
+  DisclosureTriggerTarget,
   writeDisclosureTriggerAttributes,
 } from '../../collapsible/trigger/CollapsibleTrigger';
 import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
@@ -35,9 +37,6 @@ const BUTTON = {
 };
 
 const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'id', 'nativeButton']);
-/** Handler keys the trigger needs even without a consumer handler. */
-const HANDLER_KEYS = ['onClick', 'onKeyDown', 'onPointerDown'] as const;
-
 const stateAttributesMapping: StateAttributesMapping<AccordionTriggerState> = {
   ...accordionStateAttributesMapping,
   ...triggerOpenStateMapping,
@@ -137,11 +136,10 @@ function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
       writeDisclosureTriggerAttributes(w, root.open(), root.panelId(), disabled());
       w.set('id', id());
     },
-    // The server renders no handlers: no wrapper to create.
-    wrapHandler: isServer
-      ? undefined
-      : (key, read) => wrapDisclosureTriggerHandler(disabled, root.handleTrigger, key, read),
-    handlerKeys: HANDLER_KEYS,
+    handlers: DISCLOSURE_TRIGGER_HANDLERS,
+    handlersIfPassed: DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED,
+    // The server renders no handlers: nothing to act on.
+    handlerTarget: isServer ? undefined : new DisclosureTriggerTarget(disabled, root),
   }) as unknown as JSX.Element;
 }
 
