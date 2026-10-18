@@ -9,7 +9,8 @@
 //
 // server: self time and sampled allocations (objects collected since included) per render, after
 // warmup. hydrate: a fresh Chromium page per sample, self time per page and the median time to the
-// commit. Both then time the case against its `<case>-floor` twin, when the build registers one,
+// commit, then allocated bytes per page by function (objects collected since included), the case's
+// and its floor's. Both then time the case against its `<case>-floor` twin, when the build registers one,
 // in interleaved batches, and print the median ratio: it holds under machine load. Run with
 // `--no-turbo-inlining --no-maglev-inlining` for exact server allocation attribution.
 import fs from 'node:fs';
@@ -50,6 +51,34 @@ function selfTime(profiles, per, top = 40) {
     .map(([name, us]) => `${(us / per).toFixed(1).padStart(8)} µs ${name}`);
 }
 
+/**
+ * Self bytes by function in a sampling heap profile, and the total. A builtin frame (no script:
+ * `next`, `keys`, `bind`) is named with the script function that called it, which is the one to
+ * change.
+ */
+function allocatedBy(head, into = new Map()) {
+  let total = 0;
+  const walk = (node, caller) => {
+    const frame = node.callFrame;
+    const own = label(frame);
+    const name =
+      frame.url === '' && caller ? `${frame.functionName || '(anon)'} <- ${caller}` : own;
+    into.set(name, (into.get(name) ?? 0) + node.selfSize);
+    total += node.selfSize;
+    const next = frame.url === '' ? caller : own;
+    node.children.forEach((child) => walk(child, next));
+  };
+  walk(head, undefined);
+  return { allocated: into, total };
+}
+
+/** The top `top` of `allocated`, per `per` units, in KB. */
+const topAllocated = (allocated, per, top = 30) =>
+  [...allocated]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, top)
+    .map(([name, bytes]) => `${(bytes / 1024 / per).toFixed(2).padStart(8)} KB ${name}`);
+
 if (mode === 'server') {
   const renders = Number(countArg ?? 300);
   for (let i = 0; i < 100; i += 1) {
@@ -76,20 +105,10 @@ if (mode === 'server') {
     server.render(key);
   }
   const { profile: heap } = await session.post('HeapProfiler.stopSampling');
-  const allocated = new Map();
-  let total = 0;
-  const walk = (node) => {
-    const name = label(node.callFrame);
-    allocated.set(name, (allocated.get(name) ?? 0) + node.selfSize);
-    total += node.selfSize;
-    node.children.forEach(walk);
-  };
-  walk(heap.head);
+  const { allocated, total } = allocatedBy(heap.head);
   console.log(`${key}: ${ms.toFixed(3)} ms per render (profiled)`);
   console.log(`\nallocated ${(total / 1024 / renders).toFixed(1)} KB per render, top by self:`);
-  for (const [name, bytes] of [...allocated].sort((a, b) => b[1] - a[1]).slice(0, 30)) {
-    console.log(`${(bytes / 1024 / renders).toFixed(2).padStart(8)} KB ${name}`);
-  }
+  console.log(topAllocated(allocated, renders).join('\n'));
   console.log('\nCPU self time per render:');
   console.log(selfTime([profile], renders).join('\n'));
   if (hasFloor) {
@@ -146,6 +165,28 @@ const httpServer = http
 const browser = await chromium.launch();
 const origin = `http://localhost:${httpServer.address().port}`;
 
+/**
+ * Hydrates `name` on a fresh page under the sampling heap profiler, objects collected since
+ * included (garbage drives collection, a large share of hydration): adds its bytes by function to
+ * `into` and returns the page's total.
+ */
+async function hydrateAllocated(name, into) {
+  const tab = await browser.newPage();
+  await tab.goto(`${origin}/?fixture=${encodeURIComponent(name)}`);
+  await tab.waitForFunction(() => '__hydrate' in window);
+  const cdp = await tab.context().newCDPSession(tab);
+  await cdp.send('HeapProfiler.enable');
+  await cdp.send('HeapProfiler.startSampling', {
+    samplingInterval: 256,
+    includeObjectsCollectedByMajorGC: true,
+    includeObjectsCollectedByMinorGC: true,
+  });
+  await tab.evaluate((fixture) => window.__hydrate(fixture).committed, name);
+  const { profile } = await cdp.send('HeapProfiler.stopSampling');
+  await tab.close();
+  return allocatedBy(profile.head, into).total;
+}
+
 /** Hydrates `name` on a fresh page; returns its commit time and, when asked, its CPU profile. */
 async function hydrateOnce(name, profiled) {
   const tab = await browser.newPage();
@@ -178,6 +219,29 @@ console.log(
 );
 console.log('\nCPU self time per page:');
 console.log(selfTime(profiles, samples).join('\n'));
+{
+  // Allocation per page, the case and its floor alternating on fresh pages.
+  const portBytes = new Map();
+  const floorBytes = new Map();
+  let portTotal = 0;
+  let floorTotal = 0;
+  for (let i = 0; i < samples; i += 1) {
+    portTotal += await hydrateAllocated(key, portBytes);
+    if (hasFloor) {
+      floorTotal += await hydrateAllocated(floorKey, floorBytes);
+    }
+  }
+  console.log(
+    `\nallocated while hydrating: ${(portTotal / 1024 / samples).toFixed(1)} KB per page${
+      hasFloor ? `, floor ${(floorTotal / 1024 / samples).toFixed(1)} KB` : ''
+    }, top by self:`,
+  );
+  console.log(topAllocated(portBytes, samples, Number(process.env.ALLOC_TOP ?? 30)).join('\n'));
+  if (hasFloor) {
+    console.log('\nfloor, top by self:');
+    console.log(topAllocated(floorBytes, samples, 15).join('\n'));
+  }
+}
 if (hasFloor) {
   const port = [];
   const floor = [];
