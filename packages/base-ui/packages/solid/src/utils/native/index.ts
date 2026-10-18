@@ -50,10 +50,13 @@ export {
   NATIVE_RESERVED_KEYS,
   classifyConsumerProps,
   composeHandler,
+  HandlerRecord,
   isHandlerKey,
+  partHandler,
   readHandler,
   readReactiveProps,
   type ConsumerProps,
+  type Dispatch,
 } from './consumer';
 
 /** No static keys: a shared default, so a call allocates nothing. */
