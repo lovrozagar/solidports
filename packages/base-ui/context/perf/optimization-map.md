@@ -1,7 +1,7 @@
 ---
 tags: [perf, native, optimization, planning]
 sources: [packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useFloatingRootContext.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/internals/composite/item/useCompositeItem.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/toast/store.ts, packages/base-ui/packages/solid/src/utils/popups/useInteractionIntent.ts]
-verified: 2026-10-17
+verified: 2026-10-18
 ---
 
 # Optimization map
@@ -79,7 +79,7 @@ Line numbers were read at b9b813c9. Benchmark ratios are `solid/react` sync from
 ## 10. Defer trigger hooks to first intent (shipped, except NavigationMenu)
 
 - Where: `utils/popups/useInteractionIntent.ts`: one capture listener per event type and document; a closed root builds its interactions on first intent.
-- Status: done for Tooltip, Menu, ContextMenu, Popover, PreviewCard, Dialog, AlertDialog, Drawer, Select and Combobox (closed-root budgets fell 16–35%). NavigationMenu still builds hover and click hooks up front (budget 185).
+- Status: done for Tooltip, Menu, ContextMenu, Popover, PreviewCard, Dialog, AlertDialog, Drawer, Select and Combobox (closed-root budgets fell 16–35%). NavigationMenu still builds hover and click hooks up front (budget 187).
 - Remaining evidence: popover/roots-500 mount 4.63x, tooltip/roots-500 3.86x, menu/many-roots-500 2.96x; these now point at items 1, 6 and 7.
 
 ## Cross-cutting rules for the plan

@@ -207,9 +207,11 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      // Not deferred: its trigger's hover and click hooks cost one node each.
+      // Not deferred: its trigger's hover and click hooks cost one node each. Its list's
+      // CompositeList keeps a JSX provider, two nodes more, for its items' effect order
+      // (GOTCHA-019).
       'NavigationMenu',
-      185,
+      187,
       () => (
         <NavigationMenu.Root>
           <NavigationMenu.List>
