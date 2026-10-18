@@ -49,7 +49,13 @@ const KNOWN = JSON.parse(fs.readFileSync(path.join(here, 'known-differences.json
 const KNOWN_CONSOLE = JSON.parse(
   fs.readFileSync(path.join(here, 'known-warnings.json'), 'utf8'),
 ).entries;
-const METRICS = ['ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'TaskDuration'];
+const METRICS = [
+  'ScriptDuration',
+  'LayoutDuration',
+  'RecalcStyleDuration',
+  'TaskDuration',
+  'JSHeapUsedSize',
+];
 
 const server = http
   .createServer((req, res) => {
@@ -182,6 +188,7 @@ for (const { id, steps } of list) {
             layout: [],
             style: [],
             settled: [],
+            growthKB: [],
           };
           const step = entry.steps[steps[index]];
           step.sync.push(result.sync);
@@ -190,6 +197,8 @@ for (const { id, steps } of list) {
             step.script.push((after.ScriptDuration - before.ScriptDuration) * 1000);
             step.layout.push((after.LayoutDuration - before.LayoutDuration) * 1000);
             step.style.push((after.RecalcStyleDuration - before.RecalcStyleDuration) * 1000);
+            // What the step leaves on the heap, garbage included: it starts after a collection.
+            step.growthKB.push((after.JSHeapUsedSize - before.JSHeapUsedSize) / 1024);
           }
           if (result.settled !== null) {
             step.settled.push(result.settled);

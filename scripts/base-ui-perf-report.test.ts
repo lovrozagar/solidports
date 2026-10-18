@@ -123,6 +123,28 @@ describe("one-sided samples", () => {
 		])
 	})
 
+	test("judges a step's heap growth as its own metric where both sides measured it", () => {
+		const grown = (values: number[]) => ({ samples: { sync: values, script: values, settled: [], growthKB: values } })
+		const pairs = variantPairs(
+			{ "select/1000 › open": { base: grown([200, 210]), cur: grown([400, 410]) } },
+			"base",
+			"cur",
+		)
+		expect(pairs.map((pair) => pair.metric)).toEqual(["sync", "script", "growthKB"])
+		expect(pairs[2].rule).toEqual({ floor: 0, minBoth: 100 })
+	})
+
+	test("summarize keeps the median heap growth and its samples", () => {
+		const withGrowth = {
+			"select/1000": {
+				base: { steps: { open: { ...step([1, 1, 1], [1, 1, 1]), growthKB: [120, 130, 140] } }, heapKB: ten([0]) },
+			},
+		}
+		const summary = summarize(withGrowth, ["base"], {})
+		expect(summary["select/1000 › open"].base).toMatchObject({ growthKB: 130 })
+		expect(summary["select/1000 › open"].base.samples.growthKB).toEqual([120, 130, 140])
+	})
+
 	test("lists the metrics one side did not measure", () => {
 		expect(unmeasuredPairs(summary, "base", "cur")).toEqual([
 			"menu/200 › long-press sync: measured by base only",

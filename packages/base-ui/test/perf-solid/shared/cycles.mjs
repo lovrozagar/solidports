@@ -3,25 +3,27 @@
 // A forced full collection leaves the engine in a state no app mounts in, and timing the mount
 // right after one measured that state: an A/A of one build flagged four false regressions on
 // Linux (D17). A timing cycle therefore collects, then mounts and unmounts untimed, and times the
-// mount warmed. It collects once more after the timed mount, outside the steps' timing: on the Mac
-// that A/A was clean in both rounds, while a cycle with no collection after the mount flagged one
-// false verdict. The heap reading needs a collection right before the mount, so it gets cycles of
-// its own.
+// mount warmed. Every later timed step starts after a collection of its own, outside its timing:
+// steps run back to back, so without one a step paid for the garbage the steps before it left,
+// which hid a real 1.5 ms regression on checkbox/controlled-1000 and moved cost between steps
+// whenever a change moved allocation (perf/method.md). The garbage a step leaves is measured
+// instead, as its heap growth (`run.mjs`). The heap reading needs a collection right before the
+// mount, so it gets cycles of its own.
 //
 // Each cycle takes the page's operations: `collect()` (a full collection), `readHeap()` (used JS
 // heap in bytes) and `runStep(index)` (runs one step and resolves with its result).
 
 /**
- * Collect, an untimed mount and unmount, the timed mount, collect, then the other steps timed.
- * Resolves with the timed steps' results.
+ * Collect, an untimed mount and unmount, the timed mount, then each other step timed after a
+ * collection of its own. Resolves with the timed steps' results.
  */
 export async function timingCycle({ collect, runStep, stepCount }) {
   await collect();
   await runStep(0);
   await runStep(stepCount - 1);
   const results = [await runStep(0)];
-  await collect();
   for (let index = 1; index < stepCount; index += 1) {
+    await collect();
     results.push(await runStep(index));
   }
   return results;

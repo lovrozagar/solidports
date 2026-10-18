@@ -3,8 +3,9 @@ import { heapCycle, timingCycle } from "../packages/base-ui/test/perf-solid/shar
 
 // The benchmark's per-run sequence (D17). A forced full collection right before the timed mount
 // measured the engine's post-collection state, which no app mounts in. Timing cycles start warmed
-// (an untimed mount and unmount after the collection) and collect once more after the timed mount,
-// as the Mac A/A preferred; the heap is read in cycles of its own.
+// (an untimed mount and unmount after the collection), and every later step starts after a
+// collection of its own, so no step pays for the garbage another left (perf/method.md); the heap
+// is read in cycles of its own.
 
 /** A recording page: each operation appends to `log`. */
 function recorder() {
@@ -30,10 +31,21 @@ function recorder() {
 }
 
 describe("bench cycles", () => {
-	test("a timing cycle warms up after the collection, then collects only after the timed mount", async () => {
+	test("a timing cycle warms up after the collection, then collects before every step after the mount", async () => {
 		const { log, ops } = recorder()
 		const results = await timingCycle({ ...ops, stepCount: 4 })
-		expect(log).toEqual(["collect", "step 0", "step 3", "step 0", "collect", "step 1", "step 2", "step 3"])
+		expect(log).toEqual([
+			"collect",
+			"step 0",
+			"step 3",
+			"step 0",
+			"collect",
+			"step 1",
+			"collect",
+			"step 2",
+			"collect",
+			"step 3",
+		])
 		// Only the timed steps come back.
 		expect(results.map((r: { index: number }) => r.index)).toEqual([0, 1, 2, 3])
 		expect(log).not.toContain("readHeap")
