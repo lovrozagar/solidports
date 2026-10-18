@@ -8,7 +8,8 @@ import { CompositeRootContext } from '../../internals/composite/root/CompositeRo
 import { useCompositeRoot } from '../../internals/composite/root/useCompositeRoot';
 import { createLayoutEffect, provideContext, splitComponentProps } from '../../solid-helpers';
 import { EMPTY_ARRAY } from '../../utils/constants';
-import { canRenderNative, composeHandler } from '../../utils/native';
+import { canRenderNative, partHandler } from '../../utils/native';
+import type { Dispatch } from '../../utils/native';
 import { provideNativeContexts } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
 import type { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
@@ -22,7 +23,17 @@ import { TabsListContext } from './TabsListContext';
 const OWN_KEYS: ReadonlySet<string> = new Set(['activateOnFocus', 'loopFocus']);
 const TABLIST: Record<string, unknown> = { role: 'tablist' };
 /** Handler keys the composite root needs even without a consumer handler. */
-const HANDLER_KEYS = ['onFocusIn', 'onKeyDown'] as const;
+type CompositeHandlers = Record<string, ((event: Event) => void) | undefined>;
+
+/** The list's handlers: the consumer's, then the composite root's (its `props`, the target). */
+const HANDLERS: Readonly<Record<string, Dispatch<CompositeHandlers>>> = {
+  onFocusIn: partHandler<CompositeHandlers>('onFocusIn', (composite, event) =>
+    composite.onFocusIn?.(event),
+  ),
+  onKeyDown: partHandler<CompositeHandlers>('onKeyDown', (composite, event) =>
+    composite.onKeyDown?.(event),
+  ),
+};
 const NEVER = () => false;
 
 /**
@@ -123,8 +134,8 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
       onHighlightedIndexChange: composite.onHighlightedIndexChange,
       relayKeyboardEvent: composite.relayKeyboardEvent,
     };
-    const compositeProps = composite.props as Record<string, (event: Event) => void>;
-     
+    const compositeProps = composite.props as CompositeHandlers;
+
     return provideNativeContexts(
       TabsListContext,
       tabsListContextValue,
@@ -146,11 +157,8 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
               literal: TABLIST,
               attributes: (w) =>
                 w.set('aria-orientation', orientation() === 'vertical' ? 'vertical' : undefined),
-              wrapHandler: (key, read) => {
-                const part = compositeProps[key];
-                return part ? composeHandler(read, part) : undefined;
-              },
-              handlerKeys: HANDLER_KEYS,
+              handlers: HANDLERS,
+              handlerTarget: compositeProps,
               refs: [composite.setRootRef, (el: HTMLElement | null) => setTabsListElement(el)],
             }) as unknown as JSX.Element;
           },
