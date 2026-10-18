@@ -1,7 +1,7 @@
 ---
 tags: [composite, lists, keyboard, perf]
 sources: [packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/internals/composite/list/CompositeListContext.ts, packages/base-ui/packages/solid/src/internals/composite/list/useCompositeListItem.ts, packages/base-ui/packages/solid/src/internals/composite/item/useCompositeItem.ts, packages/base-ui/packages/solid/src/internals/composite/root/useCompositeRoot.ts, packages/base-ui/packages/solid/src/utils/native/listItem.ts, packages/base-ui/packages/solid/src/utils/native/index.ts]
-verified: 2026-10-17
+verified: 2026-10-18
 ---
 
 # Composite lists
@@ -53,7 +53,7 @@ The `MutationObserver` (`:116-167`) watches the common parents of adjacent sorte
 - `useCompositeItem.ts:32-34`: the `tabindex` getter reads `isHighlighted()`. Every item's `tabindex` binding depends on `highlightedIndex`, so each arrow key re-evaluates N bindings to change two attributes.
 - The native paths repeat the comparison: `TabsTab.tsx:338` and `RadioRoot.tsx:519`.
 - `createSelector` in `src/solid-1-compat.ts:143` is a compatibility shim without key isolation, so swapping it in does not fix this. A keyed fix needs a projection; see [primitive costs](../solid/primitive-costs.md).
-- The Select, Combobox and Menu stores declare `isActive` (and Select `isSelectedByFocus`) with `keyedSelector`, keyed by the item's reactive index ([store and state](store-and-state.md)): after the first move, a highlight move re-runs the old and the new item's readers only (`utils/store/SolidStoreV2.listHighlight.test.tsx`). Value selection (`isSelected`) compares through `isItemEqualToValue`, has no stable key and stays a plain selector.
+- The Select, Combobox and Menu stores declare `isActive` with `keyedSelector` (Select's `isSelectedByFocus`, which changes once per selection, stays plain), keyed by the item's reactive index ([store and state](store-and-state.md)): after the first move, a highlight move re-runs the old and the new item's readers only (`utils/store/SolidStoreV2.listHighlight.test.tsx`). Value selection (`isSelected`) compares through `isItemEqualToValue`, has no stable key and stays a plain selector.
 
 ## Native list item
 

@@ -1,7 +1,7 @@
 ---
 tags: [store, state, helpers, compat]
 sources: [packages/base-ui/packages/solid/src/utils/store/SolidStoreV2.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/native/context.ts]
-verified: 2026-10-17
+verified: 2026-10-18
 ---
 
 # Store and state
@@ -27,7 +27,7 @@ Users: popup stores (`utils/popups/store.ts`, Dialog, Popover, Menu, Tooltip, Pr
 | Method | Behavior | Cost |
 | :--- | :--- | :--- |
 | `useState(key)` | A key, or a selector returning one key as is (probed once, `directSelectorKey`), reads the slot. A derived selector gets a transparent memo on first tracked read. | 0 or 1 memo |
-| `select(key, …args)` | Runs the selector; no memo. A selector declared with `keyedSelector(current)` ("is `id` the current one": the popup store's `isTriggerActive`, `isOpenedByTrigger`, `isMountedByTrigger`; the item highlight `isActive` of Select, Combobox and Menu and Select's `isSelectedByFocus`, keyed by the item's index) reads, when tracked on the client, one keyed projection per store and key function (`createKeyedSelector` in `runInLazyScope` of the store's owner, created on the current id's first change), so moving the current id re-runs two readers, not every trigger. Selectors of one key share it: the three trigger selectors key on the active trigger id, and `keyedSelector(key, gate)` reads its gate (`open`, `mounted`) only for the current id. | Per call; 1 projection per key function |
+| `select(key, …args)` | Runs the selector; no memo. A selector declared with `keyedSelector(current)` ("is `id` the current one": the popup store's `isTriggerActive`, `isOpenedByTrigger`, `isMountedByTrigger`; the item highlight `isActive` of Select, Combobox and Menu, keyed by the item's index) reads, when tracked on the client, one keyed projection per store and key function (`createKeyedSelector` in `runInLazyScope` of the store's owner, created on the current id's first change), so moving the current id re-runs two readers, not every trigger. Selectors of one key share it: the three trigger selectors key on the active trigger id, and `keyedSelector(key, gate)` reads its gate (`open`, `mounted`) only for the current id. | Per call; 1 projection per key function |
 | `useSyncedValue`, `useControlledProp`, `useSyncedValues` | `bindStoreKey`: a writable derived signal, created on first read. `set` overrides it until the source changes; cleanup keeps the last value (`useSyncedValueWithCleanup` clears it). | 1 signal on read |
 | `observe(selector, listener)` | Calls once, then after each changing write; records read keys through a Proxy and starts one notifier effect per watched binding. | 1 effect per watched binding |
 | `useStateSetter(key)` | Ref-style setter; `null` clears only its own write. | None |

@@ -1,7 +1,7 @@
 ---
 tags: [select, floating, composite, perf]
 sources: [packages/base-ui/packages/solid/src/select, packages/base-ui/packages/solid/src/select/root/SelectRoot.tsx, packages/base-ui/packages/solid/src/select/item/SelectItem.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-17
+verified: 2026-10-18
 ---
 
 # Select
@@ -59,7 +59,7 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync ms.
 
 - `SelectRoot.tsx:572` wires click, dismiss, list navigation and typeahead through `deferred(...)` views into one `useInteractions` call; the hooks are created on first intent (`useTriggerInteractions`, `SelectRoot.tsx:459`).
 - `floating-ui-solid/hooks/useInteractions.ts:36`: the `lists` memo has no equality and rebuilds every list when any hook's props change. Each item's `getItemProps()` view (`SelectItem.tsx:162`) re-merges then, so a flip of typeahead `enabled` (`SelectRoot.tsx:523`, depends on `open()`) touches all N items.
-- `SelectItem.tsx:63`: every item subscribes to `isActive` (`store.ts`, keyed on `activeIndex`), so after the first move a highlight move re-runs the old and the new item only; `isSelectedByFocus` is keyed the same way.
+- `SelectItem.tsx:63`: every item subscribes to `isActive` (`store.ts`, keyed on `activeIndex`), so after the first move a highlight move re-runs the old and the new item only. `isSelectedByFocus` stays a plain selector: it changes once per selection, and keyed it built a projection and a node per item on that change, which cost 0.8–0.9 ms per selection and paid back only after several (unit 49).
 - `internals/composite/list/CompositeList.tsx:273` re-sorts all automatic items by document position on every registration batch.
 - Floating hooks hold 18 `createMemo(() => store().select(...))` reads, 6 of them for `open`, duplicated per popup.
 
