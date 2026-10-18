@@ -81,9 +81,10 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
     native: nativeButton,
   });
 
-  const { defaultTriggerId, state, setTriggerId } = useAccordionItemContext();
+  const item = useAccordionItemContext();
+  const { state, setTriggerId } = item;
   const registeredId = () => local.id || undefined;
-  const id = () => registeredId() ?? defaultTriggerId?.();
+  const id = () => registeredId() ?? item.defaultTriggerId();
 
   createDepsRenderEffect(registeredId, (currentRegisteredId) => {
     setTriggerId(
@@ -138,7 +139,7 @@ class AccordionTriggerTarget extends DisclosureTriggerTarget {
 function writeAccordionTriggerAttributes(w: SetAttribute, target: AccordionTriggerTarget) {
   writeTargetTriggerAttributes(w, target);
   const props = target.props as AccordionTrigger.Props;
-  w.set('id', (props.id || undefined) ?? target.item.defaultTriggerId?.());
+  w.set('id', (props.id || undefined) ?? target.item.defaultTriggerId());
 }
 
 const itemStateOf = (target: AccordionTriggerTarget) => target.item.state;

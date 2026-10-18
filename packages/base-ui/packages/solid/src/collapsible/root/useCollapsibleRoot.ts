@@ -5,7 +5,7 @@ import { access } from '../../solid-helpers';
 import type { MaybeAccessor } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
-import { useBaseUiId } from '../../utils/useBaseUiId';
+import { createBaseUiId } from '../../utils/useBaseUiId';
 import { createControlledDevChecks } from '../../utils/useControlled';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { createLazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
@@ -59,7 +59,7 @@ export class CollapsibleRootModel {
   /** Solid: the root's owner (a part skips its unmount registration write while the root is disposed). */
   declare readonly owner: Owner | null;
   /** The panel's generated id, used until a panel registers its own. */
-  declare readonly defaultPanelId: Accessor<JSX.HTMLAttributes<Element>['id']>;
+  declare private readonly generatedPanelId: string;
   /** `undefined` uses the generated fallback; `null` means the panel unmounted. */
   declare readonly setPanelIdState: Setter<string | null | undefined>;
   /** Event handler called when the panel is opened or closed. */
@@ -124,7 +124,7 @@ export class CollapsibleRootModel {
     this.owner = getOwner();
     this.transition = createLazyTransitionStatus(() => this.open(), TRANSITION_OPTIONS);
 
-    this.defaultPanelId = useBaseUiId();
+    this.generatedPanelId = createBaseUiId();
     [this.registeredPanelId, this.setPanelIdState] = createIdRegistry();
 
     this.publicState = undefined;
@@ -191,10 +191,15 @@ export class CollapsibleRootModel {
     this.transition!.setMounted(mounted);
   }
 
+  /** The panel's generated id. */
+  defaultPanelId(): string {
+    return this.generatedPanelId;
+  }
+
   /** The panel's id: the registered one, or the generated fallback. */
   panelId(): JSX.HTMLAttributes<Element>['id'] {
     const registered = this.registeredPanelId();
-    return registered === null ? undefined : (registered ?? this.defaultPanelId());
+    return registered === null ? undefined : (registered ?? this.generatedPanelId);
   }
 
   private toggle(event: MouseEvent | KeyboardEvent) {
