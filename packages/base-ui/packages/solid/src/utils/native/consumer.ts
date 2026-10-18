@@ -3,10 +3,11 @@
  * part's setup, and the handler helpers it composes. Every native element reads its consumer's key
  * set here exactly once; reactive keys are then read inside the part's attribute effect.
  */
-import { isStatic, untrack } from 'solid-js';
+import { untrack } from 'solid-js';
 import { makeEventPreventable } from '../../merge-props/mergeProps';
 import { isEventHandlerKey } from '../isEventHandlerKey';
 import type { BaseUIEvent } from '../types';
+import { isStaticKey } from '../../solid-helpers';
 
 type AnyProps = Record<string, any>;
 type Handler = (...args: any[]) => unknown;
@@ -28,6 +29,8 @@ const NO_CONSUMER_PROPS: ConsumerProps = Object.freeze({
   literal: Object.freeze({}) as Record<string, unknown>,
   reactive: EMPTY_LIST,
 });
+
+export { isStaticKey } from '../../solid-helpers';
 
 /** Whether `key` names an event handler prop (`onClick`). */
 export const isHandlerKey = isEventHandlerKey;
@@ -180,7 +183,7 @@ export function classifyConsumerProps(
     if (handler) {
       const consumer = () => readHandler(source, key);
       (literal ??= {})[key] = wrap?.(key, consumer) ?? composeHandler(consumer);
-    } else if (isStatic(source, key)) {
+    } else if (isStaticKey(source, key)) {
       (literal ??= {})[key] = source[key];
     } else {
       (reactive ??= []).push(key);
