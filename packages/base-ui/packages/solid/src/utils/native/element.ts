@@ -31,8 +31,7 @@ import { markRenderPath } from '../renderPath';
 import { HandlerRecord, isHandlerKey as isConsumerHandlerKey } from './consumer';
 import type { Dispatch } from './consumer';
 import { serverElement } from './serverElement';
-import { HydrationState } from './hydrationState';
-import type { AttributeWriter } from './hydrationState';
+import { afterHydration, attributesOf, checkHydratedAttributes } from './hydrationState';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
 import { warn } from '../warn';
 import {
@@ -816,7 +815,7 @@ function renderConsumerElement<State extends object>(
  */
 interface ClientWriter {
   literal: Record<string, unknown>;
-  writer: AttributeWriter;
+  writer: ElementWriter<any>;
   needsEffect: boolean;
 }
 
@@ -828,7 +827,10 @@ interface ClientWriter {
  * prototype and the inputs are fields, so an element allocates one object, not closures and the
  * scope they would keep.
  */
-class ElementWriter<State extends object> implements SetAttribute, AttributeWriter {
+class ElementWriter<State extends object> implements SetAttribute {
+  /** The element and the attributes its effect last wrote (`attach`); unset on a consumer's element. */
+  declare protected el: Element;
+  declare protected previous: Record<string, unknown>;
   declare private target: Record<string, unknown>;
   declare private keepUndefined: boolean;
   declare private readonly keys: ReadonlySet<string>;
@@ -858,6 +860,37 @@ class ElementWriter<State extends object> implements SetAttribute, AttributeWrit
     this.writtenState = writtenState;
     this.hasClass = 'class' in props;
     this.hasStyle = 'style' in props;
+  }
+
+  /** The element the effect writes to, with a fresh record of what it wrote. */
+  attach(el: Element) {
+    this.el = el;
+    this.previous = {};
+  }
+
+  /** The attribute effect's compute: everything that can change. */
+  compute(): Record<string, unknown> {
+    return this.write({}, true);
+  }
+
+  /**
+   * The attribute effect's apply. Solid's `assign` re-sets a string `style` as `cssText` on every
+   * run (no equality check), which would wipe properties a part writes to the element directly (a
+   * panel's measured CSS variables) whenever any other input changes. The slow path's per-key view
+   * only re-writes `style` when its sources change, so an unchanged string style is left out.
+   */
+  apply(next: Record<string, unknown>) {
+    const el = this.el;
+    const previous = this.previous;
+    const style = next.style;
+    if (typeof style === 'string' && style === previous.style) {
+      delete next.style;
+      delete previous.style;
+      assign(el, next, true, previous, true);
+      previous.style = style;
+      return;
+    }
+    assign(el, next, true, previous, true);
   }
 
   set(key: string, value: unknown) {
@@ -901,6 +934,83 @@ class ElementWriter<State extends object> implements SetAttribute, AttributeWrit
 }
 
 /**
+ * The writer of an element created while hydrating, which holds its hydration state too, so the
+ * element allocates one object. The first write stands for what the server rendered: the same
+ * writer on the same inputs (the development check compares them). Solid writes nothing to a
+ * claimed element while hydrating and only records each write as applied, so an element whose
+ * effect applies again before `hydrate()` returns holds a stale value: only then does it reconcile,
+ * after `hydrate()` has returned, diffing its current attributes against the first write (kept by
+ * reference) instead of reading the element back. A part whose write reads a value no signal tracks
+ * reconciles in any case (`reconcileAfterHydration`).
+ */
+class HydratingWriter<State extends object> extends ElementWriter<State> {
+  declare firstWrite: Record<string, unknown> | undefined;
+  declare private scheduled: boolean;
+  declare private templateAttributes: Record<string, unknown>;
+  declare private literal: Record<string, unknown>;
+  declare private needsEffect: boolean;
+
+  hydrate(
+    templateAttributes: Record<string, unknown>,
+    literal: Record<string, unknown>,
+    needsEffect: boolean,
+  ) {
+    this.firstWrite = undefined;
+    this.scheduled = false;
+    this.templateAttributes = templateAttributes;
+    this.literal = literal;
+    this.needsEffect = needsEffect;
+  }
+
+  takeFirstWrite(written: Record<string, unknown>) {
+    this.firstWrite = written;
+    if (process.env.NODE_ENV !== 'production') {
+      // Now, while the element still holds the server markup.
+      checkHydratedAttributes(this.el, this.templateAttributes, {
+        ...attributesOf(this.literal),
+        ...attributesOf(written),
+      });
+    }
+  }
+
+  scheduleReconcile() {
+    if (!this.scheduled) {
+      this.scheduled = true;
+      afterHydration(this.el, () => this.reconcile());
+    }
+  }
+
+  override apply(next: Record<string, unknown>) {
+    if (this.firstWrite === undefined) {
+      this.takeFirstWrite(next);
+    } else if (isHydrating()) {
+      this.scheduleReconcile();
+    }
+    if (recordsOnly(this.el, next)) {
+      // Solid writes nothing to a claimed element while hydrating and only records the write as
+      // applied (the reconcile above corrects what changed): record it here, without assign's
+      // per-key work.
+      const previous = this.previous;
+      for (const key in previous) {
+        if (!(key in next)) {
+          previous[key] = null;
+        }
+      }
+      Object.assign(previous, next);
+      return;
+    }
+    super.apply(next);
+  }
+
+  private reconcile() {
+    const written = this.needsEffect ? attributesOf(untrack(() => this.write({}, true))) : {};
+    const hydratedWrite = { ...attributesOf(this.literal), ...attributesOf(this.firstWrite ?? {}) };
+    assign(this.el, { ...attributesOf(this.literal), ...written }, true, hydratedWrite, true);
+    Object.assign(this.previous, written);
+  }
+}
+
+/**
  * The classification's `wrap`: claims the keys of a spec's handler tables (bound from them) and
  * leaves the rest, cached per table pair (parts pass module-level tables).
  */
@@ -931,6 +1041,7 @@ function createClientWriter<State extends object>(
   base?: Record<string, unknown>,
   top?: Record<string, unknown>,
   handlerFunctions = false,
+  hydrating = false,
 ): ClientWriter {
   const source = props as Record<string, any>;
   // The tables' keys are bound below, the always-bound ones whether or not the consumer passes them.
@@ -1000,7 +1111,14 @@ function createClientWriter<State extends object>(
     (hasClass && (!isStatic(props, 'class') || typeof source.class === 'function')) ||
     (hasStyle && (!isStatic(props, 'style') || typeof source.style === 'function'));
 
-  const writer = new ElementWriter(keys, props, spec, reactive, writeState, writtenState);
+  const writer = new (hydrating ? HydratingWriter : ElementWriter)(
+    keys,
+    props,
+    spec,
+    reactive,
+    writeState,
+    writtenState,
+  );
   return { literal, writer, needsEffect };
 }
 
@@ -1022,33 +1140,30 @@ function renderClientElement<State extends object>(
   // The body runs untracked (`createComponent`): reads here subscribe to nothing.
   const owner = getOwner();
   const source = props as Record<string, any>;
-  const { literal, writer, needsEffect } = createClientWriter(props, spec, undefined, top);
+  const hydrating = isHydrating();
+  const { literal, writer, needsEffect } = createClientWriter(
+    props,
+    spec,
+    undefined,
+    top,
+    false,
+    hydrating,
+  );
   const consumerChildren = spec.consumerChildren !== false && 'children' in props;
 
   const el = isTemplate(element) ? element.create() : element;
-  const hydrating = isHydrating();
-  // While hydrating, the first write stands for what the server rendered: the same writer on the
-  // same inputs (the development check below compares them). Solid writes nothing to a claimed
-  // element while hydrating and only records each write as applied, so an element whose effect
-  // applies again before `hydrate()` returns holds a stale value: only then does it reconcile,
-  // after `hydrate()` has returned, diffing its current attributes against the first write
-  // (kept by reference) instead of reading the element back. A part whose write reads a value no
-  // signal tracks reconciles in any case (`reconcileAfterHydration`). The literal attributes are
-  // written once, outside the effect, and the template's own attributes are never written (the
-  // compiled element carries them).
-  /** The attributes the effect last wrote (or, while hydrating, recorded). */
-  const previous: Record<string, unknown> = {};
-  // Only an element created while hydrating can need it (a client render has nothing to match).
-  const hydration = hydrating
-    ? new HydrationState(
-        el,
-        isTemplate(element) ? (element.attributes ?? {}) : {},
-        literal,
-        writer,
-        needsEffect,
-        previous,
-      )
-    : undefined;
+  writer.attach(el);
+  // Only an element created while hydrating has server markup to match (`HydratingWriter`). The
+  // literal attributes are written once, outside the effect, and the template's own attributes are
+  // never written (the compiled element carries them).
+  const hydration = hydrating ? (writer as HydratingWriter<State>) : undefined;
+  if (hydration) {
+    hydration.hydrate(
+      (isTemplate(element) && element.attributes) || NO_ATTRIBUTES,
+      literal,
+      needsEffect,
+    );
+  }
 
   if (!needsEffect) {
     writer.write(literal, false);
@@ -1058,47 +1173,13 @@ function renderClientElement<State extends object>(
   }
   attachNativeAttributes(el, literal, undefined, owner);
   if (needsEffect) {
-    // As `attachNativeAttributes`' effect, with one difference: Solid's `assign` re-sets a string
-    // `style` as `cssText` on every run (no equality check), which would wipe properties a part
-    // writes to the element directly (a panel's measured CSS variables) whenever any other input
-    // changes. The slow path's per-key view only re-writes `style` when its sources change, so an
-    // unchanged string style is left out of the write here.
-    // Transparent: the server has no counterpart, so it takes no hydration id.
+    // As `attachNativeAttributes`' effect, its compute and apply the writer's methods (see
+    // `ElementWriter.apply` for the one difference). Transparent: the server has no counterpart, so
+    // it takes no hydration id.
     runWithOwner(owner, () =>
-      createRenderEffect(
-        () => writer.write({}, true),
-        (next) => {
-          if (hydration) {
-            if (hydration.firstWrite === undefined) {
-              hydration.takeFirstWrite(next);
-            } else if (isHydrating()) {
-              hydration.scheduleReconcile();
-            }
-          }
-          if (hydrating && recordsOnly(el, next)) {
-            // Solid writes nothing to a claimed element while hydrating and only records the
-            // write as applied (the reconcile above corrects what changed): record it here,
-            // without assign's per-key work.
-            for (const key in previous) {
-              if (!(key in next)) {
-                previous[key] = null;
-              }
-            }
-            Object.assign(previous, next);
-            return;
-          }
-          const style = next.style;
-          if (typeof style === 'string' && style === previous.style) {
-            delete next.style;
-            delete previous.style;
-            assign(el, next, true, previous, true);
-            previous.style = style;
-            return;
-          }
-          assign(el, next, true, previous, true);
-        },
-        { transparent: true },
-      ),
+      createRenderEffect(writer.compute.bind(writer), writer.apply.bind(writer), {
+        transparent: true,
+      }),
     );
   }
 
