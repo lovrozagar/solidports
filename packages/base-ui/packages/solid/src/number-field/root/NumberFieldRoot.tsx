@@ -504,6 +504,9 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
     stateAttributesMapping,
   });
 
+  // The JSX provider, not `provideContext`: its children memo orders the effects below it after the
+  // root's (effects apply by reactive height). Converted, a Field with `validationMode="onSubmit"`
+  // marked the input invalid on input (GOTCHA-019).
   return (
     <NumberFieldRootContext value={contextValue}>
       {element()}

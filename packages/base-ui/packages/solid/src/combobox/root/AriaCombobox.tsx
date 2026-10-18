@@ -1824,6 +1824,9 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     });
   });
 
+  // JSX providers, not `provideContext`: their children memos order the effects below them after
+  // the root's (effects apply by reactive height). Converted, Autocomplete's `mode="both"` kept a
+  // temporary inline value over an external controlled update (GOTCHA-019).
   return (
     <ComboboxRootContext value={store}>
       <ComboboxFloatingContext value={floatingRootContext}>
@@ -1928,7 +1931,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
                   }
                   validation.inputRef.current = el;
                   restoreValueWhileDisabled(el, disabled, serializedValue);
-            releaseServerFormState(el);
+                  releaseServerFormState(el);
                 }}
                 style={hiddenInputName() ? visuallyHiddenInput : visuallyHidden}
                 tabindex={-1}

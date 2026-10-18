@@ -1,7 +1,7 @@
 ---
 tags: [solid, gotchas, registry]
-sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/number-field/root/NumberFieldRoot.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts]
-verified: 2026-10-17
+sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/number-field/root/NumberFieldRoot.tsx, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/providerEffectOrder.test.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts]
+verified: 2026-10-18
 ---
 
 # Solid gotchas
@@ -95,7 +95,11 @@ Rules for editing: never renumber. Add new entries at the end. When an entry sto
 
 - **Symptom:** moving a JSX provider onto `provideContext` (one transparent owner) changed behavior in `AriaCombobox` (Autocomplete's `mode="both"` kept a temporary inline value over an external controlled update) and `NumberFieldRoot` (a Field with `validationMode="onSubmit"` marked the input invalid on input).
 - **Cause:** a flush applies its user effects by reactive height, and a provider's two lazy children memos raise the height of everything under it. Without them, effects created in the provider's children run earlier against the root's own effects; `AriaCombobox`'s `ValueChangeEffects` is rendered last for exactly that order.
-- **Fix:** those two keep their JSX providers. Making the order explicit (not by height) is a follow-up before they move. Same mechanism as [D10](../decisions/log.md) (S3 parked): effect order by height, which React does not share.
+- **Fix:** the sites below keep their JSX providers, each with a comment naming this entry. Making the order explicit (not by height) is a follow-up before any of them moves. Same mechanism as [D10](../decisions/log.md) (S3 parked): effect order by height, which React does not share.
+  - `AriaCombobox`: `ValueChangeEffects` is rendered last so its effects apply after the rest of the root's. Converted, Autocomplete's `mode="both"` kept a temporary inline value over an external controlled update.
+  - `NumberFieldRoot`: converted, a Field with `validationMode="onSubmit"` marked the input invalid on input.
+  - `CompositeList`: the list's effect assigns its items' indexes, and the items' attribute effects must apply after it. Converted (b75c8bd5), each item applied twice, first with no index: a 500-item Menu open ran 17,316 computations against 13,008.
+- **Guard:** `utils/providerEffectOrder.test.tsx` opens or mounts each family whose providers b75c8bd5 converted, with 20 children, and pins how many more times the library's effects run than they are created. A provider that loses the order adds at least one run per child. Before converting another provider, add its family there if it is missing.
 
 ## Retired
 
