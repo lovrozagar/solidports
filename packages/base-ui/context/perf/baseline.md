@@ -1,7 +1,7 @@
 ---
 tags: [perf, benchmark, baseline, ssr]
 sources: [packages/base-ui/test/perf-solid, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/native, .github/workflows/base-ui-tests.yml]
-verified: 2026-10-17
+verified: 2026-10-18
 ---
 
 # Perf baseline
@@ -14,6 +14,7 @@ On CI run 38882393542 (commit b9b813c9, Solid 2.0.0-rc.15) Solid is 1.67x slower
 - Comparison: CI run 38559281856, commit 27e77167, Solid rc.13, same settings.
 - Aggregation (both runs, same rule): steps grouped as mount, unmount, and updates (every other step); a step counts when both sync medians are at least 0.5 ms; geomean of `solid/react` sync ratios; totals sum the medians.
 - React's side changed by 20–30% on many steps between the runs with no React change, so compare ratios, not ms.
+- Method break (2026-10-18): from this harness change on, every timed step after the mount starts after a full collection, and each step's heap growth is judged (perf/method.md). Step times and ratios on this page, and every saved baseline and Mac verdict before it, come from the old cycle, where a step paid for the steps before it: do not compare them with runs on the new cycle. A comparison runs both sides on one harness, so a run's own verdicts stay sound on either side of the break.
 
 ## Aggregates
 

@@ -3,12 +3,23 @@
 import { GATED, judge, judgeAll, median, p90 } from './regression.mjs';
 
 const HEAP = 'heap after mount KB';
+/** A step's judged metrics: its times and what it leaves on the heap. */
+const STEP_METRICS = ['sync', 'script', 'settled', 'growthKB'];
 /** A variant that did not measure a step: no samples, which `unmeasuredPairs` reports. */
-const NO_SAMPLES = { sync: [], paint: [], script: [], layout: [], style: [], settled: [] };
+const NO_SAMPLES = {
+  sync: [],
+  paint: [],
+  script: [],
+  layout: [],
+  style: [],
+  settled: [],
+  growthKB: [],
+};
 
 /**
  * @param {Record<string, Record<string, { steps: Record<string, Record<string, number[]>>, heapKB: number[] }>>} results
- *   results[scenario][variant]: per-step samples (sync, paint, script, layout, style, settled) and heapKB.
+ *   results[scenario][variant]: per-step samples (sync, paint, script, layout, style, settled,
+ *   growthKB) and heapKB.
  * @param {string[]} names variant names; ratios are taken against the first.
  * @param {Record<string, Record<string, number>>} timers timers[scenario][step]: the declared `timerMs`.
  */
@@ -29,7 +40,8 @@ export function summarize(results, names, timers) {
           layout: median(s.layout),
           style: median(s.style),
           settled: settled.length ? median(settled) : null,
-          samples: { sync: s.sync, script: s.script, settled },
+          growthKB: s.growthKB?.length ? median(s.growthKB) : null,
+          samples: { sync: s.sync, script: s.script, settled, growthKB: s.growthKB ?? [] },
         };
       }
       for (const name of names.slice(1)) {
@@ -86,7 +98,7 @@ export function variantPairs(summary, base, cur, options = {}) {
   const raw = new Set(options.raw ?? []);
   const pairs = [];
   for (const [key, entry] of Object.entries(summary)) {
-    const metrics = key.endsWith(HEAP) ? ['heapKB'] : ['sync', 'script', 'settled'];
+    const metrics = key.endsWith(HEAP) ? ['heapKB'] : STEP_METRICS;
     for (const metric of metrics) {
       const a = entry[base].samples[metric];
       const b = entry[cur].samples[metric];
@@ -108,7 +120,7 @@ export function variantPairs(summary, base, cur, options = {}) {
 export function unmeasuredPairs(summary, base, cur) {
   const lines = [];
   for (const [key, entry] of Object.entries(summary)) {
-    const metrics = key.endsWith(HEAP) ? ['heapKB'] : ['sync', 'script', 'settled'];
+    const metrics = key.endsWith(HEAP) ? ['heapKB'] : STEP_METRICS;
     for (const metric of metrics) {
       const a = entry[base].samples[metric]?.length ?? 0;
       const b = entry[cur].samples[metric]?.length ?? 0;

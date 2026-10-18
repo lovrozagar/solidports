@@ -42,6 +42,8 @@ export const GATED = {
   serverMs: { floor: 0.1 },
   hydrateSyncMs: { floor: 0.1 },
   heapKB: { floor: 0, minBoth: 100 },
+  // A step's heap growth: read, as the heap after mount, only where both sides grow over 100 KB.
+  growthKB: { floor: 0, minBoth: 100 },
 };
 
 /** The standard normal upper tail, P(Z > z) (Abramowitz–Stegun 26.2.17, |error| < 7.5e-8). */
