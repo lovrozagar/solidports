@@ -231,6 +231,10 @@ export function compileStateAttributes<State extends object>(
   return writer;
 }
 
+// The element and refs `applyPartRefs` hands to its module-level runners.
+let refsElement: Element | undefined;
+let pendingRefs: readonly unknown[] | undefined;
+
 /**
  * Applies a part's refs (plain callbacks, as parts pass them) ownerless and untracked, as
  * `applyRefs` does, without its per-call sets; anything else goes through `applyRefs`. Returns
@@ -243,14 +247,30 @@ function applyPartRefs(el: Element, refs: readonly unknown[]): boolean {
       return false;
     }
   }
-  runWithOwner(null, () =>
-    untrack(() => {
-      for (const ref of refs) {
-        (ref as (element: Element) => void)(el);
-      }
-    }),
-  );
+  // The element and its refs go to module-level runners, so no closure is made per element; saved
+  // and restored around the call, in case a ref renders another part.
+  const previousElement = refsElement;
+  const previousRefs = pendingRefs;
+  refsElement = el;
+  pendingRefs = refs;
+  try {
+    runWithOwner(null, untrackedPartRefs);
+  } finally {
+    refsElement = previousElement;
+    pendingRefs = previousRefs;
+  }
   return true;
+}
+
+function callPartRefs() {
+  const el = refsElement!;
+  for (const ref of pendingRefs!) {
+    (ref as (element: Element) => void)(el);
+  }
+}
+
+function untrackedPartRefs() {
+  untrack(callPartRefs);
 }
 
 /** Form controls, whose properties (`value`, `checked`) Solid writes apart from attributes. */
