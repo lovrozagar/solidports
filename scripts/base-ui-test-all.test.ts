@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
-import { commandFor, EXCLUSIVE_LOCK, suites } from "../packages/base-ui/scripts/test-all.mjs"
+import { commandFor, EXCLUSIVE_LOCK, suites, vitestIncomplete } from "../packages/base-ui/scripts/test-all.mjs"
 
 const BASE_UI = resolve(import.meta.dir, "../packages/base-ui")
 const temps: string[] = []
@@ -132,5 +132,30 @@ describe("test:base-ui:all generated Solid docs", () => {
 		expect(suite?.run).toEqual(["bun run docs:generate"])
 		const workflow = readFileSync(resolve(import.meta.dir, "../.github/workflows/base-ui-tests.yml"), "utf8")
 		expect(workflow).toMatch(/bun run docs:generate\n\s+git diff --exit-code -- docs\/solid/)
+	})
+})
+
+// A vitest run that ends early can still exit 0: the browser lost its iframe, or the run was cut,
+// and the files after it never ran. The suite then reports incomplete, never passed.
+describe("test:base-ui:all vitest completeness", () => {
+	test("a run that reached every file is complete", () => {
+		expect(vitestIncomplete(" Test Files  477 passed | 9 skipped (486)\n      Tests  10511 passed")).toBe(undefined)
+		expect(vitestIncomplete("Test Files  1 failed | 475 passed | 9 skipped | 1 todo (486)")).toBe(undefined)
+	})
+
+	test("a run that ended before its last file is incomplete", () => {
+		expect(vitestIncomplete(" Test Files  8 failed | 34 passed (485)")).toBe("ran 42 of 485 test files")
+		expect(vitestIncomplete("\u001b[2m Test Files \u001b[22m \u001b[32m34 passed\u001b[39m (485)")).toBe(
+			"ran 34 of 485 test files",
+		)
+	})
+
+	test("every run in the log is checked, and a log without a summary is incomplete", () => {
+		expect(vitestIncomplete("Test Files  3 passed (3)\nTest Files  2 passed (9)")).toBe("ran 2 of 9 test files")
+		expect(vitestIncomplete("error: script exited")).toBe("no vitest summary in the log")
+	})
+
+	test("the vitest suites are checked", () => {
+		expect(suites.filter((suite) => suite.vitest).map((suite) => suite.name)).toEqual(["jsdom", "chromium"])
 	})
 })
