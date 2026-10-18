@@ -83,6 +83,41 @@ describe('native handler table', () => {
     }
   });
 
+  // `focus` is not delegated: Solid binds the tuple with its own listener, in the same order.
+  it('runs a tab consumer onFocus before the part, which it can prevent', () => {
+    const seen: Array<string | null> = [];
+    const onFocus = vi.fn((event: FocusEvent & { preventBaseUIHandler(): void }) => {
+      seen.push((event.currentTarget as Element).getAttribute('aria-selected'));
+      if ((event.currentTarget as Element).getAttribute('data-prevent') != null) {
+        event.preventBaseUIHandler();
+      }
+    });
+    render(() => (
+      <Tabs.Root defaultValue="a">
+        <Tabs.List activateOnFocus>
+          <Tabs.Tab value="a">A</Tabs.Tab>
+          <Tabs.Tab value="b" data-testid="b" onFocus={onFocus}>
+            B
+          </Tabs.Tab>
+          <Tabs.Tab value="c" data-testid="c" data-prevent="" onFocus={onFocus}>
+            C
+          </Tabs.Tab>
+        </Tabs.List>
+      </Tabs.Root>
+    ));
+    flush();
+    const b = screen.getByTestId('b');
+    fireEvent.focus(b);
+    flush();
+    expect(seen).toEqual(['false']);
+    expect(b).toHaveAttribute('aria-selected', 'true');
+    const c = screen.getByTestId('c');
+    fireEvent.focus(c);
+    flush();
+    expect(onFocus).toHaveBeenCalledTimes(2);
+    expect(c).toHaveAttribute('aria-selected', 'false');
+  });
+
   it('calls the consumer, then the part, and keeps the order a consumer can prevent', () => {
     const onClick = vi.fn((event: { preventBaseUIHandler(): void }) =>
       event.preventBaseUIHandler(),
