@@ -6,7 +6,7 @@ import type { CollapsibleRootModel } from '../../collapsible/root/useCollapsible
 import { isStaticProp } from '../../solid-helpers';
 import { compileStateWriter } from '../../utils/native/element';
 import { createIdRegistry } from '../../utils/native/registration';
-import { useBaseUiId } from '../../utils/useBaseUiId';
+import { createBaseUiId } from '../../utils/useBaseUiId';
 import type { AccordionRootContext } from '../root/AccordionRootContext';
 import { useAccordionRootContext } from '../root/AccordionRootContext';
 import type { AccordionItem, AccordionItemState } from './AccordionItem';
@@ -71,7 +71,8 @@ export class AccordionItemModel {
   /** The item's collapsible root, provided as `CollapsibleRootContext`. */
   declare readonly collapsible: CollapsibleRootModel;
   /** The trigger's generated id, used until a trigger registers its own. */
-  declare readonly defaultTriggerId: Accessor<string | undefined>;
+  /** The trigger's generated id, used until a trigger registers its own. */
+  declare private readonly generatedTriggerId: string;
   /** `undefined` uses the generated fallback; `null` means the trigger unmounted. */
   declare readonly setTriggerId: Setter<string | null | undefined>;
   /** What the parts' attribute writers read: `state`'s keys, live (see `AccordionItemStateView`). */
@@ -80,7 +81,7 @@ export class AccordionItemModel {
   declare private readonly local: ItemProps;
   /** The membership read bound to a value fixed for the item's lifetime, else `undefined`. */
   declare private readonly boundOpen: (() => boolean) | undefined;
-  declare private readonly fallbackValue: Accessor<string | undefined> | undefined;
+  declare private readonly fallbackValue: string | undefined;
   declare private readonly registeredTriggerId: Accessor<string | null | undefined>;
   declare private publicState: AccordionItemState | undefined;
 
@@ -93,7 +94,7 @@ export class AccordionItemModel {
     this.fallbackValue =
       isStaticProp(local, 'value') && untrack(() => local.value) !== undefined
         ? undefined
-        : useBaseUiId();
+        : createBaseUiId();
     this.publicState = undefined;
     // A fixed value binds its membership read once: each read is then one projection lookup, with
     // no slot name built per read (the parts read it 10 times at mount, more on every open).
@@ -110,14 +111,14 @@ export class AccordionItemModel {
       onOpenChange: (nextOpen, eventDetails) => this.onOpenChange(nextOpen, eventDetails),
       disabled: () => this.disabled(),
     });
-    this.defaultTriggerId = useBaseUiId();
+    this.generatedTriggerId = createBaseUiId();
     [this.registeredTriggerId, this.setTriggerId] = createIdRegistry();
     this.owner = getOwner();
     this.stateView = new AccordionItemStateView(this);
   }
 
   value() {
-    return this.local.value ?? this.fallbackValue!();
+    return this.local.value ?? this.fallbackValue!;
   }
 
   disabled() {
@@ -132,9 +133,14 @@ export class AccordionItemModel {
     return !this.open() && !this.collapsible.mountedWhileClosed();
   }
 
+  /** The trigger's generated id. */
+  defaultTriggerId(): string {
+    return this.generatedTriggerId;
+  }
+
   triggerId() {
     const registered = this.registeredTriggerId();
-    return registered === null ? undefined : (registered ?? this.defaultTriggerId());
+    return registered === null ? undefined : (registered ?? this.generatedTriggerId);
   }
 
   onOpenChange(nextOpen: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) {
