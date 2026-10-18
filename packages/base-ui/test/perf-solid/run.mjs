@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit } from 'playwright';
 import { matchConsole } from './shared/console.mjs';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
-import { heapCycle, timingCycle } from './shared/cycles.mjs';
+import { heapCycle, retainedKB, timingCycle } from './shared/cycles.mjs';
 import { engineSpec, measuredColumns } from './shared/engines.mjs';
 import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
 import { summarize } from './shared/report.mjs';
@@ -166,7 +166,18 @@ for (const { id, steps } of list) {
       };
       const stepCount = steps.length;
       for (let run = 0; run < WARMUP + RUNS; run += 1) {
-        const timed = await timingCycle({ collect, runStep, stepCount });
+        const timed = await timingCycle({
+          collect,
+          runStep,
+          stepCount,
+          readFinalHeap: cdp ? async () => (await metrics(cdp)).JSHeapUsedSize : undefined,
+        });
+        const retained = cdp
+          ? retainedKB(
+              timed.map(({ before }) => before.JSHeapUsedSize),
+              timed.finalHeap,
+            )
+          : [];
         timed.forEach(({ result, before, after }, index) => {
           // A step this engine cannot run (`requires`) records nothing: the report leaves it out.
           if (result.skipped) {
@@ -190,6 +201,7 @@ for (const { id, steps } of list) {
             style: [],
             settled: [],
             growthKB: [],
+            retainedKB: [],
           };
           const step = entry.steps[steps[index]];
           step.sync.push(result.sync);
@@ -198,8 +210,12 @@ for (const { id, steps } of list) {
             step.script.push((after.ScriptDuration - before.ScriptDuration) * 1000);
             step.layout.push((after.LayoutDuration - before.LayoutDuration) * 1000);
             step.style.push((after.RecalcStyleDuration - before.RecalcStyleDuration) * 1000);
-            // What the step leaves on the heap, garbage included: it starts after a collection.
+            // The heap right after the step, garbage included: reported, not judged (it moves with
+            // when the engine scavenged).
             step.growthKB.push((after.JSHeapUsedSize - before.JSHeapUsedSize) / 1024);
+          }
+          if (retained[index] != null) {
+            step.retainedKB.push(retained[index]);
           }
           if (result.settled !== null) {
             step.settled.push(result.settled);

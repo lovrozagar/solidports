@@ -123,35 +123,41 @@ describe("one-sided samples", () => {
 		])
 	})
 
-	test("judges a step's heap growth as its own metric where both sides measured it", () => {
-		const grown = (values: number[]) => ({ samples: { sync: values, script: values, settled: [], growthKB: values } })
+	test("judges what a step retains, not its growth with the garbage, where both sides measured it", () => {
+		const grown = (values: number[]) => ({
+			samples: { sync: values, script: values, settled: [], growthKB: values, retainedKB: values },
+		})
 		const pairs = variantPairs(
 			{ "select/1000 › open": { base: grown([200, 210]), cur: grown([400, 410]) } },
 			"base",
 			"cur",
 		)
-		expect(pairs.map((pair) => pair.metric)).toEqual(["sync", "script", "growthKB"])
+		expect(pairs.map((pair) => pair.metric)).toEqual(["sync", "script", "retainedKB"])
 		expect(pairs[2].rule).toEqual({ floor: 0, minBoth: 100 })
 	})
 
 	test("summarize keeps the median heap growth and its samples", () => {
 		const withGrowth = {
 			"select/1000": {
-				base: { steps: { open: { ...step([1, 1, 1], [1, 1, 1]), growthKB: [120, 130, 140] } }, heapKB: ten([0]) },
+				base: {
+					steps: { open: { ...step([1, 1, 1], [1, 1, 1]), growthKB: [120, 130, 140], retainedKB: [20, 30, 40] } },
+					heapKB: ten([0]),
+				},
 			},
 		}
 		const summary = summarize(withGrowth, ["base"], {})
-		expect(summary["select/1000 › open"].base).toMatchObject({ growthKB: 130 })
+		expect(summary["select/1000 › open"].base).toMatchObject({ growthKB: 130, retainedKB: 30 })
 		expect(summary["select/1000 › open"].base.samples.growthKB).toEqual([120, 130, 140])
+		expect(summary["select/1000 › open"].base.samples.retainedKB).toEqual([20, 30, 40])
 	})
 
-	test("judges a first-open step's growth together with the mount's heap, one budget", () => {
+	test("judges what a first-open step retains together with the mount's heap, one budget", () => {
 		const withGrowth = {
 			"accordion/300": {
 				base: {
 					steps: {
-						"open all": { ...step([1, 1, 1], [1, 1, 1]), growthKB: [100, 110, 120] },
-						"close all": { ...step([1, 1, 1], [1, 1, 1]), growthKB: [50, 60, 70] },
+						"open all": { ...step([1, 1, 1], [1, 1, 1]), growthKB: [5000, 5000, 5000], retainedKB: [100, 110, 120] },
+						"close all": { ...step([1, 1, 1], [1, 1, 1]), growthKB: [50, 60, 70], retainedKB: [50, 60, 70] },
 					},
 					heapKB: [900, 1000, 1100],
 				},
@@ -178,7 +184,7 @@ describe("one-sided samples", () => {
 			"open all openBudgetKB",
 			"close all sync",
 			"close all script",
-			"close all growthKB",
+			"close all retainedKB",
 		])
 	})
 

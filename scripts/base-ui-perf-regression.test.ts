@@ -180,7 +180,7 @@ describe("perf regression rule", () => {
 			serverMs: { floor: 0.1 },
 			hydrateSyncMs: { floor: 0.1 },
 			heapKB: { floor: 0, minBoth: 100 },
-			growthKB: { floor: 0, minBoth: 100 },
+			retainedKB: { floor: 0, minBoth: 100 },
 			openBudgetKB: { floor: 0, minBoth: 100 },
 		})
 	})
