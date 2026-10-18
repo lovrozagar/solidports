@@ -171,6 +171,22 @@ export function isStaticProp(props: object, key: string) {
 }
 
 /**
+ * Whether `props[key]` can ever be truthy: a reactive or dynamic key, a function (an accessor),
+ * or a truthy static value. A part whose input can never be true skips the machinery it gates (a
+ * never-disabled button binds no disabled gates).
+ */
+export function mayBeTruthy(props: object, key: string): boolean {
+  if (!isStaticProp(props, key)) {
+    return true;
+  }
+  if (!(key in props)) {
+    return false;
+  }
+  const value = untrack(() => (props as Record<string, unknown>)[key]);
+  return typeof value === 'function' || Boolean(value);
+}
+
+/**
  * An accessor for the latest value: it subscribes inside computations and reads untracked
  * elsewhere (event handlers, effect callbacks and cleanups), as React code reads refs and stores
  * imperatively.

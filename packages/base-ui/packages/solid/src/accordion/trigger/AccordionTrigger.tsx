@@ -1,9 +1,11 @@
 import type { JSX } from '@solidjs/web';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import {
+  DISCLOSURE_TRIGGER_CLICK,
   DISCLOSURE_TRIGGER_HANDLERS,
   DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED,
   DisclosureTriggerTarget,
+  triggerMayBeDisabled,
   writeTargetTriggerAttributes,
 } from '../../collapsible/trigger/CollapsibleTrigger';
 import type { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
@@ -148,6 +150,7 @@ function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
   const root = useCollapsibleRootContext();
   const item = useAccordionItemContext();
   const registerId = createIdRegistration(props, 'id', item.setTriggerId, item.owner);
+  const gated = triggerMayBeDisabled(props, root);
 
   return renderNativeElement(BUTTON, props, {
     refs: registerId ? [registerId] : undefined,
@@ -158,8 +161,8 @@ function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
     mapping: stateAttributesMapping,
     reactive: true,
     attributes: writeAccordionTriggerAttributes,
-    handlers: DISCLOSURE_TRIGGER_HANDLERS,
-    handlersIfPassed: DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED,
+    handlers: gated ? DISCLOSURE_TRIGGER_HANDLERS : DISCLOSURE_TRIGGER_CLICK,
+    handlersIfPassed: gated ? DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED : undefined,
     // The server too: its attributes and state read it.
     handlerTarget: new AccordionTriggerTarget(props, root, item),
   }) as unknown as JSX.Element;

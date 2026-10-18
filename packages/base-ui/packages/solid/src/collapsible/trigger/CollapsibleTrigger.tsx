@@ -1,5 +1,5 @@
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps } from '../../solid-helpers';
+import { mayBeTruthy, splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -155,6 +155,19 @@ export const DISCLOSURE_TRIGGER_HANDLERS = {
   ),
 };
 
+/**
+ * The handlers of a trigger that can never be disabled (its own, its item's and its root's
+ * `disabled` static and false): the gates only act while disabled, so only the click is bound, as
+ * Button.tsx binds no gates for a never-disabled button. A consumer's other handlers are bound as
+ * any consumer handler is.
+ */
+export const DISCLOSURE_TRIGGER_CLICK = { onClick: DISCLOSURE_TRIGGER_HANDLERS.onClick };
+
+/** Whether a trigger can ever be disabled, from its own `disabled` and its root's. */
+export function triggerMayBeDisabled(props: object, root: CollapsibleRootContext): boolean {
+  return root.mayBeDisabled || mayBeTruthy(props, 'disabled');
+}
+
 /** The disabled gate for a consumer's `onMouseDown` and `onKeyUp`, bound only when passed. */
 export const DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED = {
   onMouseDown: partHandler<DisclosureTriggerTarget>('onMouseDown', undefined, runWhileEnabled),
@@ -176,6 +189,7 @@ export function writeDisclosureTriggerAttributes(
 
 function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element {
   const root = useCollapsibleRootContext();
+  const gated = triggerMayBeDisabled(props, root);
   return renderNativeElement(BUTTON, props, {
     own: OWN_KEYS,
     state: rootStateOf,
@@ -184,8 +198,8 @@ function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element 
     stateWriter: writeTriggerState,
     reactive: true,
     attributes: writeTargetTriggerAttributes,
-    handlers: DISCLOSURE_TRIGGER_HANDLERS,
-    handlersIfPassed: DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED,
+    handlers: gated ? DISCLOSURE_TRIGGER_HANDLERS : DISCLOSURE_TRIGGER_CLICK,
+    handlersIfPassed: gated ? DISCLOSURE_TRIGGER_HANDLERS_IF_PASSED : undefined,
     // The server too: its attributes and state read it.
     handlerTarget: new DisclosureTriggerTarget(props, root),
   }) as unknown as JSX.Element;
