@@ -20,6 +20,8 @@ import { accordionStateAttributesMapping } from './stateAttributesMapping';
 const ITEM_DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
 
 const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'onOpenChange', 'value']);
+const itemStateOf = (item: AccordionItemModel) => item.state;
+
 /** Items rendered in DOM order get their index on the first render (the list's flush confirms it). */
 const GUESS_INDEX = { guessIndex: true };
 
@@ -44,12 +46,14 @@ export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element 
       () =>
         renderNativeElement(ITEM_DIV, componentProps, {
           own: OWN_KEYS,
-          state: () => item.state,
+          state: itemStateOf,
           stateView: item.stateView,
           stateWriter: writeItemState,
           mapping: accordionStateAttributesMapping,
           reactive: true,
           refs: [listItem.setRef],
+          // What the `state` factory reads: no closure per item.
+          handlerTarget: item,
         }),
     ) as unknown as JSX.Element;
   }

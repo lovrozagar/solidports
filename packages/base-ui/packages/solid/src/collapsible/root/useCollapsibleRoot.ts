@@ -102,8 +102,8 @@ export class CollapsibleRootModel {
     } else {
       // A controlled root reads `open` directly (no memo: reading a prop is as cheap); an
       // uncontrolled one keeps its value in a signal.
-      const controlled = untrack(() => access(parameters.open));
-      const initial = Boolean(untrack(() => access(parameters.defaultOpen)));
+      const controlled = untrack(() => readParameter(parameters, 'open'));
+      const initial = Boolean(untrack(() => readParameter(parameters, 'defaultOpen')));
       this.fallback = initial;
       if (controlled !== undefined) {
         this.mode = 'controlled';
@@ -152,7 +152,7 @@ export class CollapsibleRootModel {
       }
       return this.latestWrite ?? untrack(this.readOpen!);
     }
-    const open = access(this.parameters.open);
+    const open = readParameter(this.parameters, 'open');
     if (this.mode === 'always') {
       return Boolean(open);
     }
@@ -169,7 +169,7 @@ export class CollapsibleRootModel {
 
   /** Whether the component should ignore user interaction. */
   disabled(): boolean {
-    return Boolean(access(this.parameters.disabled));
+    return Boolean(readParameter(this.parameters, 'disabled'));
   }
 
   /**
@@ -253,6 +253,18 @@ export interface UseCollapsibleRootParameters {
    * (an Accordion item's); else decided from `disabled` itself.
    */
   mayBeDisabled?: boolean | undefined;
+}
+
+/**
+ * A parameter's value: an accessor is called on the parameters, so a model that is its own
+ * parameters object (an Accordion item) passes its methods without a closure each.
+ */
+function readParameter(
+  parameters: UseCollapsibleRootParameters,
+  key: 'open' | 'defaultOpen' | 'disabled',
+): boolean | undefined {
+  const value = parameters[key];
+  return typeof value === 'function' ? value.call(parameters) : value;
 }
 
 /**

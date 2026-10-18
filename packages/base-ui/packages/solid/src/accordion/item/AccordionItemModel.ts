@@ -91,6 +91,9 @@ export class AccordionItemModel {
   declare readonly stateView: AccordionItemStateView;
 
   declare private readonly local: ItemProps;
+  /** The collapsible root's parameters (`UseCollapsibleRootParameters`): the item is that object. */
+  declare readonly alwaysControlled: true;
+  declare readonly mayBeDisabled: boolean;
   /** The membership read bound to a value fixed for the item's lifetime, else `undefined`. */
   declare private readonly boundOpen: (() => boolean) | undefined;
   declare private readonly fallbackValue: string | undefined;
@@ -115,15 +118,12 @@ export class AccordionItemModel {
         ? this.root.isOpen.forKey(untrack(() => local.value))
         : undefined;
     // `open` is always this item's membership in the root's value: there is no mode to decide, so
-    // the collapsible root reads it directly.
-    this.collapsible = useCollapsibleRoot({
-      alwaysControlled: true,
-      open: () => this.open(),
-      // Solid: a handler reading the latest props is React's stable callback.
-      onOpenChange: (nextOpen, eventDetails) => this.onOpenChange(nextOpen, eventDetails),
-      disabled: () => this.disabled(),
-      mayBeDisabled: this.root.mayBeDisabled || mayBeTruthy(local, 'disabled'),
-    });
+    // the collapsible root reads it directly. The item is the root's parameters object itself: the
+    // root calls its `open`, `disabled` and `onOpenChange` methods (a handler reading the latest
+    // props is React's stable callback), with no closure or parameters object per item.
+    this.alwaysControlled = true;
+    this.mayBeDisabled = this.root.mayBeDisabled || mayBeTruthy(local, 'disabled');
+    this.collapsible = useCollapsibleRoot(this);
     this.generatedTriggerId = createBaseUiId();
     [this.registeredTriggerId, this.setTriggerId] = createIdRegistry();
     this.owner = getOwner();
