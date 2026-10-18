@@ -6,7 +6,7 @@
  * cleanup: no reactive node. A reactive id keeps the memo + render effect, on the server too: they
  * take hydration ids, which the client's must match.
  */
-import { createMemo, createSignal, isDisposed, onCleanup, untrack } from 'solid-js';
+import { createMemo, createSignal, isDisposed, onCleanup } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { isStaticKey } from './consumer';
@@ -39,6 +39,12 @@ function apply(setId: IdSetter, registered: string | undefined) {
   };
 }
 
+/** The registration updaters of an absent id: module-level, as they capture nothing. */
+const keepUnregistered = (currentId: string | null | undefined) =>
+  currentId === null ? undefined : currentId;
+const clearUnregistered = (currentId: string | null | undefined) =>
+  currentId === undefined ? null : currentId;
+
 /**
  * Registers `props[key]` (an empty string counts as absent) with `setId` for the part's lifetime.
  * Returns the ref that performs a static registration (to attach to the element), or `undefined`
@@ -56,22 +62,44 @@ export function createIdRegistration(
   if (fixed && isServer) {
     return undefined;
   }
+  if (fixed) {
+    // A static value: read once, with nothing to track.
+    const registered = ((props as Record<string, string | undefined>)[key] || undefined) as
+      string | undefined;
+    return registerStaticId(setId, registered, registryOwner);
+  }
+  registerReactiveId(props, key, setId);
+  return undefined;
+}
+
+/**
+ * A static id's registration: the ref registers it and the part's cleanup clears it. Its own
+ * function, so only the two callbacks share a context, of these three values.
+ */
+function registerStaticId(
+  setId: IdSetter,
+  registered: string | undefined,
+  registryOwner: Owner | null | undefined,
+): (element: Element | null) => void {
+  void onCleanup(() => {
+    if (registryOwner && isDisposed(registryOwner)) {
+      return;
+    }
+    setId(
+      registered === undefined
+        ? clearUnregistered
+        : (currentId) => (currentId === registered ? null : currentId),
+    );
+  });
+  return (element) => {
+    if (element) {
+      setId(registered === undefined ? keepUnregistered : () => registered);
+    }
+  };
+}
+
+function registerReactiveId(props: object, key: string, setId: IdSetter) {
   const read = () =>
     ((props as Record<string, string | undefined>)[key] || undefined) as string | undefined;
-  if (fixed) {
-    const registered = untrack(read);
-    void onCleanup(() => {
-      if (registryOwner && isDisposed(registryOwner)) {
-        return;
-      }
-      setId((currentId) => (currentId === registered ? null : currentId));
-    });
-    return (element) => {
-      if (element) {
-        setId((currentId) => registered ?? (currentId === null ? undefined : currentId));
-      }
-    };
-  }
   createLayoutEffect(createMemo(read, { equals: shallowEqual }), (value) => apply(setId, value));
-  return undefined;
 }
