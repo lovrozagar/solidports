@@ -139,7 +139,7 @@ Counting technique (every file below): set `DEV.hooks.onOwner` to count every no
 
 | file | budgets |
 | --- | --- |
-| `src/utils/popups/closedRoot.cost.test.tsx` | per closed root: Tooltip 73, Menu 120, ContextMenu 80, Popover 80, PreviewCard 69, Dialog 63, AlertDialog 63, Drawer 88, Select 108, Combobox 144, NavigationMenu 185 |
+| `src/utils/popups/closedRoot.cost.test.tsx` | per closed root: Tooltip 73, Menu 120, ContextMenu 80, Popover 80, PreviewCard 69, Dialog 63, AlertDialog 63, Drawer 88, Select 108, Combobox 144, NavigationMenu 187 |
 | `src/utils/useRenderElement.cost.test.tsx` | Button 3, Checkbox.Root 7, Select.Item 23, Combobox.Item 23; static attributes 0 |
 | `src/utils/native/native.cost.test.tsx` | native Button 1 beyond a plain button (3 with reactive props and children); static attributes and handlers 0; extra reactive inputs share one effect |
 | `src/utils/native/toggles.cost.test.tsx` | beyond hand-written markup: Checkbox+Indicator 19, Switch+Thumb 10, Toggle 5, grouped Toggle 5, Radio+Indicator 18 |

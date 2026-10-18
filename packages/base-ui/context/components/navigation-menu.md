@@ -1,12 +1,12 @@
 ---
 tags: [navigation-menu, popup, floating, perf]
 sources: [packages/base-ui/packages/solid/src/navigation-menu, packages/base-ui/packages/solid/src/navigation-menu/trigger/NavigationMenuTrigger.tsx, packages/base-ui/packages/solid/src/navigation-menu/root/NavigationMenuRoot.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-16
+verified: 2026-10-18
 ---
 
 # Navigation menu
 
-NavigationMenu is fully ported and is the costliest closed popup root (185-node budget) because its triggers are not deferred to the first intent. It has no native fast path.
+NavigationMenu is fully ported and is the costliest closed popup root (187-node budget) because its triggers are not deferred to the first intent. It has no native fast path.
 
 ## Status
 
