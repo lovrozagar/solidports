@@ -2,11 +2,12 @@
  * A flush applies effects by reactive height. A JSX context provider's children memo puts its
  * children's effects after the providing part's own, and parts that assign their children's state
  * in an effect (a list's indexes, a field's registrations, a popup's position) rely on that order.
- * Rendered under a transparent owner instead, each child applied first with the state it had and
+ * Rendered under a transparent owner instead, each child computed first with the state it had and
  * again with the assigned one (GOTCHA-019). Each case opens or mounts a family with 20 children and
- * counts the runs of the effects the library creates against their creations: a provider that loses
- * the order shows as at least one extra run per child. When b75c8bd5 moved these sites onto
- * `provideContext`, only CompositeList lost it (a Menu open re-ran 99 effects, against 36 before).
+ * counts the runs of the effects and memos the library creates against their creations: a provider
+ * that loses the order shows as at least one extra run per child. When b75c8bd5 moved these sites
+ * onto `provideContext`, two lost it: CompositeList (a Menu open re-ran 196 computations, against
+ * 136 before) and ComboboxPositioner (every item's props view rebuilt its key list once more).
  */
 import { createSignal, flush, For } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
@@ -70,6 +71,7 @@ vi.mock('solid-js', async (importOriginal) => {
     ...actual,
     createRenderEffect: counted(actual.createRenderEffect as any),
     createEffect: counted(actual.createEffect as any),
+    createMemo: counted(actual.createMemo as any),
   };
 });
 
@@ -81,8 +83,8 @@ type Case = {
   /** Renders the family; `open` is a signal the case may wire to a controlled `open`. */
   ui: (open: () => boolean) => JSX.Element;
   /**
-   * The most runs over creations the case may count. Each is the count at a81f0271; the ones at N or
-   * more re-ran as many times before b75c8bd5 converted any provider.
+   * The most runs over creations the case may count: each case's count with both sites back on
+   * JSX. Every case at N or more ran at least as many before b75c8bd5 converted any provider.
    */
   maxExtra: number;
   /** The counted step after mount; without it, the mount itself is counted. */
@@ -94,7 +96,7 @@ const opens = (setOpen: (value: boolean) => void) => setOpen(true);
 const CASES: Case[] = [
   {
     name: 'Menu open',
-    maxExtra: 9,
+    maxExtra: 80,
     ui: (open) => (
       <Menu.Root open={open()}>
         <Menu.Trigger>Open</Menu.Trigger>
@@ -111,7 +113,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Menu submenu open',
-    maxExtra: 3,
+    maxExtra: 28,
     ui: (open) => (
       <Menu.Root open>
         <Menu.Trigger>Open</Menu.Trigger>
@@ -137,7 +139,7 @@ const CASES: Case[] = [
   },
   {
     name: 'ContextMenu open',
-    maxExtra: 5,
+    maxExtra: 32,
     ui: () => (
       <ContextMenu.Root>
         <ContextMenu.Trigger data-testid="area">Area</ContextMenu.Trigger>
@@ -155,7 +157,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Menubar open',
-    maxExtra: 10,
+    maxExtra: 79,
     ui: (open) => (
       <Menubar>
         <Menu.Root open={open()}>
@@ -177,7 +179,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Select open',
-    maxExtra: 9,
+    maxExtra: 41,
     ui: (open) => (
       <Select.Root open={open()} defaultValue={3}>
         <Select.Trigger>
@@ -202,7 +204,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Combobox open',
-    maxExtra: 36,
+    maxExtra: 18,
     ui: (open) => (
       <Combobox.Root items={indexes.map((i) => `item ${i}`)} open={open()}>
         <Combobox.Input />
@@ -221,7 +223,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Combobox grouped open',
-    maxExtra: 38,
+    maxExtra: 20,
     ui: (open) => (
       <Combobox.Root
         items={[0, 1].map((g) => ({
@@ -256,7 +258,7 @@ const CASES: Case[] = [
   },
   {
     name: 'NavigationMenu open',
-    maxExtra: 2,
+    maxExtra: 5,
     ui: (open) => (
       <NavigationMenu.Root value={open() ? 'one' : null}>
         <NavigationMenu.List>
@@ -285,7 +287,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Popover open',
-    maxExtra: 7,
+    maxExtra: 22,
     ui: (open) => (
       <Popover.Root open={open()}>
         <Popover.Trigger>Open</Popover.Trigger>
@@ -302,7 +304,7 @@ const CASES: Case[] = [
   },
   {
     name: 'PreviewCard open',
-    maxExtra: 7,
+    maxExtra: 16,
     ui: (open) => (
       <PreviewCard.Root open={open()}>
         <PreviewCard.Trigger href="#">Link</PreviewCard.Trigger>
@@ -319,7 +321,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Tooltip open',
-    maxExtra: 7,
+    maxExtra: 19,
     ui: (open) => (
       <Tooltip.Provider>
         <Tooltip.Root open={open()}>
@@ -338,7 +340,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Dialog open',
-    maxExtra: 2,
+    maxExtra: 10,
     ui: (open) => (
       <Dialog.Root open={open()}>
         <Dialog.Trigger>Open</Dialog.Trigger>
@@ -353,7 +355,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Drawer open',
-    maxExtra: 4,
+    maxExtra: 12,
     ui: (open) => (
       <Drawer.Root open={open()}>
         <Drawer.Trigger>Open</Drawer.Trigger>
@@ -388,7 +390,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Tabs mount',
-    maxExtra: 64,
+    maxExtra: 78,
     ui: () => (
       <Tabs.Root defaultValue={3}>
         <Tabs.List>
@@ -425,7 +427,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Toolbar mount',
-    maxExtra: 20,
+    maxExtra: 21,
     ui: () => (
       <Toolbar.Root>
         <For each={indexes}>{(i) => <Toolbar.Button>Button {i}</Toolbar.Button>}</For>
@@ -449,7 +451,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Field mount',
-    maxExtra: 60,
+    maxExtra: 200,
     ui: () => (
       <div>
         <For each={indexes}>
@@ -467,7 +469,7 @@ const CASES: Case[] = [
   },
   {
     name: 'Field with Switch mount',
-    maxExtra: 40,
+    maxExtra: 120,
     ui: () => (
       <div>
         <For each={indexes}>
@@ -500,7 +502,7 @@ const CASES: Case[] = [
 describe.skipIf(!isJSDOM)('provider effect order', () => {
   const { render } = createRenderer();
 
-  it.each(CASES)('$name re-runs no more library effects than it did', async (testCase) => {
+  it.each(CASES)('$name re-runs no more library computations than it did', async (testCase) => {
     const [open, setOpen] = createSignal(false);
     counts.created = 0;
     counts.runs = 0;

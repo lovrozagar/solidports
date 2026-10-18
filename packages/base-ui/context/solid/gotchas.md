@@ -1,6 +1,6 @@
 ---
 tags: [solid, gotchas, registry]
-sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/number-field/root/NumberFieldRoot.tsx, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/providerEffectOrder.test.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts]
+sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/number-field/root/NumberFieldRoot.tsx, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/combobox/positioner/ComboboxPositioner.tsx, packages/base-ui/packages/solid/src/utils/providerEffectOrder.test.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts]
 verified: 2026-10-18
 ---
 
@@ -99,7 +99,8 @@ Rules for editing: never renumber. Add new entries at the end. When an entry sto
   - `AriaCombobox`: `ValueChangeEffects` is rendered last so its effects apply after the rest of the root's. Converted, Autocomplete's `mode="both"` kept a temporary inline value over an external controlled update.
   - `NumberFieldRoot`: converted, a Field with `validationMode="onSubmit"` marked the input invalid on input.
   - `CompositeList`: the list's effect assigns its items' indexes, and the items' attribute effects must apply after it. Converted (b75c8bd5), each item applied twice, first with no index: a 500-item Menu open ran 17,316 computations against 13,008.
-- **Guard:** `utils/providerEffectOrder.test.tsx` opens or mounts each family whose providers b75c8bd5 converted, with 20 children, and pins how many more times the library's effects run than they are created. A provider that loses the order adds at least one run per child. Before converting another provider, add its family there if it is missing.
+  - `ComboboxPositioner`: converted, every item's props view rebuilt its key list once more on open; Chromium measured a 1,000-item open 5.8 ms slower in script, with fewer computations in all.
+- **Guard:** `utils/providerEffectOrder.test.tsx` opens or mounts each family whose providers b75c8bd5 converted, with 20 children, and pins how many more times the library's effects and memos run than they are created. A provider that loses the order adds at least one run per child. Restoring each of the other converted sites to JSX one at a time lowered no case by more than 3 runs. Before converting another provider, add its family there if it is missing. The count goes through `vi.mock('solid-js')`, so it runs in jsdom only.
 
 ## Retired
 

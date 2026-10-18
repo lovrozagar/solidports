@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import { provideContext, splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps } from '../../solid-helpers';
 import { DROPDOWN_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import type { BaseUIComponentProps, BaseUIHTMLProps } from '../../utils/types';
@@ -148,8 +148,11 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
     },
   });
 
-  return provideContext(ComboboxPositionerContext, contextValue, () => (
-    <>
+  // The JSX provider, not `provideContext`: its children memo orders the popup's parts after the
+  // positioner in a flush. Under a transparent owner every item's props view rebuilt its key list
+  // once more on open (GOTCHA-019).
+  return (
+    <ComboboxPositionerContext value={contextValue}>
       <Show when={mounted() && modal()}>
         <InternalBackdrop
           managed
@@ -158,8 +161,8 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
         />
       </Show>
       {element()}
-    </>
-  ));
+    </ComboboxPositionerContext>
+  );
 }
 
 export interface ComboboxPositionerState {
