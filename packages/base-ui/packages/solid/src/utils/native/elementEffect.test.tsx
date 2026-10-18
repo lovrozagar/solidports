@@ -11,7 +11,7 @@ import { createRenderer, isJSDOM } from '#test-utils';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures from '../../collapsible/panel/renderPanel.ssr-fixtures';
 
-const effects = vi.hoisted(() => ({ on: false, names: [] as string[] }));
+const effects = vi.hoisted(() => ({ on: false, names: [] as string[], results: [] as string[] }));
 
 vi.mock('solid-js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('solid-js')>();
@@ -20,6 +20,12 @@ vi.mock('solid-js', async (importOriginal) => {
     createRenderEffect: (compute: any, apply: any, ...rest: any[]) => {
       if (effects.on && (new Error().stack ?? '').includes('utils/native/element.ts')) {
         effects.names.push(`${compute?.name}|${apply?.name}`);
+        const counted = (...args: unknown[]) => {
+          const result = compute(...args);
+          effects.results.push(result === null ? 'null' : typeof result);
+          return result;
+        };
+        return (actual.createRenderEffect as any)(counted, apply, ...rest);
       }
       return (actual.createRenderEffect as any)(compute, apply, ...rest);
     },
@@ -43,6 +49,20 @@ describe('native element attribute effect', () => {
     effects.on = false;
     expect(effects.names.length).toBeGreaterThan(0);
     expect(new Set(effects.names)).toEqual(new Set(['bound compute|bound apply']));
+  });
+
+  // The runtime checks an object result for a promise or an async iterator through a closure per
+  // run (`handleAsync`, 86 KB per hydrated accordion/300 page); a primitive skips the check.
+  // vi.mock('solid-js') does not reach the runtime in browser mode, so nothing would be counted.
+  it.skipIf(!isJSDOM)('computes a primitive while hydrating', async () => {
+    effects.results = [];
+    effects.on = true;
+    const { hydrate } = renderServer(fixtures, 'collapsibleOpen');
+    hydrate();
+    flush();
+    effects.on = false;
+    expect(effects.results.length).toBeGreaterThan(0);
+    expect(new Set(effects.results)).toEqual(new Set(['number']));
   });
 
   // vi.mock('solid-js') does not reach the runtime in browser mode, so nothing would be counted.

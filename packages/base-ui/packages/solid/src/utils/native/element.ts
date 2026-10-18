@@ -833,6 +833,9 @@ class ElementWriter<State extends object> implements SetAttribute {
   declare protected el: Element;
   declare protected previous: Record<string, unknown>;
   declare private target: Record<string, unknown>;
+  /** The record `compute` wrote, for the `apply` that follows it. */
+  declare private pending: Record<string, unknown> | undefined;
+  declare private runs: number;
   declare private keepUndefined: boolean;
   declare private readonly keys: ReadonlySet<string>;
   declare private readonly props: Record<string, any>;
@@ -852,6 +855,8 @@ class ElementWriter<State extends object> implements SetAttribute {
     writtenState: object | undefined,
   ) {
     this.target = NO_ATTRIBUTES;
+    this.pending = undefined;
+    this.runs = 0;
     this.keepUndefined = false;
     this.keys = keys;
     this.props = props as Record<string, any>;
@@ -869,18 +874,32 @@ class ElementWriter<State extends object> implements SetAttribute {
     this.previous = {};
   }
 
-  /** The attribute effect's compute: everything that can change. */
-  compute(): Record<string, unknown> {
-    return this.write({}, true);
+  /**
+   * The attribute effect's compute: writes everything that can change into a record kept for
+   * `apply`, and returns the run's number. A primitive, so the runtime does not check the result
+   * for a promise or an async iterator, which it does for an object through a closure per run. A
+   * new number each run, so every run applies, as a fresh record did.
+   */
+  compute(): number {
+    this.pending = this.write({}, true);
+    this.runs += 1;
+    return this.runs;
+  }
+
+  /** The attribute effect's apply: writes the record of the run before it. */
+  apply() {
+    const next = this.pending!;
+    this.pending = undefined;
+    this.applyWrite(next);
   }
 
   /**
-   * The attribute effect's apply. Solid's `assign` re-sets a string `style` as `cssText` on every
+   * Writes a record to the element. Solid's `assign` re-sets a string `style` as `cssText` on every
    * run (no equality check), which would wipe properties a part writes to the element directly (a
    * panel's measured CSS variables) whenever any other input changes. The slow path's per-key view
    * only re-writes `style` when its sources change, so an unchanged string style is left out.
    */
-  apply(next: Record<string, unknown>) {
+  protected applyWrite(next: Record<string, unknown>) {
     const el = this.el;
     const previous = this.previous;
     const style = next.style;
@@ -973,7 +992,7 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
     }
   }
 
-  override apply(next: Record<string, unknown>) {
+  protected override applyWrite(next: Record<string, unknown>) {
     if (this.firstWrite === undefined) {
       this.takeFirstWrite(next);
     } else if (isHydrating()) {
@@ -992,7 +1011,7 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
       Object.assign(previous, next);
       return;
     }
-    super.apply(next);
+    super.applyWrite(next);
   }
 
   private reconcile() {
@@ -1181,7 +1200,7 @@ function renderClientElement<State extends object>(
   attachNativeAttributes(el, literal, undefined, null);
   if (needsEffect) {
     // As `attachNativeAttributes`' effect, its compute and apply the writer's methods (see
-    // `ElementWriter.apply` for the one difference), under the part's owner, which is current here.
+    // `ElementWriter.applyWrite` for the one difference), under the part's owner, which is current here.
     // Transparent: the server has no counterpart, so it takes no hydration id.
     createRenderEffect(writer.compute.bind(writer), writer.apply.bind(writer), TRANSPARENT);
   }
