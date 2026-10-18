@@ -99,7 +99,10 @@ export const selectors = {
     return compareItemEquality(itemValue(), storeValue, comparer);
   },
 
-  isSelectedByFocus: keyedSelector((state: State) => state.selectedIndex),
+  // Plain: a selection by focus changes once per selection, usually once per open, and keyed it
+  // built a projection and a node per item on the first, which cost more than the plain re-run of
+  // every item's compare (unit 49).
+  isSelectedByFocus: (state: State, index: Accessor<number>) => state.selectedIndex === index(),
 
   itemToStringLabel: (state: State) => state.itemToStringLabel,
 

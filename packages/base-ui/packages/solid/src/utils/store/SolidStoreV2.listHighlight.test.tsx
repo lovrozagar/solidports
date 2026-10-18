@@ -6,7 +6,7 @@
  * old and the new item only. Value selection with a custom `isItemEqualToValue` has no stable key,
  * so it stays a plain selector.
  */
-import { createMemo, createRoot, createSignal, flush } from 'solid-js';
+import { DEV, createMemo, createRoot, createSignal, flush } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { selectors as comboboxSelectors } from '../../combobox/store';
@@ -39,14 +39,6 @@ const cases: Case[] = [
       SolidStore({ activeIndex: 0, selectedIndex: 0 } as any, {}, selectSelectors) as never,
     key: 'isActive',
     field: 'activeIndex',
-    via: 'useState',
-  },
-  {
-    name: 'Select isSelectedByFocus',
-    create: () =>
-      SolidStore({ activeIndex: 0, selectedIndex: 0 } as any, {}, selectSelectors) as never,
-    key: 'isSelectedByFocus',
-    field: 'selectedIndex',
     via: 'useState',
   },
   {
@@ -148,6 +140,33 @@ describe('list stores: keyed highlight', () => {
       expect(list.current()).toEqual([6]);
       list.dispose();
     });
+  });
+
+  // Unit 49: keyed, a selection by focus built the projection and a node per item on the list's
+  // first selection, which happens once per open, so it cost Select 0.8-0.9 ms per selection and
+  // paid back only after several. It stays plain: a selection re-runs every item's cheap compare.
+  it("Select's selection by focus stays a plain selector: a selection builds nothing", () => {
+    const hooks = (DEV as unknown as { hooks: { onOwner?: (owner: unknown) => void } }).hooks;
+    const list = mountList({
+      name: 'Select isSelectedByFocus',
+      create: () =>
+        SolidStore({ activeIndex: 0, selectedIndex: 0 } as any, {}, selectSelectors) as never,
+      key: 'isSelectedByFocus',
+      field: 'selectedIndex',
+      via: 'useState',
+    });
+    const owners: unknown[] = [];
+    hooks.onOwner = (owner) => owners.push(owner);
+    try {
+      for (const next of [1, 500]) {
+        list.cost(() => list.store.set('selectedIndex', next));
+        expect(list.current()).toEqual([next]);
+      }
+    } finally {
+      hooks.onOwner = undefined;
+    }
+    expect(owners).toEqual([]);
+    list.dispose();
   });
 
   it('value selection with a custom comparer stays a plain selector and stays exact', () => {
