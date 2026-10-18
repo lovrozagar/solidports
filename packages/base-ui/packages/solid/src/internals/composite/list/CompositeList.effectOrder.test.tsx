@@ -8,7 +8,7 @@
 import { createSignal, flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import { Menu } from '@solidports/base-ui/menu';
-import { createRenderer } from '#test-utils';
+import { createRenderer, isJSDOM } from '#test-utils';
 
 const counts = vi.hoisted(() => ({ on: false, created: 0, runs: 0 }));
 
@@ -30,7 +30,8 @@ vi.mock('solid-js', async (importOriginal) => {
   };
 });
 
-describe('CompositeList effect order', () => {
+// vi.mock('solid-js') does not reach the runtime in browser mode, so nothing would be counted.
+describe.skipIf(!isJSDOM)('CompositeList effect order', () => {
   const { render } = createRenderer();
 
   it('computes the item attribute effects of a menu that opens once each', async () => {

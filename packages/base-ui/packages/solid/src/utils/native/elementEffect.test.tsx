@@ -7,7 +7,7 @@
 import { flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import { Collapsible } from '@solidports/base-ui/collapsible';
-import { createRenderer } from '#test-utils';
+import { createRenderer, isJSDOM } from '#test-utils';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures from '../../collapsible/panel/renderPanel.ssr-fixtures';
 
@@ -29,7 +29,8 @@ vi.mock('solid-js', async (importOriginal) => {
 describe('native element attribute effect', () => {
   const { render } = createRenderer();
 
-  it("is its writer's bound compute and apply in a client render", () => {
+  // vi.mock('solid-js') does not reach the runtime in browser mode, so nothing would be counted.
+  it.skipIf(!isJSDOM)("is its writer's bound compute and apply in a client render", () => {
     effects.names = [];
     effects.on = true;
     render(() => (
@@ -44,7 +45,8 @@ describe('native element attribute effect', () => {
     expect(new Set(effects.names)).toEqual(new Set(['bound compute|bound apply']));
   });
 
-  it("is its writer's bound compute and apply while hydrating", () => {
+  // vi.mock('solid-js') does not reach the runtime in browser mode, so nothing would be counted.
+  it.skipIf(!isJSDOM)("is its writer's bound compute and apply while hydrating", () => {
     effects.names = [];
     effects.on = true;
     const { hydrate } = renderServer(fixtures, 'collapsibleOpen');
