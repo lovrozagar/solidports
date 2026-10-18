@@ -1,7 +1,7 @@
 ---
 tags: [transitions, animation, collapsible, state]
 sources: [packages/base-ui/packages/solid/src/utils/useTransitionStatus.ts, packages/base-ui/packages/solid/src/utils/createLazyTransitionStatus.ts, packages/base-ui/packages/solid/src/utils/useUnmountAfterClose.ts, packages/base-ui/packages/solid/src/utils/useOpenChangeComplete.tsx, packages/base-ui/packages/solid/src/utils/useAnimationsFinished.ts, packages/base-ui/packages/solid/src/utils/useAnimationFrame.ts, packages/base-ui/packages/solid/src/collapsible/root/useCollapsibleRoot.ts, packages/base-ui/packages/solid/src/collapsible/panel/useCollapsiblePanel.ts, packages/base-ui/packages/solid/src/internals]
-verified: 2026-10-17
+verified: 2026-10-18
 ---
 
 # Transitions
@@ -29,7 +29,7 @@ Signature: `useTransitionStatus(open, enableIdleState?, deferEndingState?, anima
 - `setMounted(false)` bumps an unmount-request signal that the `mounted` computed reads, so a reopen in the same flush still wins, as React's `open && !mounted` does.
 - An element that mounts already open skips `starting` (goes to `idle`, or `undefined` without the idle state) unless `animateInitialOpen` is set.
 - The two frames, the deferred `ending` (one `AnimationFrame` after close when `deferEndingState`) and the `starting` → `idle` step, are scheduled by the `transitionStatus` computation itself when their inputs change (open for the idle step; open, mounted and the new status for the ending), cancelled when those change again, and cancelled on cleanup. No effect node: an element costs its two computeds, open or closed (plan 3 leaf 5.1.3; the effect group it replaced was a node on every first open).
-- `starting` → `idle` uses `requestAfterPaint`: a task queued from a rAF. Solid 2 flushes a write in the rAF callback itself, before style recalc, so a plain rAF would remove `data-starting-style` before the browser ever styled it and CSS transitions would never start. Every element's after-paint callback of one frame runs in one shared task (`queueAfterFrame` in `useAnimationFrame.ts`, reset with the frame scheduler), so their writes flush once: 300 panels opening together leave `starting` in one batch, where a task each cost a flush each.
+- `starting` → `idle` uses `requestAfterPaint`: a task queued from a rAF. Solid 2 flushes a write in the rAF callback itself, before style recalc, so a plain rAF would remove `data-starting-style` before the browser ever styled it and CSS transitions would never start. Every element's after-paint callback of one frame runs in one shared task (`queueAfterFrame` in `useAnimationFrame.ts`; each frame owns its batch and its task, so a task that never runs, such as one set on a test's fake clock that was torn down, loses that frame's callbacks only), so their writes flush once: 300 panels opening together leave `starting` in one batch, where a task each cost a flush each.
 
 ## Animations finished
 

@@ -10,6 +10,19 @@ const EMPTY = null;
 
 let LAST_RAF = globalThis.requestAnimationFrame;
 
+/**
+ * The after-frame callbacks of the frame whose callbacks are running, or `undefined` outside one.
+ * Each frame owns its batch and its task, so a task that never runs (a test's fake clock torn down
+ * first) loses that frame's callbacks only.
+ */
+let afterFrame: Array<() => void> | undefined;
+
+function runAll(callbacks: Array<() => void>) {
+  for (const callback of callbacks) {
+    callback();
+  }
+}
+
 class Scheduler {
   /* This implementation uses an array as a backing data-structure for frame callbacks.
    * It allows `O(1)` callback cancelling by inserting a `null` in the array, though it
@@ -41,8 +54,18 @@ class Scheduler {
     this.startId = this.nextId;
 
     if (currentCallbacksCount > 0) {
-      for (let i = 0; i < currentCallbacks.length; i += 1) {
-        currentCallbacks[i]?.(timestamp);
+      const batch: Array<() => void> = [];
+      const outer = afterFrame;
+      afterFrame = batch;
+      try {
+        for (let i = 0; i < currentCallbacks.length; i += 1) {
+          currentCallbacks[i]?.(timestamp);
+        }
+      } finally {
+        afterFrame = outer;
+        if (batch.length > 0) {
+          setTimeout(() => runAll(batch));
+        }
       }
     }
   };
@@ -83,27 +106,17 @@ class Scheduler {
 
 let scheduler = new Scheduler();
 
-/** The callbacks queued for the task after the current frame, which runs them together. */
-let afterFrame: Array<() => void> = [];
-let afterFrameTimer: ReturnType<typeof setTimeout> | undefined;
-
-function runAfterFrame() {
-  const callbacks = afterFrame;
-  afterFrame = [];
-  afterFrameTimer = undefined;
-  for (const callback of callbacks) {
-    callback();
-  }
-}
-
 /**
- * Queues `callback` for one task shared by every callback queued before it runs: called from frame
- * callbacks, every element's after-paint work of one frame runs in a single task, so its writes
- * flush once, where a task each would flush once per element.
+ * Queues `callback` for the task after the current frame: called from frame callbacks, every
+ * element's after-paint work of one frame runs in a single task, so its writes flush once, where a
+ * task each would flush once per element. Outside a frame callback it gets a task of its own.
  */
 export function queueAfterFrame(callback: () => void) {
-  afterFrame.push(callback);
-  afterFrameTimer ??= setTimeout(runAfterFrame);
+  if (afterFrame) {
+    afterFrame.push(callback);
+  } else {
+    setTimeout(callback);
+  }
 }
 
 /**
@@ -115,8 +128,6 @@ export function queueAfterFrame(callback: () => void) {
  * such leftovers.
  */
 export function resetAnimationFrameScheduler() {
-  afterFrame = [];
-  afterFrameTimer = undefined;
   const previous = scheduler;
   scheduler = new Scheduler();
   // Continue the id sequence so `cancel()` calls from `AnimationFrame` instances created before the
