@@ -34,7 +34,7 @@ import { ToggleGroup } from '@solidports/base-ui/toggle-group';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { createRenderer } from '#test-utils';
+import { createRenderer, isJSDOM } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 
 const counts = vi.hoisted(() => ({ on: false, created: 0, runs: 0 }));
@@ -496,7 +496,8 @@ const CASES: Case[] = [
   },
 ];
 
-describe('provider effect order', () => {
+// vi.mock('solid-js') does not reach the runtime in browser mode, so nothing would be counted.
+describe.skipIf(!isJSDOM)('provider effect order', () => {
   const { render } = createRenderer();
 
   it.each(CASES)('$name re-runs no more library effects than it did', async (testCase) => {
