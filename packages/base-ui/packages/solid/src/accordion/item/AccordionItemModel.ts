@@ -4,7 +4,7 @@ import type { CollapsibleRoot } from '../../collapsible/root/CollapsibleRoot';
 import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
 import type { CollapsibleRootModel } from '../../collapsible/root/useCollapsibleRoot';
 import { isStaticProp, mayBeTruthy } from '../../solid-helpers';
-import { compileStateWriter } from '../../utils/native/element';
+import { compileStateWriter, currentWritePass } from '../../utils/native/element';
 import { createIdRegistry } from '../../utils/native/registration';
 import { createBaseUiId } from '../../utils/useBaseUiId';
 import type { AccordionRootContext } from '../root/AccordionRootContext';
@@ -24,9 +24,18 @@ export const writeItemState = compileStateWriter(ITEM_STATE_KEYS, accordionState
  */
 export class AccordionItemStateView {
   declare private readonly item: AccordionItemModel;
+  /**
+   * `open` as `hidden` read it, and the write it was read in: a writer reads `hidden` before
+   * `open` (`ITEM_STATE_KEYS`), and each membership read of the root's projection allocates in the
+   * runtime, so one write reads it once.
+   */
+  declare private openPass: number;
+  declare private openValue: boolean;
 
   constructor(item: AccordionItemModel) {
     this.item = item;
+    this.openPass = -1;
+    this.openValue = false;
   }
 
   get value() {
@@ -38,7 +47,10 @@ export class AccordionItemStateView {
   }
 
   get hidden() {
-    return this.item.hidden();
+    const open = this.item.open();
+    this.openPass = currentWritePass();
+    this.openValue = open;
+    return !open && !this.item.collapsible.mountedWhileClosed();
   }
 
   get index() {
@@ -50,7 +62,7 @@ export class AccordionItemStateView {
   }
 
   get open() {
-    return this.item.open();
+    return this.openPass === currentWritePass() ? this.openValue : this.item.open();
   }
 }
 
