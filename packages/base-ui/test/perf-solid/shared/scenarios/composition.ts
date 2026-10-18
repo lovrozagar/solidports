@@ -43,18 +43,21 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'open popover',
+        firstOpen: true,
         run: () => click(q('[data-testid="popover-trigger"]')),
         settle: true,
         verify: () => qa('[data-testid="popover-popup"]').length,
       },
       {
         name: 'open dialog',
+        firstOpen: true,
         run: () => click(q('[data-testid="dialog-trigger"]')),
         settle: true,
         verify: () => qa('[role="dialog"]').length,
       },
       {
         name: 'open select',
+        firstOpen: true,
         run: () => click(q('[data-testid="select-trigger"]')),
         settle: true,
         verify: () => qa('[role="option"]').length,

@@ -15,6 +15,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'open via trigger',
+        firstOpen: true,
         run: () => click(q('[data-testid="alert-trigger"]')),
         settle: true,
         verify: summary,

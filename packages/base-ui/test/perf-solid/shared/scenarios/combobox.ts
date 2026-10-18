@@ -21,7 +21,13 @@ const scenarios: Scenario[] = [
     components: ['combobox'],
     tags: ['scale-1000', 'controlled', 'typing', 'open', 'close', 'portal'],
     steps: [
-      { name: 'open', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: rows },
+      {
+        name: 'open',
+        firstOpen: true,
+        run: (ctx) => ctx.lib.set('open', true),
+        settle: true,
+        verify: rows,
+      },
       {
         name: 'type "item 5"',
         run: (ctx) => type(input(), 'item 5', ctx.lib.flush),
@@ -86,6 +92,7 @@ scenarios.push(
     steps: [
       {
         name: 'open by trigger',
+        firstOpen: true,
         run: () => click(q('[data-testid="trigger"]')),
         settle: true,
         verify: view,
@@ -158,7 +165,13 @@ scenarios.push(
     components: ['combobox'],
     tags: ['scale-1000', 'controlled', 'typing', 'open', 'close', 'portal'],
     steps: [
-      { name: 'open', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: view },
+      {
+        name: 'open',
+        firstOpen: true,
+        run: (ctx) => ctx.lib.set('open', true),
+        settle: true,
+        verify: view,
+      },
       {
         name: 'type "item 4"',
         run: (ctx) => type(input(), 'item 4', ctx.lib.flush),
@@ -177,6 +190,7 @@ scenarios.push(
     steps: [
       {
         name: 'open',
+        firstOpen: true,
         run: (ctx) => ctx.lib.set('open', true),
         settle: true,
         verify: () => ({ open: !!listbox(), chips: chips() }),

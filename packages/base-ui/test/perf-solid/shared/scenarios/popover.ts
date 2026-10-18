@@ -16,6 +16,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'open by click',
+        firstOpen: true,
         run: () => click(q('[data-testid="popover-trigger"]')),
         settle: true,
         verify: summary,

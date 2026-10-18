@@ -31,6 +31,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'hover open one',
+        firstOpen: true,
         run: () => hover(qa('[data-testid="tooltip-trigger"]')[0]),
         settle: true,
         verify: summary,
@@ -44,7 +45,7 @@ const scenarios: Scenario[] = [
         timerMs: 40,
         verify: summary,
       },
-      sweep('[data-testid="tooltip-trigger"]'),
+      { ...sweep('[data-testid="tooltip-trigger"]'), firstOpen: true },
     ],
   },
   {
@@ -52,7 +53,7 @@ const scenarios: Scenario[] = [
     fixture: 'tooltip/handle',
     components: ['tooltip'],
     tags: ['scale-100', 'uncontrolled', 'pointer', 'open', 'close', 'portal'],
-    steps: [sweep('[data-testid="tooltip-trigger"]')],
+    steps: [{ ...sweep('[data-testid="tooltip-trigger"]'), firstOpen: true }],
   },
 ];
 

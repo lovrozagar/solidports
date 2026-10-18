@@ -43,11 +43,12 @@ const scenarios: Scenario[] = [
     components: ['drawer'],
     tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal', 'nested'],
     steps: [
-      open,
+      { ...open, firstOpen: true },
       { name: 'close via Escape', run: () => key('Escape'), settle: true, verify: summary },
       open,
       {
         name: 'open nested',
+        firstOpen: true,
         run: () => click(q('[data-testid="nested-drawer-trigger"]')),
         settle: true,
         verify: summary,

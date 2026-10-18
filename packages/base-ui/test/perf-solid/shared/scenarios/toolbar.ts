@@ -29,6 +29,7 @@ const scenarios: Scenario[] = [
       { name: 'focus input', run: () => click(q('[data-testid="tb-input"]')), verify: focused },
       {
         name: 'open menu via toolbar button',
+        firstOpen: true,
         run: () => click(q('[data-testid="tb-menu"]')),
         settle: true,
         verify: focused,

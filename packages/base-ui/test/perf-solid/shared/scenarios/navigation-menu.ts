@@ -23,6 +23,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'hover open',
+        firstOpen: true,
         run: async (ctx) => {
           hover(q('[data-nav="item-0"]'));
           ctx.lib.flush();

@@ -172,7 +172,7 @@ describe("perf regression rule", () => {
 		})
 	})
 
-	test("gated metrics: sync, script, settled, server and hydration ms on a 0.1 ms floor; heap and step heap growth above 100 KB", () => {
+	test("gated metrics: sync, script, settled, server and hydration ms on a 0.1 ms floor; heap, step heap growth and a first open's budget above 100 KB", () => {
 		expect(GATED).toEqual({
 			sync: { floor: 0.1 },
 			script: { floor: 0.1 },
@@ -181,6 +181,7 @@ describe("perf regression rule", () => {
 			hydrateSyncMs: { floor: 0.1 },
 			heapKB: { floor: 0, minBoth: 100 },
 			growthKB: { floor: 0, minBoth: 100 },
+			openBudgetKB: { floor: 0, minBoth: 100 },
 		})
 	})
 })

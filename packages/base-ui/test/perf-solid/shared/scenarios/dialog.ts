@@ -29,7 +29,7 @@ const scenarios: Scenario[] = [
     components: ['dialog'],
     tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal', 'nested'],
     steps: [
-      openByTrigger,
+      { ...openByTrigger, firstOpen: true },
       { name: 'close via Escape', run: () => key('Escape'), settle: true, verify: summary },
       openByTrigger,
       {
@@ -48,6 +48,7 @@ const scenarios: Scenario[] = [
       openByTrigger,
       {
         name: 'open nested',
+        firstOpen: true,
         run: () => click(q('[data-testid="nested-trigger"]')),
         settle: true,
         verify: summary,

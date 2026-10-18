@@ -14,6 +14,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'hover open',
+        firstOpen: true,
         run: () => hover(qa('[data-testid="card-trigger"]')[0]),
         settle: true,
         verify: summary,

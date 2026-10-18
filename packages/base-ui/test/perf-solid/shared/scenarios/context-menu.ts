@@ -60,6 +60,7 @@ const scenarios: Scenario[] = [
     steps: [
       {
         name: 'right-click open',
+        firstOpen: true,
         run: () => contextMenuAt(target(100)),
         settle: true,
         verify: () => ({ menus: openMenus(), items: qa('[role="menuitem"]').length }),

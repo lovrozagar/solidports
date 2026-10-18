@@ -145,6 +145,43 @@ describe("one-sided samples", () => {
 		expect(summary["select/1000 › open"].base.samples.growthKB).toEqual([120, 130, 140])
 	})
 
+	test("judges a first-open step's growth together with the mount's heap, one budget", () => {
+		const withGrowth = {
+			"accordion/300": {
+				base: {
+					steps: {
+						"open all": { ...step([1, 1, 1], [1, 1, 1]), growthKB: [100, 110, 120] },
+						"close all": { ...step([1, 1, 1], [1, 1, 1]), growthKB: [50, 60, 70] },
+					},
+					heapKB: [900, 1000, 1100],
+				},
+			},
+		}
+		const summary = summarize(withGrowth, ["base"], {}, { "accordion/300": ["open all"] })
+		const open = summary["accordion/300 › open all"]
+		expect(open.firstOpen).toBe(true)
+		expect(open.base.samples.openBudgetKB).toEqual([1100, 1110, 1120])
+		expect(open.base).toMatchObject({ openBudgetKB: 1110 })
+		expect(summary["accordion/300 › close all"].firstOpen).toBeUndefined()
+		const pair = (entry: object) => ({ base: entry, cur: entry })
+		const pairs = variantPairs(
+			{
+				"accordion/300 › open all": { ...pair(open.base), firstOpen: true },
+				"accordion/300 › close all": pair(summary["accordion/300 › close all"].base),
+			},
+			"base",
+			"cur",
+		)
+		expect(pairs.map((p) => `${p.key.split(" › ")[1]} ${p.metric}`)).toEqual([
+			"open all sync",
+			"open all script",
+			"open all openBudgetKB",
+			"close all sync",
+			"close all script",
+			"close all growthKB",
+		])
+	})
+
 	test("lists the metrics one side did not measure", () => {
 		expect(unmeasuredPairs(summary, "base", "cur")).toEqual([
 			"menu/200 › long-press sync: measured by base only",

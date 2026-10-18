@@ -142,6 +142,7 @@ const knownHits = [];
 /** Every console warning and error the pages logged, by scenario and variant. */
 const consoleEntries = [];
 const timers = Object.fromEntries(list.map((scenario) => [scenario.id, scenario.timers]));
+const firstOpens = Object.fromEntries(list.map((scenario) => [scenario.id, scenario.firstOpen]));
 for (const { id, steps } of list) {
   results[id] = {};
   for (let round = 0; round < 2; round += 1) {
@@ -260,7 +261,7 @@ for (const entry of consoleCheck.unknown) {
 const fmt = (n) => (n == null ? '-' : n.toFixed(1));
 // A ratio of a column the engine does not measure is `-`, not `NaNx`.
 const ratio = (n) => (Number.isFinite(n) ? `${n.toFixed(2)}x` : '-');
-const summary = summarize(results, NAMES, timers);
+const summary = summarize(results, NAMES, timers, firstOpens);
 const ratioNames = NAMES.slice(1).map((name) => `${name}/${NAMES[0]}`);
 const lines = [
   `# Base UI bench ${new Date().toISOString()}`,

@@ -24,7 +24,7 @@ const scenarios: Scenario[] = [
     components: ['select'],
     tags: ['scale-1000', 'controlled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
-      openStep,
+      { ...openStep, firstOpen: true },
       {
         name: 'nav x50',
         run: async (ctx) => {
@@ -92,7 +92,13 @@ scenarios.push(
     components: ['select'],
     tags: ['scale-1000', 'controlled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
-      { name: 'open by click', run: () => click(trigger()), settle: true, verify: openState },
+      {
+        name: 'open by click',
+        firstOpen: true,
+        run: () => click(trigger()),
+        settle: true,
+        verify: openState,
+      },
       { name: 'close by Escape', run: () => key('Escape'), settle: true, verify: openState },
       {
         name: 'open by ArrowDown',
@@ -181,6 +187,7 @@ scenarios.push(
     steps: [
       {
         name: 'open (scroll selected into view)',
+        firstOpen: true,
         run: (ctx) => ctx.lib.set('open', true),
         settle: true,
         verify: () => ({
@@ -206,6 +213,7 @@ scenarios.push(
     steps: [
       {
         name: 'open',
+        firstOpen: true,
         run: (ctx) => ctx.lib.set('open', true),
         settle: true,
         verify: () => !!listbox(),
