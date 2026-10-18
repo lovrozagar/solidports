@@ -106,6 +106,64 @@ describe('disclosure trigger disabled gates', () => {
     },
   );
 
+  it.each([
+    ['Collapsible', 'collapsible'],
+    ['Accordion', 'accordion'],
+  ] as const)(
+    'runs the gates of a non-button %s trigger once a reactive disabled is true',
+    (_, family) => {
+      // A `<span>` has no `disabled`, so Solid's delegation runs its handlers: the gates act.
+      const [disabled, setDisabled] = createSignal(false);
+      const onKeyDown = vi.fn();
+      render(() =>
+        family === 'collapsible' ? (
+          <Collapsible.Root>
+            <Collapsible.Trigger
+              data-testid="trigger"
+              nativeButton={false}
+              render="span"
+              disabled={disabled()}
+              onKeyDown={onKeyDown}
+            >
+              Toggle
+            </Collapsible.Trigger>
+          </Collapsible.Root>
+        ) : (
+          <Accordion.Root>
+            <Accordion.Item value="a">
+              <Accordion.Header>
+                <Accordion.Trigger
+                  data-testid="trigger"
+                  nativeButton={false}
+                  render="span"
+                  disabled={disabled()}
+                  onKeyDown={onKeyDown}
+                >
+                  A
+                </Accordion.Trigger>
+              </Accordion.Header>
+            </Accordion.Item>
+          </Accordion.Root>
+        ),
+      );
+      const trigger = screen.getByTestId('trigger');
+      setDisabled(true);
+      flush();
+      const keydown = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(trigger, keydown);
+      // `useButton`: a disabled non-button stops the consumer's keydown, and prevents its
+      // pointerdown.
+      expect(onKeyDown).not.toHaveBeenCalled();
+      const pointerdown = new Event('pointerdown', { bubbles: true, cancelable: true });
+      fireEvent(trigger, pointerdown);
+      expect(pointerdown.defaultPrevented).toBe(true);
+    },
+  );
+
   it('binds the gates of an Accordion trigger whose root is disabled reactively', () => {
     const [disabled] = createSignal(false);
     render(() => (
