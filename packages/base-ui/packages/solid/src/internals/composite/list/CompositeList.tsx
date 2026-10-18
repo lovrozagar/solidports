@@ -1,7 +1,7 @@
 /* eslint-disable no-bitwise */
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { createLayoutEffect, provideContext } from '../../../solid-helpers';
+import { createLayoutEffect } from '../../../solid-helpers';
 import { CompositeListContext } from './CompositeListContext';
 import type { CompositeListIndexSink, CompositeListRegistration } from './CompositeListContext';
 
@@ -250,10 +250,14 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
     };
   }
 
-  return provideContext(
-    CompositeListContext,
-    { register, unregister, subscribeMapChange, nextIndexRef },
-    () => <>{props.children}</>,
+  // The JSX provider, not `provideContext`: its children memo puts the items' render effects after
+  // the list's own effect in a flush (effects apply by reactive height), so an item applies once,
+  // with the index the list assigned. Under a transparent owner every item applied twice, first
+  // with no index (GOTCHA-019): a 500-item Menu open ran 4,300 more computations.
+  return (
+    <CompositeListContext value={{ register, unregister, subscribeMapChange, nextIndexRef }}>
+      {props.children}
+    </CompositeListContext>
   );
 }
 
