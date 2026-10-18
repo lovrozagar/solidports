@@ -29,3 +29,48 @@ export function createNativeConditional<T>(
     return branch?.value;
   };
 }
+
+/**
+ * `createNativeConditional` for a part that is a class: the part extends this, keeps its inputs
+ * as fields and implements `shouldRender` and `render`, and returns `accessor()`. A closed part
+ * then holds one object and the one accessor its parent tracks, not a closure per input and the
+ * scope they keep.
+ */
+export abstract class NativeConditional<T> {
+  declare protected readonly owner: Owner | null;
+  declare private shown: boolean;
+  declare private branch: { dispose: () => void; value: T } | undefined;
+
+  constructor(owner: Owner | null) {
+    this.owner = owner;
+    this.shown = false;
+    this.branch = undefined;
+  }
+
+  /** Whether the branch renders; read by the parent's insert, so it tracks what it reads. */
+  abstract shouldRender(): boolean;
+
+  /** The branch, created in a root of its own owned by the part. */
+  abstract render(): T;
+
+  /** The accessor the parent's insert tracks. */
+  accessor(): () => T | undefined {
+    return this.read.bind(this);
+  }
+
+  private read(): T | undefined {
+    const show = this.shouldRender();
+    if (show !== this.shown) {
+      this.shown = show;
+      if (show) {
+        this.branch = runWithOwner(this.owner, () =>
+          createRoot((dispose) => ({ dispose, value: this.render() })),
+        );
+      } else {
+        this.branch?.dispose();
+        this.branch = undefined;
+      }
+    }
+    return this.branch?.value;
+  }
+}

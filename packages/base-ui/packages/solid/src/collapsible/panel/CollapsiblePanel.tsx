@@ -2,7 +2,7 @@ import { getOwner, omit, Show, untrack } from 'solid-js';
 import type { Owner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
-import { createNativeConditional } from '../../utils/native/conditional';
+import { NativeConditional } from '../../utils/native/conditional';
 import {
   createDepsEffect,
   createDepsRenderEffect,
@@ -183,6 +183,55 @@ export function warnKeepMountedIgnored(
   );
 }
 
+/**
+ * The native panel. A closed panel without `keepMounted` never renders: it holds only this object
+ * and its accessor. The measurement and transition machinery and the panel's state are created
+ * when the panel first renders and kept for the part's lifetime, owned by the part.
+ */
+class NativeCollapsiblePanelPart extends NativeConditional<JSX.Element> {
+  declare private readonly props: CollapsiblePanel.Props;
+  declare private readonly root: ReturnType<typeof useCollapsibleRootContext>;
+  declare private readonly registerId: ReturnType<typeof createIdRegistration>;
+  declare private readonly initialOpen: boolean;
+  declare private rendered: ReturnType<typeof createRenderedPanel> | undefined;
+
+  constructor(props: CollapsiblePanel.Props, owner: Owner | null) {
+    super(owner);
+    this.props = props;
+    const root = useCollapsibleRootContext();
+    this.root = root;
+    this.registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
+    this.initialOpen = untrack(() => root.open());
+    this.rendered = undefined;
+  }
+
+  shouldRender(): boolean {
+    const root = this.root;
+    return (
+      Boolean(this.props.keepMounted || this.props.hiddenUntilFound) ||
+      root.open() ||
+      root.mountedWhileClosed()
+    );
+  }
+
+  render(): JSX.Element {
+    this.rendered ??= createRenderedPanel(this.props, this.root, this.owner, this.initialOpen);
+    const panel = this.rendered;
+    return renderNativePanel(
+      this.props,
+      () => panel.state,
+      panel.panel,
+      panel.id,
+      collapsibleStateAttributesMapping,
+      undefined,
+      undefined,
+      this.registerId,
+      writeCollapsibleState,
+      panel.view,
+    );
+  }
+}
+
 function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
   const owner = getOwner();
 
@@ -195,34 +244,7 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
     );
   }
 
-  const root = useCollapsibleRootContext();
-  const registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
-  const initialOpen = untrack(() => root.open());
-  // A closed panel without `keepMounted` never renders: it allocates only this condition. The
-  // measurement and transition machinery and the panel's state are created when the panel first
-  // renders and kept for the part's lifetime, owned by the part.
-  const shouldRender = () =>
-    Boolean(props.keepMounted || props.hiddenUntilFound) ||
-    root.open() ||
-    root.mountedWhileClosed();
-  let rendered: ReturnType<typeof createRenderedPanel> | undefined;
-
-  return createNativeConditional(owner, shouldRender, () => {
-    rendered ??= createRenderedPanel(props, root, owner, initialOpen);
-    const panel = rendered;
-    return renderNativePanel(
-      props,
-      () => panel.state,
-      panel.panel,
-      panel.id,
-      collapsibleStateAttributesMapping,
-      undefined,
-      undefined,
-      registerId,
-      writeCollapsibleState,
-      panel.view,
-    );
-  }) as unknown as JSX.Element;
+  return new NativeCollapsiblePanelPart(props, owner).accessor() as unknown as JSX.Element;
 }
 
 /** A native panel's machinery and state, created on its first render. */

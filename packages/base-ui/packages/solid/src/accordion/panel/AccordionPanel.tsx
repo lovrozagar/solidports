@@ -2,7 +2,7 @@ import { getOwner, omit, Show, untrack } from 'solid-js';
 import type { Owner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
-import { createNativeConditional } from '../../utils/native/conditional';
+import { NativeConditional } from '../../utils/native/conditional';
 import {
   renderNativePanel,
   warnKeepMountedIgnored,
@@ -167,60 +167,89 @@ const writePanelState = compileStateWriter(
   accordionStateAttributesMapping,
 );
 
-function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
-  const owner = getOwner();
-  const accordionRoot = useAccordionRootContext();
-  const root = useCollapsibleRootContext();
-  const item = useAccordionItemContext();
+/**
+ * The native panel. A closed panel without `keepMounted` never renders: it holds only this object
+ * and its accessor. The measurement and transition machinery and the panel's state are created
+ * when the panel first renders and kept for the part's lifetime, owned by the part.
+ */
+class NativeAccordionPanelPart extends NativeConditional<JSX.Element> {
+  declare private readonly props: AccordionPanel.Props;
+  declare private readonly accordionRoot: ReturnType<typeof useAccordionRootContext>;
+  declare private readonly root: ReturnType<typeof useCollapsibleRootContext>;
+  declare private readonly item: ReturnType<typeof useAccordionItemContext>;
+  declare private readonly registerId: ReturnType<typeof createIdRegistration>;
+  declare private readonly initialOpen: boolean;
+  declare private rendered: ReturnType<typeof createRenderedPanel> | undefined;
 
-  const hiddenUntilFound = () => props.hiddenUntilFound ?? accordionRoot.hiddenUntilFound();
-  const keepMounted = () => props.keepMounted ?? accordionRoot.keepMounted();
+  constructor(props: AccordionPanel.Props, owner: Owner | null) {
+    super(owner);
+    this.props = props;
+    this.accordionRoot = useAccordionRootContext();
+    const root = useCollapsibleRootContext();
+    this.root = root;
+    this.item = useAccordionItemContext();
+    this.registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
+    this.initialOpen = untrack(() => root.open());
+    this.rendered = undefined;
+  }
 
-  if (process.env.NODE_ENV !== 'production') {
-    // The warning needs the panel's own `keepMounted={false}`: when that prop is static and not
-    // `false`, it can never fire, whatever `hiddenUntilFound` becomes.
-    warnKeepMountedIgnored(
-      hiddenUntilFound,
-      () => props.keepMounted,
-      KEEP_MOUNTED_WARNING,
-      !isStaticProp(props, 'keepMounted') || untrack(() => props.keepMounted) === false,
+  hiddenUntilFound(): boolean {
+    return this.props.hiddenUntilFound ?? this.accordionRoot.hiddenUntilFound();
+  }
+
+  keepMounted(): boolean {
+    return this.props.keepMounted ?? this.accordionRoot.keepMounted();
+  }
+
+  shouldRender(): boolean {
+    const root = this.root;
+    return (
+      this.keepMounted() || this.hiddenUntilFound() || root.open() || root.mountedWhileClosed()
     );
   }
 
-  const registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
-
-  // A closed panel without `keepMounted` never renders: it allocates only this condition. The
-  // measurement and transition machinery and the panel's state are created when the panel first
-  // renders and kept for the part's lifetime, owned by the part.
-  const initialOpen = untrack(() => root.open());
-  const shouldRender = () =>
-    keepMounted() || hiddenUntilFound() || root.open() || root.mountedWhileClosed();
-  let rendered: ReturnType<typeof createRenderedPanel> | undefined;
-
-  return createNativeConditional(owner, shouldRender, () => {
-    rendered ??= createRenderedPanel(
-      props,
-      root,
+  render(): JSX.Element {
+    const item = this.item;
+    this.rendered ??= createRenderedPanel(
+      this.props,
+      this.root,
       item,
-      owner,
-      initialOpen,
-      hiddenUntilFound,
-      keepMounted,
+      this.owner,
+      this.initialOpen,
+      () => this.hiddenUntilFound(),
+      () => this.keepMounted(),
     );
-    const panel = rendered;
+    const panel = this.rendered;
     return renderNativePanel(
-      props,
+      this.props,
       () => panel.state,
       panel.panel,
       panel.id,
       accordionStateAttributesMapping,
       REGION,
       (w) => w.set('aria-labelledby', item.triggerId()),
-      registerId,
+      this.registerId,
       writePanelState,
       panel.view,
     );
-  }) as unknown as JSX.Element;
+  }
+}
+
+function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
+  const part = new NativeAccordionPanelPart(props, getOwner());
+
+  if (process.env.NODE_ENV !== 'production') {
+    // The warning needs the panel's own `keepMounted={false}`: when that prop is static and not
+    // `false`, it can never fire, whatever `hiddenUntilFound` becomes.
+    warnKeepMountedIgnored(
+      () => part.hiddenUntilFound(),
+      () => props.keepMounted,
+      KEEP_MOUNTED_WARNING,
+      !isStaticProp(props, 'keepMounted') || untrack(() => props.keepMounted) === false,
+    );
+  }
+
+  return part.accessor() as unknown as JSX.Element;
 }
 
 type CollapsiblePanelHook = ReturnType<typeof useCollapsiblePanel>;
