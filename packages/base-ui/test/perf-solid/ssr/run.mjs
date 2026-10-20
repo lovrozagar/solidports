@@ -33,6 +33,7 @@ import solid from '@solidjs/vite-plugin';
 import { build } from 'vite';
 import { matchesFilter, parseFilter } from '../shared/filter.mjs';
 import { assertScriptMetric, evaluateInTask } from '../shared/measure.mjs';
+import { balancedOrders } from '../shared/order.mjs';
 import { median } from '../shared/regression.mjs';
 import { SERVER_SAMPLING, sampleServer } from './sample.mjs';
 import { mainThreadLines } from '../shared/report.mjs';
@@ -67,6 +68,7 @@ const VARIANTS = Object.fromEntries(
   }),
 );
 const NAMES = Object.keys(VARIANTS);
+const orders = balancedOrders(NAMES);
 const outDir = (name) => path.join(builds, VARIANTS[name].out);
 
 function config(name, ssr) {
@@ -259,7 +261,8 @@ if (!process.env.SERVER_ONLY) {
     const summaries = {};
     const total = Object.fromEntries(NAMES.map((name) => [name, []]));
     for (let run = 0; run < WARMUP + RUNS; run += 1) {
-      for (const name of NAMES) {
+      // A balanced order, changed run by run, as the server sampling's (`shared/order.mjs`).
+      for (const name of orders[run % orders.length]) {
         const page = await browser.newPage();
         const logs = [];
         page.on('console', (message) => {

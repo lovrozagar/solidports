@@ -36,7 +36,8 @@ const USAGE =
 
 /** @param {string[]} argv */
 /**
- * Browser runs per variant: two rounds give 24 samples a side, the fewest at which the rule
+ * Browser runs per variant: twice this many samples a side (24), over the balanced order's rounds
+ * (D22), the fewest at which the rule
  * (D16) flags five true 2x regressions among 400 judged pairs under the Mac's GC noise.
  */
 export const DEFAULT_RUNS = 12;
@@ -413,22 +414,39 @@ export async function main(argv, deps = {}) {
   });
   const ssrIds = ssrCases.filter((c) => matchesFilter(c, ssrTerms)).map((c) => c.id);
   let ssr = null;
+  let ssrSwapped = null;
   let ssrExit = 0;
-  if (ssrIds.length) {
-    ssrExit = exec(
+  const runSsr = (variants, file) => {
+    const code = exec(
       'node',
       // `--expose-gc`: the server sampler collects before each batch (`ssr/sample.mjs`).
       ['--expose-gc', 'test/perf-solid/ssr/run.mjs', String(options.ssrRuns), ssrIds.join(',')],
       {
-        env: { NO_BUILD: '1', SSR_VARIANTS: ssrVariants.join(','), RESULTS_FILE: `${out}-ssr` },
+        env: { NO_BUILD: '1', SSR_VARIANTS: variants.join(','), RESULTS_FILE: file },
         allowFail: true,
         locked: true,
         timeoutSeconds: benchTimeoutSeconds(ssrIds.length * options.ssrRuns, 10),
       },
     );
-    ssr = fs.existsSync(`${out}-ssr.json`)
-      ? JSON.parse(fs.readFileSync(`${out}-ssr.json`, 'utf8'))
-      : null;
+    return {
+      code,
+      results: fs.existsSync(`${file}.json`)
+        ? JSON.parse(fs.readFileSync(`${file}.json`, 'utf8'))
+        : null,
+    };
+  };
+  if (ssrIds.length) {
+    const forward = runSsr(ssrVariants, `${out}-ssr`);
+    ssrExit = forward.code;
+    ssr = forward.results;
+    // A comparison also runs in a second process with the variant order reversed: one Node process
+    // keeps an offset between its bundles that follows their load order (D22), so a verdict needs
+    // both orders to agree.
+    if (base) {
+      const swapped = runSsr([...ssrVariants].reverse(), `${out}-ssr-swapped`);
+      ssrExit ||= swapped.code;
+      ssrSwapped = swapped.results;
+    }
   }
 
   // --- Cost tests (working tree; budgets are absolute) ---
@@ -484,11 +502,17 @@ export async function main(argv, deps = {}) {
   const ssrUnmeasured = [];
   if (base && ssr) {
     for (const [key, row] of Object.entries(ssr.results)) {
+      const swappedRow = ssrSwapped?.results[key];
       for (const metric of ['serverMs', 'hydrateSyncMs']) {
         const a = row.base?.samples[metric] ?? [];
         const b = row.cur?.samples[metric] ?? [];
-        if (a.length && b.length) pairs.push({ key, metric, base: a, cur: b, rule: GATED[metric] });
-        else if (a.length || b.length) ssrUnmeasured.push(`${key} ${metric}: measured by ${a.length ? 'base' : 'cur'} only`);
+        const sa = swappedRow?.base?.samples[metric] ?? [];
+        const sb = swappedRow?.cur?.samples[metric] ?? [];
+        if (a.length && b.length && sa.length && sb.length) {
+          pairs.push({ key, metric, orders: [{ base: a, cur: b }, { base: sa, cur: sb }], rule: GATED[metric] });
+        } else if (a.length || b.length || sa.length || sb.length) {
+          ssrUnmeasured.push(`${key} ${metric}: not measured by both sides in both orders`);
+        }
       }
     }
   }
@@ -587,14 +611,14 @@ export async function main(argv, deps = {}) {
       '',
       '## cur vs base (Mann–Whitney, D16)',
       '',
-      `${judged.pairs} pairs judged together; Benjamini–Hochberg at q = ${FDR_Q} sets the two-sided p threshold to ${judged.threshold ? judged.threshold.toExponential(2) : 'none (no pair passes)'}, then the 95% CI of the median shift must clear the minimum effect.`,
+      `${judged.pairs} pairs judged together; Benjamini–Hochberg at q = ${FDR_Q} sets the two-sided p threshold to ${judged.threshold ? judged.threshold.toExponential(2) : 'none (no pair passes)'}, then the 95% CI of the median shift must clear the minimum effect. SSR rows run in two processes with the variant order reversed (D22): their delta, medians and CI are the two orders' means, each order's delta follows in brackets, and a row is regressed or improved only when both orders clear the margin the same way.`,
       '',
       '| key | metric | base | cur | delta | 95% CI | min effect | p | verdict |',
       '|---|---|---|---|---|---|---|---|---|',
     );
     for (const v of [...verdicts.browser, ...verdicts.ssr]) {
       md.push(
-        `| ${v.key} | ${v.metric} | ${fmt(v.base)} | ${fmt(v.cur)} | ${fmt(v.delta)} | ${fmt(v.ci[0])} to ${fmt(v.ci[1])} | ${fmt(v.minEffect)} | ${v.p.toExponential(1)} | ${v.verdict} |`,
+        `| ${v.key} | ${v.metric} | ${fmt(v.base)} | ${fmt(v.cur)} | ${fmt(v.delta)}${v.orders ? ` (forward ${fmt(v.orders[0].delta)}, reversed ${fmt(v.orders[1].delta)})` : ''} | ${fmt(v.ci[0])} to ${fmt(v.ci[1])} | ${fmt(v.minEffect)} | ${v.p.toExponential(1)} | ${v.verdict} |`,
       );
     }
   }

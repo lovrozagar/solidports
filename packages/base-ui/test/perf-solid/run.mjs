@@ -1,7 +1,10 @@
 // Runs the shared scenarios (`shared/scenarios/*.ts`) against the React and Solid production builds
 // in Chromium. Each scenario runs in a fresh page per variant: WARMUP unmeasured cycles, then RUNS
 // timing cycles of mount → steps → unmount, then HEAP_RUNS heap cycles (`shared/cycles.mjs`).
-// Variants are interleaved (two rounds) so their ratios are comparable within one session.
+// Variants are interleaved so their ratios are comparable within one session: two rounds, or one per
+// order of a balanced design (`shared/order.mjs`) when there are more than two variants, each round
+// in that design's next order, so no variant keeps one place. The runs split over the rounds keep
+// every variant's sample count at twice RUNS (and twice HEAP_RUNS).
 //
 // Usage (from packages/base-ui, after `bun run bench:solid:build`):
 //   node test/perf-solid/run.mjs [runs=8] [filter,...]     filter: `shared/filter.mjs` terms
@@ -22,6 +25,7 @@ import { matchesFilter, parseFilter } from './shared/filter.mjs';
 import { heapCycle, retainedKB, timingCycle } from './shared/cycles.mjs';
 import { engineSpec, measuredColumns } from './shared/engines.mjs';
 import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
+import { balancedOrders, splitRuns } from './shared/order.mjs';
 import { summarize } from './shared/report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -45,6 +49,10 @@ const VARIANTS = Object.fromEntries(
   }),
 );
 const NAMES = Object.keys(VARIANTS);
+const ORDERS = balancedOrders(NAMES);
+const ROUND_COUNT = Math.max(2, ORDERS.length);
+const ROUNDS = splitRuns(RUNS, ROUND_COUNT);
+const HEAP_ROUNDS = splitRuns(HEAP_RUNS, ROUND_COUNT);
 const KNOWN = JSON.parse(fs.readFileSync(path.join(here, 'known-differences.json'), 'utf8'));
 const KNOWN_CONSOLE = JSON.parse(
   fs.readFileSync(path.join(here, 'known-warnings.json'), 'utf8'),
@@ -145,8 +153,12 @@ const timers = Object.fromEntries(list.map((scenario) => [scenario.id, scenario.
 const firstOpens = Object.fromEntries(list.map((scenario) => [scenario.id, scenario.firstOpen]));
 for (const { id, steps } of list) {
   results[id] = {};
-  for (let round = 0; round < 2; round += 1) {
-    for (const name of NAMES) {
+  for (const [round, roundRuns] of ROUNDS.entries()) {
+    // Fewer runs than rounds (a one-run check of three variants) leave rounds with nothing to run.
+    if (roundRuns === 0 && HEAP_ROUNDS[round] === 0) {
+      continue;
+    }
+    for (const name of ORDERS[round % ORDERS.length]) {
       const { page, cdp, errors, logs } = await openPage(browser, name);
       results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], errors: [] };
       const entry = results[id][name];
@@ -165,7 +177,7 @@ for (const { id, steps } of list) {
         return { result, before, after };
       };
       const stepCount = steps.length;
-      for (let run = 0; run < WARMUP + RUNS; run += 1) {
+      for (let run = 0; run < WARMUP + roundRuns; run += 1) {
         const timed = await timingCycle({
           collect,
           runStep,
@@ -222,7 +234,7 @@ for (const { id, steps } of list) {
           }
         });
       }
-      for (let run = 0; ENGINE.heap && run < HEAP_RUNS; run += 1) {
+      for (let run = 0; ENGINE.heap && run < HEAP_ROUNDS[round]; run += 1) {
         entry.heapKB.push(await heapCycle({ collect, readHeap, runStep, stepCount }));
       }
       entry.errors.push(...errors);

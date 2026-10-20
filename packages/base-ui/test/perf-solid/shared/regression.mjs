@@ -210,16 +210,61 @@ export function judge(base, cur, rule) {
 }
 
 /**
+ * A row measured in two processes with the variant order swapped (`orders`, SSR): each order's
+ * comparison, the row's status (insufficient or ungated when either order is), and a result whose
+ * delta, medians and interval are the two orders' means. The mean cancels an additive offset that
+ * follows the load order. Each order keeps its own result and standalone verdict for the report.
+ */
+function compareOrders(orders, rule) {
+  const each = orders.map((order) => compare(order.base, order.cur, rule));
+  const status = each.some((c) => c.status === 'insufficient')
+    ? 'insufficient'
+    : each.find((c) => c.status !== 'judged')?.status ?? 'judged';
+  const mean = (read) => each.reduce((sum, c) => sum + read(c.result), 0) / each.length;
+  const baseMedian = mean((r) => r.base);
+  let ci;
+  const result = {
+    delta: mean((r) => r.delta),
+    minEffect: Math.max(rule.floor, MIN_RELATIVE * Math.abs(baseMedian)),
+    p: Math.max(...each.map((c) => c.result.p)),
+    get ci() {
+      ci ??= [mean((r) => r.ci[0]), mean((r) => r.ci[1])];
+      return ci;
+    },
+    base: baseMedian,
+    cur: mean((r) => r.cur),
+    orders: each.map((c) =>
+      Object.assign(c.result, {
+        verdict:
+          c.status === 'judged'
+            ? decide(c.result, { greater: c.tests.greater < ALPHA, less: c.tests.less < ALPHA })
+            : c.status,
+      }),
+    ),
+  };
+  // Both orders must reject: the larger of their two-sided p values tests that (intersection-union).
+  const twoSided = Math.max(
+    ...each.map((c) => Math.min(1, 2 * Math.min(c.tests.greater, c.tests.less))),
+  );
+  return { status, twoSided, result, each };
+}
+
+/**
  * Every comparison of one run, held together to a false discovery rate of `q`: the two-sided
  * Mann–Whitney p values of the judged pairs go through Benjamini–Hochberg, and a pair at or below
  * the resulting threshold is then decided by the margin, in the direction its median moved.
- * Insufficient and ungated pairs are not counted.
- * @template {{ base: number[], cur: number[], rule: { floor: number, minBoth?: number } }} T
+ * Insufficient and ungated pairs are not counted. A pair with `orders` (two processes with the
+ * variant order swapped, D22) counts once, at the larger of its orders' p values, and is
+ * regressed or improved only when both orders clear the margin in the same direction.
+ * @template {{ base?: number[], cur?: number[], orders?: { base: number[], cur: number[] }[], rule: { floor: number, minBoth?: number } }} T
  * @param {T[]} items
- * @returns {{ verdicts: (Omit<T, 'base' | 'cur' | 'rule'> & ReturnType<typeof judge>)[], pairs: number, threshold: number }}
+ * @returns {{ verdicts: (Omit<T, 'base' | 'cur' | 'rule' | 'orders'> & ReturnType<typeof judge>)[], pairs: number, threshold: number }}
  */
 export function judgeAll(items, q = FDR_Q) {
   const compared = items.map((item) => {
+    if (item.orders) {
+      return compareOrders(item.orders, item.rule);
+    }
     const c = compare(item.base, item.cur, item.rule);
     return { ...c, twoSided: Math.min(1, 2 * Math.min(c.tests.greater, c.tests.less)) };
   });
@@ -232,18 +277,30 @@ export function judgeAll(items, q = FDR_Q) {
       break;
     }
   }
-  const verdicts = items.map(({ base: _base, cur: _cur, rule: _rule, ...rest }, index) => {
-    const c = compared[index];
-    let verdict = c.status;
-    if (c.status === 'judged') {
-      const passes = judged.length > 0 && threshold > 0 && c.twoSided <= threshold;
-      verdict = decide(c.result, {
-        greater: passes && c.result.delta > 0,
-        less: passes && c.result.delta < 0,
-      });
-    }
-    return Object.assign(c.result, rest, { verdict });
-  });
+  const verdicts = items.map(
+    ({ base: _base, cur: _cur, rule: _rule, orders: _orders, ...rest }, index) => {
+      const c = compared[index];
+      let verdict = c.status;
+      if (c.status === 'judged') {
+        const passes = judged.length > 0 && threshold > 0 && c.twoSided <= threshold;
+        if (c.each) {
+          const decided = c.each.map((order) =>
+            decide(order.result, {
+              greater: passes && order.result.delta > 0,
+              less: passes && order.result.delta < 0,
+            }),
+          );
+          verdict = decided.every((v) => v === decided[0]) ? decided[0] : 'same';
+        } else {
+          verdict = decide(c.result, {
+            greater: passes && c.result.delta > 0,
+            less: passes && c.result.delta < 0,
+          });
+        }
+      }
+      return Object.assign(c.result, rest, { verdict });
+    },
+  );
   return { verdicts, pairs: judged.length, threshold };
 }
 
