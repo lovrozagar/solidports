@@ -32,6 +32,29 @@ describe("SSR server sampling", () => {
 		expect(verdicts(80, 80)).toEqual(SEEDS.map(() => "same"))
 	})
 
+	test("an A/A comparison with a position bias is the same: the order alternates run by run", () => {
+		// The Mac's csbnoise (2026-10-20): identical code read up to +0.18 ms by its place in the
+		// order. Here the first variant after each run's start pays 10% more for its whole batch.
+		const results = SEEDS.map((seed) => {
+			const m = machine(seed)
+			let collections = 0
+			let first = false
+			const gc = () => {
+				first = collections % 2 === 0
+				collections += 1
+				m.gc()
+			}
+			const biased = (ms: number) => {
+				const render = m.render(ms)
+				const slow = m.render(ms * 1.1)
+				return () => (first ? slow() : render())
+			}
+			const { samples } = sampleServer({ base: biased(80), cur: biased(80) }, { ...SERVER_SAMPLING, now: m.now, gc })
+			return judge(samples.base, samples.cur, GATED.serverMs).verdict
+		})
+		expect(results).toEqual(SEEDS.map(() => "same"))
+	})
+
 	test("without gc it refuses to sample, since its numbers would carry the collector's noise", () => {
 		const m = machine(1)
 		expect(() => sampleServer({ a: m.render(5) }, { runs: 20, warmup: 5, batchMs: 250 } as never)).toThrow(
