@@ -12,7 +12,7 @@ export interface UseCompositeItemParameters<Metadata> extends Pick<
 export function useCompositeItem<Metadata>(params: UseCompositeItemParameters<Metadata>) {
   const context = useCompositeRootContext();
   const listItem = useCompositeListItem(params);
-  const isHighlighted = () => context.highlightedIndex() === listItem.index();
+  const isHighlighted = () => context.isHighlighted(listItem.index());
   const [itemRef, setItemRef] = createSignal<HTMLElement | null | undefined>(null);
 
   const compositeProps: HTMLProps = {

@@ -14,6 +14,7 @@ import { ToolbarRootContext } from '../root/ToolbarRootContext';
 const testCompositeContext: CompositeRootContext = {
   highlightItemOnHover: () => false,
   highlightedIndex: () => 0,
+  isHighlighted: (index) => index === 0,
   onHighlightedIndexChange: NOOP,
   relayKeyboardEvent: NOOP,
 };

@@ -38,10 +38,16 @@ export function useOpenChangeComplete(parameters: useOpenChangeComplete.Paramete
         return undefined;
       }
 
-      const abortController = new AbortController();
-      runOnceAnimationsFinish(onComplete, abortController.signal);
+      // A run whose callback ran has nothing left to abort: its wait is over and its observer is
+      // gone. It drops its controller then, so a part that closed (a radio group's indicators,
+      // disposed together on unmount) holds no controller and its disposal fires no abort event.
+      let abortController: AbortController | undefined = new AbortController();
+      runOnceAnimationsFinish(() => {
+        abortController = undefined;
+        onComplete();
+      }, abortController.signal);
 
-      return () => abortController.abort();
+      return () => abortController?.abort();
     }),
   );
 }

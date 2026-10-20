@@ -118,7 +118,7 @@ const selectors = {
     platform.engine.webkit && state.inputFocused && highlighted() ? true : undefined,
   highlightedItemId: (state: State<unknown>) => state.highlightedItem?.id || undefined,
   // Keyed: a highlight move re-runs the old and the new item's readers, not every item's.
-  isActive: keyedSelector((state: State<unknown>) => state.activeIndex),
+  isActive: keyedSelector((state: State<unknown>) => state.activeIndex, undefined, { list: true }),
   hoverEnabled: (state: State<unknown>) => state.hoverEnabled,
   // `trigger-change` describes a popup moving between triggers, which only has
   // meaning while it is open. Dropping it once closed keeps a late or stale

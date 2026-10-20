@@ -141,7 +141,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
   const form = formGroup;
 
   const checked = () =>
-    groupContext ? groupContext.checkedValue() === local.value : local.value === '';
+    groupContext ? groupContext.isChecked(local.value) : local.value === '';
 
   const radioRef = useRef<HTMLElement | null | undefined>(null);
   const setFieldFocused = useSetFieldFocused(disabled, radioRef);
@@ -522,7 +522,7 @@ function radioAttributes(l: RadioLayout, target: Record<string, unknown>, once: 
       target,
       false,
       'tabindex',
-      m.composite!.highlightedIndex() === m.registration!.index() ? 0 : -1,
+      m.composite!.isHighlighted(m.registration!.index()) ? 0 : -1,
     );
   }
   const isChecked = once ? false : m.checked();
@@ -754,7 +754,7 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
   const required = () => Boolean(groupContext?.required() || props.required);
   const name = () => groupContext?.name();
   const checked = () =>
-    groupContext ? groupContext.checkedValue() === props.value : props.value === '';
+    groupContext ? groupContext.isChecked(props.value) : props.value === '';
   const touched = () => groupContext?.touched() ?? false;
 
   const id = useBaseUiId();

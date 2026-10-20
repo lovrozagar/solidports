@@ -83,8 +83,12 @@ describe('render core cost', () => {
         </Select.Portal>
       </Select.Root>
     );
-    const cost = nodes(list(['a', 'b'])) - nodes(list(['a']));
+    // The third item: the second creates the list's id selector (`createIdSelector`, its root
+    // and projection), once per list, as readers first ask about a second id.
+    const cost = nodes(list(['a', 'b', 'c'])) - nodes(list(['a', 'b']));
     expect(cost, `Select.Item: ${cost} nodes`).toBeLessThanOrEqual(23);
+    const second = nodes(list(['a', 'b'])) - nodes(list(['a']));
+    expect(second - cost, `Select's id selector: ${second - cost} nodes`).toBeLessThanOrEqual(2);
   });
 
   it('Combobox.Item costs at most 23 reactive nodes', () => {
@@ -102,8 +106,12 @@ describe('render core cost', () => {
         </Combobox.Portal>
       </Combobox.Root>
     );
-    const cost = nodes(list(['a', 'b'])) - nodes(list(['a']));
+    // The third item: the second creates the list's id selector (`createIdSelector`, its root
+    // and projection), once per list, as readers first ask about a second id.
+    const cost = nodes(list(['a', 'b', 'c'])) - nodes(list(['a', 'b']));
     expect(cost, `Combobox.Item: ${cost} nodes`).toBeLessThanOrEqual(23);
+    const second = nodes(list(['a', 'b'])) - nodes(list(['a']));
+    expect(second - cost, `Combobox's id selector: ${second - cost} nodes`).toBeLessThanOrEqual(2);
   });
 
   // The slowest static mounts (plan 3 leaf 1.13): an Avatar with its image and fallback, and a

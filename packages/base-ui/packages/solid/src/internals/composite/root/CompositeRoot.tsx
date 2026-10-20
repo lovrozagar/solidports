@@ -53,6 +53,7 @@ export function CompositeRoot<Metadata extends {}, State extends Record<string, 
   const {
     props: rootDefaultProps,
     highlightedIndex,
+    isHighlighted,
     onHighlightedIndexChange,
     onMapChange: onMapChangeUnwrapped,
     relayKeyboardEvent,
@@ -98,6 +99,7 @@ export function CompositeRoot<Metadata extends {}, State extends Record<string, 
   const contextValue: CompositeRootContext = {
     highlightItemOnHover: () => access(props.highlightItemOnHover) ?? false,
     highlightedIndex,
+    isHighlighted,
     onHighlightedIndexChange,
     relayKeyboardEvent,
   };

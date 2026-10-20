@@ -4,6 +4,7 @@ import { access, createDepsRenderEffect } from '../../../solid-helpers';
 import type { MaybeAccessor } from '../../../solid-helpers';
 import { isElementDisabled } from '../../../utils/isElementDisabled';
 import { EMPTY_ARRAY } from '../../../utils/constants';
+import { createIdSelector } from '../../../utils/createIdSelector';
 import type { HTMLProps } from '../../../utils/types';
 import {
   ARROW_DOWN,
@@ -111,9 +112,14 @@ export function useCompositeRoot<Metadata = any>(params: UseCompositeRootParamet
   let highlightedElementRef: HTMLElement | null | undefined = null;
 
   const highlightedIndex = () => externalHighlightedIndex() ?? internalHighlightedIndex();
+  // Each item's "am I the highlighted one", keyed by index: a move re-runs two items, not all.
+  const isHighlighted = createIdSelector(highlightedIndex);
   const onHighlightedIndexChange = (index: number, shouldScrollIntoView = false) => {
     highlightedElementRef = elementsRef.current[index] ?? null;
     (params.onHighlightedIndexChange ?? internalSetHighlightedIndex)(index);
+    // With the write: the old and the new item change in its batch. A controlled owner that keeps
+    // its index is corrected by the selector's own effect.
+    isHighlighted.push(index);
     if (shouldScrollIntoView) {
       const newActiveItem = elementsRef.current[index];
       scrollIntoViewIfNeeded(rootElement, newActiveItem, direction(), orientation());
@@ -368,6 +374,7 @@ export function useCompositeRoot<Metadata = any>(params: UseCompositeRootParamet
   return {
     props,
     highlightedIndex,
+    isHighlighted,
     onHighlightedIndexChange,
     elementsRef,
     refs,

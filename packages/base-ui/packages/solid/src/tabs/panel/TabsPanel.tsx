@@ -52,7 +52,7 @@ export function TabsPanel(componentProps: TabsPanel.Props): JSX.Element {
   const keepMounted = () => local.keepMounted ?? false;
 
   const {
-    value: selectedValue,
+    isActive,
     getTabIdByPanelValue,
     orientation,
     tabActivationDirection,
@@ -63,7 +63,7 @@ export function TabsPanel(componentProps: TabsPanel.Props): JSX.Element {
 
   const { setRef: setListItemRef, index } = useCompositeListItem();
 
-  const open = () => local.value === selectedValue();
+  const open = () => isActive(local.value);
   const { mounted, transitionStatus, setMounted } = useTransitionStatus(open);
   const hidden = () => !mounted();
 
@@ -154,7 +154,7 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
   const keepMounted = () => props.keepMounted ?? false;
 
   const {
-    value: selectedValue,
+    isActive,
     getTabIdByPanelValue,
     orientation,
     tabActivationDirection,
@@ -162,7 +162,7 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
   } = useTabsRootContext();
 
   const id = useBaseUiId();
-  const open = () => props.value === selectedValue();
+  const open = () => isActive(props.value);
   const correspondingTabId = () => getTabIdByPanelValue(props.value);
 
   // A hidden panel has nothing to transition or complete: its list registration is created when

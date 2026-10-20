@@ -14,8 +14,9 @@ import { isServer } from '@solidjs/web';
 import { access, createDepsEffect, createDepsMemo } from '../../solid-helpers';
 import type { MaybeAccessor, MaybeAccessorValue } from '../../solid-helpers';
 import { NOOP } from '../empty';
-import { createKeyedSelector } from '../createKeyedSelector';
-import { runInLazyScope } from '../runInLazyScope';
+import { createDerivedIdSelector } from '../createDerivedIdSelector';
+import { createIdSelector } from '../createIdSelector';
+import type { IdSelector } from '../createIdSelector';
 import type { SetStoreFunction } from '../../solid-1-compat';
 
 const storeBinders = new WeakMap<
@@ -26,12 +27,44 @@ const storeBinders = new WeakMap<
 const storeActivators = new WeakMap<object, (keys: Iterable<PropertyKey> | true) => void>();
 // Notifies a store's listeners (`observe`) without a write.
 const storeNotifiers = new WeakMap<object, () => void>();
+// Runs after a store's write is applied (still in its batch): its keyed selectors push their ids.
+const storeCommitHooks = new WeakMap<object, () => void>();
+// Which keys of a store's state a read touches, and whether one changes without a write: a bound
+// key (`useSyncedValue`, `useControlledProp`) or a getter field. No commit pushes such a change.
+interface DerivationProbe {
+  /** The keys `read` touches, read untracked. */
+  reads(read: (state: any) => unknown): Set<PropertyKey>;
+  /** The first of `keys` that changes without a write, if any. */
+  derivedAmong(keys: Iterable<PropertyKey>): PropertyKey | undefined;
+  /** Dev: a pushed selector (`source`) reads `keys`, so binding one of them later is reported. */
+  watchPushed(keys: Iterable<PropertyKey>, source: string): void;
+}
+const storeDerivationProbes = new WeakMap<object, DerivationProbe>();
+
+/** Dev: a pushed keyed selector depends on a key that changes with no write to push it. */
+function reportDerivedRead(key: PropertyKey, source: string, how: string) {
+  console.error(
+    `Base UI: a keyed store selector reads ${JSON.stringify(String(key))}, which ${how}. Its readers would see that change a flush late, through the catch-all effect. The selector \`${source}\` was keyed as one whose writes push it; bind the key before the selector's first read, or read it on every branch of the key function.`,
+  );
+}
 
 interface KeyedSelectorShape {
   /** Reads the current id. Selectors declared with the same function share one projection. */
   key: (state: any) => unknown;
   /** Read only once `id` is the current one. */
   gate: ((state: any) => boolean) | undefined;
+  /**
+   * The key is bound to a value derived outside the store (`useSyncedValue` over memos), which
+   * changes with no store write to push it: read through a projection (`createDerivedIdSelector`).
+   */
+  derived: boolean;
+  /**
+   * A list's items each read their own id (Select, Combobox and Menu items): the id selector starts
+   * at the first tracked read, so no reader compares directly before it exists and the first move
+   * re-runs the old and the new item only. Other keyed selectors (a popup's triggers) start once
+   * readers ask about a second id, so a root with one trigger creates nothing.
+   */
+  list: boolean;
 }
 
 // The key and gate of each selector declared with `keyedSelector`.
@@ -49,12 +82,18 @@ const keyedSelectorKeys = new WeakMap<Function, KeyedSelectorShape>();
 export function keyedSelector<State extends object, Id = string>(
   key: (state: State) => Id | null | undefined,
   gate?: (state: State) => boolean,
+  options?: { derived?: boolean | undefined; list?: boolean | undefined },
 ) {
   const selector = (state: State, id: Accessor<Id | undefined>) => {
     const value = id();
     return value !== undefined && key(state) === value && (gate === undefined || gate(state));
   };
-  keyedSelectorKeys.set(selector, { key, gate });
+  keyedSelectorKeys.set(selector, {
+    key,
+    gate,
+    derived: options?.derived ?? false,
+    list: options?.list ?? false,
+  });
   return selector;
 }
 
@@ -98,33 +137,48 @@ export function SolidStore<
   let controlledValues: Map<keyof State, boolean> | undefined;
   const context = initialContext;
   const [state, setState] = createInitialStore(initialState);
-  // Keyed selectors' memberships (`keyedSelector`), one per key function, created when its current
-  // id first changes, in a lazy scope of the owner the store was created under: they live as long as
-  // the store and are disposed with it. Until then readers compare directly, subscribed to what the
-  // current id reads, and `firstKeys` holds the id they first saw: a store whose current id never
-  // moves (every closed popup root) creates nothing, and the first change, which re-runs every
-  // reader as a plain selector would, moves them onto the projection, so later changes re-run only
-  // the old and the new id's readers. A store created outside any owner reads them directly: those
-  // are the handles' inert stand-ins (`NullStore`), whose state never changes, and an ownerless
-  // projection would be an error when the first read comes from an effect callback.
+  // Keyed selectors' memberships (`keyedSelector`), one id selector per key function
+  // (`createIdSelector`), created when readers first ask about a second id, in a lazy scope of the
+  // owner the store was created under: it lives as long as the store and is disposed with it.
+  // Until then readers compare directly, subscribed to what the current id reads: a store whose
+  // readers all ask about one id (every popup root with one trigger) creates nothing. A store
+  // created outside any owner reads them directly: those are the handles' inert stand-ins
+  // (`NullStore`), whose state never changes, and an ownerless effect would be an error when the
+  // first read comes from an effect callback.
   const storeOwner = getOwner();
-  const memberships = new Map<Function, (id: unknown) => boolean>();
-  const firstKeys = new Map<Function, unknown>();
-  // The id readers asked about, per key, until a second one appears (`MANY_IDS`): a projection
-  // keyed by id re-runs nothing less while every reader asks about the same one (a popup root
-  // with one trigger), so it is created only once they ask about more than one.
+  const memberships = new Map<Function, IdSelector>();
+  // The id readers asked about, per key, until a second one appears (`MANY_IDS`): a signal per id
+  // re-runs nothing less while every reader asks about the same one, so the id selector is
+  // created only once they ask about more than one.
   const readIds = new Map<Function, unknown>();
+  // The key functions whose memberships are pushed by this store's writes (not projections).
+  const pushedKeys = new Set<Function>();
+  const probe = storeDerivationProbes.get(state)!;
+  storeCommitHooks.set(state, () => {
+    for (const [key, selector] of memberships) {
+      if (process.env.NODE_ENV !== 'production' && pushedKeys.has(key)) {
+        // A branch the key function did not take when its selector was created.
+        const reads = probe.reads(key as (value: State) => unknown);
+        const derivedKey = probe.derivedAmong(reads);
+        if (derivedKey !== undefined) {
+          reportDerivedRead(derivedKey, String(key), 'is bound or a getter, read on a branch the selector did not take when it was created');
+        }
+        probe.watchPushed(reads, String(key));
+      }
+      selector.push((key as (value: State) => unknown)(state));
+    }
+  });
 
   function selectKeyed(selector: KeyedSelector, id: Accessor<unknown>): boolean {
     if (isServer || storeOwner === null || getObserver() === null || isDisposed(storeOwner)) {
       return selector(state, id);
     }
-    const { key, gate } = keyedSelectorKeys.get(selector)!;
+    const { key, gate, derived, list } = keyedSelectorKeys.get(selector)!;
     let isCurrent = memberships.get(key);
     let value: unknown;
     if (isCurrent === undefined) {
-      // Compared untracked: the reader that sees the change reads through the projection only, so
-      // it does not stay subscribed to the raw current id.
+      // Compared untracked: a reader that moves onto its id's signal does not stay subscribed to
+      // the raw current id.
       const current = readKeyUntracked(key, state);
       value = id();
       if (value !== undefined) {
@@ -134,25 +188,30 @@ export function SolidStore<
           readIds.set(key, MANY_IDS);
         }
       }
-      if (!firstKeys.has(key)) {
-        firstKeys.set(key, current);
-      }
-      if (Object.is(firstKeys.get(key), current) || readIds.get(key) !== MANY_IDS) {
-        // Until a change with readers of more than one id: compared directly, subscribed to what
-        // the current id reads, so its next change re-runs this reader.
-        firstKeys.set(key, current);
+      if (!list && readIds.get(key) !== MANY_IDS) {
+        // While every reader asks about one id: compared directly, subscribed to what the current
+        // id reads, so its next change re-runs this reader.
         key(state);
         // `gate` read after the key matched: only the current id's readers subscribe to it.
         return value !== undefined && current === value && (gate === undefined || gate(state));
       }
-      firstKeys.delete(key);
       readIds.delete(key);
-      isCurrent = runInLazyScope(storeOwner, () =>
-        createKeyedSelector(() => {
-          const next = key(state);
-          return next === undefined ? [] : [next];
-        }),
-      );
+      // From the second id on, each reader sits on its id's signal (the keyed floor, D20): a
+      // change re-runs the old and the new id's readers only, the first change included. The
+      // readers that compared directly before move onto their signal when the change re-runs them.
+      // A key that reads a bound key or a getter changes with no write to push it (a popup's
+      // `triggerIdProp`, Menu's `activeIndex` cleared while closed): those selectors take the
+      // projection, which follows any source in the flush that changes it.
+      const reads = probe.reads(key);
+      if (derived || probe.derivedAmong(reads) !== undefined) {
+        isCurrent = createDerivedIdSelector(() => key(state), storeOwner);
+      } else {
+        isCurrent = createIdSelector(() => key(state), storeOwner);
+        pushedKeys.add(key);
+        if (process.env.NODE_ENV !== 'production') {
+          probe.watchPushed(reads, String(key));
+        }
+      }
       memberships.set(key, isCurrent);
     } else {
       value = id();
@@ -682,8 +741,11 @@ export function createStoreState<State extends object>(
     value,
   });
 
+  // The keys a probe's read touched (`storeDerivationProbes`), while one runs.
+  let probed: Set<PropertyKey> | undefined;
   const state: State = new Proxy({} as State, {
     get(_, key) {
+      probed?.add(key);
       // The server renders once: every read is the latest value, with nothing to subscribe to.
       if (getObserver() !== null && !isServer) {
         const getter = computedGetters.get(key);
@@ -753,6 +815,38 @@ export function createStoreState<State extends object>(
     },
   });
 
+  // Dev: the keys pushed keyed selectors read, and the first selector that read each.
+  const pushedReads =
+    process.env.NODE_ENV !== 'production' ? new Map<PropertyKey, string>() : undefined;
+  storeDerivationProbes.set(state, {
+    reads(read) {
+      const previous = probed;
+      const keys = new Set<PropertyKey>();
+      probed = keys;
+      try {
+        untrack(() => read(state));
+      } finally {
+        probed = previous;
+      }
+      return keys;
+    },
+    derivedAmong(keys) {
+      for (const key of keys) {
+        if (computedKeys.has(key) || bindings.has(key)) {
+          return key;
+        }
+      }
+      return undefined;
+    },
+    watchPushed(keys, source) {
+      for (const key of keys) {
+        if (!pushedReads!.has(key)) {
+          pushedReads!.set(key, source);
+        }
+      }
+    },
+  });
+
   function commit(patch: Record<PropertyKey, unknown>) {
     const changes: Array<[PropertyKey, unknown]> = [];
     for (const key of Reflect.ownKeys(patch)) {
@@ -779,6 +873,9 @@ export function createStoreState<State extends object>(
         for (const [key, value] of plainChanges) {
           writeSlot(key, value);
         }
+        // The keyed selectors' current ids, read through the latest values (this write included):
+        // their old and new ids' readers change in this write's batch, with no relay.
+        storeCommitHooks.get(state)?.();
       }),
     );
     notify();
@@ -826,6 +923,10 @@ export function createStoreState<State extends object>(
     if (computedKeys.has(key)) {
       // A getter field is already live, and `set` ignores it.
       return;
+    }
+    const pushedReader = pushedReads?.get(key);
+    if (pushedReader !== undefined) {
+      reportDerivedRead(key, pushedReader, 'was bound after the selector first read it');
     }
     // Re-deriving from `source` drops an override written with `set` (React re-syncs on render).
     // The first derivation sees the key's value from before binding as `prev`.

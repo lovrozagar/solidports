@@ -163,8 +163,13 @@ export const selectors = {
 
   activeIndex: (state: State) => state.activeIndex,
   selectedIndex: (state: State) => state.selectedIndex,
-  // Keyed: a highlight move re-runs the old and the new item's readers, not every item's.
-  isActive: keyedSelector((state: State) => state.activeIndex),
+  // Keyed: a highlight move re-runs the old and the new item's readers, not every item's. Derived:
+  // the root binds the highlight to the filtered list (`useSyncedValue`), which normalizes it with
+  // no store write, so it is read through a projection rather than pushed by the store's writes.
+  isActive: keyedSelector((state: State) => state.activeIndex, undefined, {
+    derived: true,
+    list: true,
+  }),
   isSelected: (state: State, itemValue: Accessor<any>) => {
     const comparer = state.isItemEqualToValue;
     const selectedValue = state.selectedValue;

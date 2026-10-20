@@ -614,6 +614,7 @@ export function renderCompositeRoot<Metadata>(
   const contextValue: CompositeRootContextValue = {
     highlightItemOnHover: options.highlightItemOnHover ?? (() => false),
     highlightedIndex: root.highlightedIndex,
+    isHighlighted: root.isHighlighted,
     onHighlightedIndexChange: root.onHighlightedIndexChange,
     relayKeyboardEvent: root.relayKeyboardEvent,
   };

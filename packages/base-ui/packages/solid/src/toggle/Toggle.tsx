@@ -429,7 +429,7 @@ function NativeToggle(props: Toggle.Props<string>): JSX.Element {
         disabledAttributes(set);
       }
       if (registration) {
-        set('tabindex', composite!.highlightedIndex() === registration.index() ? 0 : -1);
+        set('tabindex', composite!.isHighlighted(registration.index()) ? 0 : -1);
       }
       const isPressed = pressed();
       set('aria-pressed', isPressed ? 'true' : 'false');

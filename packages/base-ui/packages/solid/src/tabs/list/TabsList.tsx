@@ -17,6 +17,7 @@ import { tabsStateAttributesMapping } from '../root/stateAttributesMapping';
 import type { TabsRootState } from '../root/TabsRoot';
 import { useTabsRootContext } from '../root/TabsRootContext';
 import type { TabsTab } from '../tab/TabsTab';
+import { TabsHighlightSync } from './TabsHighlightSync';
 import { TabsListContext } from './TabsListContext';
 
 /** The part's own props: never forwarded to the element. */
@@ -131,6 +132,7 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
     const compositeContext: CompositeRootContext = {
       highlightItemOnHover: NEVER,
       highlightedIndex: composite.highlightedIndex,
+      isHighlighted: composite.isHighlighted,
       onHighlightedIndexChange: composite.onHighlightedIndexChange,
       relayKeyboardEvent: composite.relayKeyboardEvent,
     };
@@ -149,18 +151,21 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
             composite.onMapChange(map);
           },
           get children() {
-            return renderNativeElement((<div />) as unknown as Element, componentProps, {
-              own: OWN_KEYS,
-              state,
-              mapping: tabsStateAttributesMapping,
-              reactive: true,
-              literal: TABLIST,
-              attributes: (w) =>
-                w.set('aria-orientation', orientation() === 'vertical' ? 'vertical' : undefined),
-              handlers: HANDLERS,
-              handlerTarget: compositeProps,
-              refs: [composite.setRootRef, (el: HTMLElement | null) => setTabsListElement(el)],
-            }) as unknown as JSX.Element;
+            return [
+              createComponent(TabsHighlightSync, {}),
+              renderNativeElement((<div />) as unknown as Element, componentProps, {
+                own: OWN_KEYS,
+                state,
+                mapping: tabsStateAttributesMapping,
+                reactive: true,
+                literal: TABLIST,
+                attributes: (w) =>
+                  w.set('aria-orientation', orientation() === 'vertical' ? 'vertical' : undefined),
+                handlers: HANDLERS,
+                handlerTarget: compositeProps,
+                refs: [composite.setRootRef, (el: HTMLElement | null) => setTabsListElement(el)],
+              }),
+            ] as unknown as JSX.Element;
           },
         }),
     );
@@ -201,6 +206,7 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
       onMapChange={setTabMap}
       disabledIndices={EMPTY_ARRAY as number[]}
     >
+      <TabsHighlightSync />
       {local.children}
     </CompositeRoot>
   ));
