@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import type { IdSelector } from '../../utils/createIdSelector';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import type { TabsTab } from '../tab/TabsTab';
 import type { TabsRoot } from './TabsRoot';
@@ -9,12 +10,19 @@ import type { TabsRoot } from './TabsRoot';
  */
 export interface TabsRootContext {
   value: Accessor<TabsTab.Value>;
+  /**
+   * Whether `value` is the selected one (`createIdSelector`): a tracked read subscribes to that
+   * value only, so selecting a tab re-runs the old and the new tab and panel, not every one.
+   */
+  isActive: IdSelector;
   onValueChange: (value: TabsTab.Value, eventDetails: TabsRoot.ChangeEventDetails) => void;
   orientation: Accessor<'horizontal' | 'vertical'>;
   getTabElementBySelectedValue: (selectedValue: TabsTab.Value) => HTMLElement | null;
   getTabIdByPanelValue: (panelValue: TabsTab.Value) => string | undefined;
   getTabPanelIdByValue: (tabValue: TabsTab.Value) => string | undefined;
   registerMountedTabPanel: (panelValue: TabsTab.Value, panelId: string) => () => void;
+  /** The selected tab's index in the list and whether it is disabled, if a tab holds the value. */
+  selectedTab: Accessor<{ index: number; disabled: boolean } | undefined>;
   /**
    * Solid: receives `CompositeList`'s sorted items (React passes a `Map`).
    */

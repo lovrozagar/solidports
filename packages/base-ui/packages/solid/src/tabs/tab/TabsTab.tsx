@@ -1,10 +1,9 @@
-import { createEffect, createMemo, isStatic, untrack } from 'solid-js';
+import { createMemo, isStatic, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';
 import { useCompositeItem } from '../../internals/composite/item/useCompositeItem';
 import { useCompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
-import { activeElement, contains } from '../../floating-ui-solid/utils';
-import { createDepsEffect, shallowEqual, splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { makeEventPreventable } from '../../merge-props/mergeProps';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -18,7 +17,6 @@ import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, BaseUIEvent, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { useTabsListContext } from '../list/TabsListContext';
 import { tabsStateAttributesMapping } from '../root/stateAttributesMapping';
 import type { TabsRoot } from '../root/TabsRoot';
@@ -58,17 +56,14 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
   const nativeButton = () => local.nativeButton ?? true;
 
   const {
-    value: activeTabValue,
+    isActive,
     getTabPanelIdByValue,
     onValueChange,
     orientation,
     tabActivationDirection,
   } = useTabsRootContext();
 
-  const { activateOnFocus, registerTabResizeObserverElement, tabsListElement } =
-    useTabsListContext();
-
-  const { highlightedIndex, onHighlightedIndexChange } = useCompositeRootContext();
+  const { activateOnFocus, registerTabResizeObserverElement } = useTabsListContext();
 
   const id = useBaseUiId(() => local.id);
 
@@ -81,16 +76,14 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
   const {
     compositeProps,
     setCompositeRef,
-    index,
     // hook is used instead of the CompositeItem component
     // because the index is needed for Tab internals
   } = useCompositeItem<TabsTab.Metadata>({
     metadata: tabMetadata,
   });
 
-  const active = () => value() === activeTabValue();
+  const active = () => isActive(value());
 
-  let isNavigating = false;
   let unobserveTabElement: (() => void) | null = null;
 
   // Registered from the ref callback rather than an effect so the observer
@@ -100,46 +93,8 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
     unobserveTabElement = element ? registerTabResizeObserverElement(element) : null;
   }
 
-  // Keep the highlighted item in sync with the currently active tab
-  // when the value prop changes externally (controlled mode)
-  // Solid: a user effect, since a render effect's mount-time apply may not write signals.
-  createDepsEffect(
-    () => ({
-      active: active(),
-      index: index(),
-      highlightedIndex: highlightedIndex(),
-      disabled: disabled(),
-      tabsListElement: tabsListElement(),
-    }),
-    (deps) => {
-      if (isNavigating) {
-        isNavigating = false;
-        return;
-      }
-
-      if (!(deps.active && deps.index > -1 && deps.highlightedIndex !== deps.index)) {
-        return;
-      }
-
-      // If focus is currently within the tabs list, don't override the roving
-      // focus highlight. This keeps keyboard navigation relative to the focused
-      // item after an external/asynchronous selection change.
-      const listElement = deps.tabsListElement;
-      if (listElement != null) {
-        const activeEl = activeElement(ownerDocument(listElement));
-        if (activeEl && contains(listElement, activeEl)) {
-          return;
-        }
-      }
-
-      // Don't highlight disabled tabs to prevent them from interfering with keyboard navigation.
-      // Keyboard focus (tabIndex) should remain on an enabled tab even when a disabled tab is selected.
-      if (!deps.disabled) {
-        onHighlightedIndexChange(deps.index);
-      }
-    },
-  );
-
+  // The highlight follows the selected tab from the list (`TabsHighlightSync`), one effect for
+  // the list rather than one per tab.
   const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
@@ -252,12 +207,6 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
         get [ACTIVE_COMPOSITE_ITEM as string]() {
           return active() ? '' : undefined;
         },
-        // Solid: React's `onKeyDownCapture`.
-        ref: withCaptureListeners({
-          keydown: () => {
-            isNavigating = true;
-          },
-        }),
       },
       elementProps,
       buttonSources.handlers,
@@ -367,17 +316,16 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
   const value = () => props.value;
 
   const {
-    value: activeTabValue,
+    isActive,
     getTabPanelIdByValue,
     onValueChange,
     orientation,
     tabActivationDirection,
   } = useTabsRootContext();
 
-  const { activateOnFocus, registerTabResizeObserverElement, tabsListElement } =
-    useTabsListContext();
+  const { activateOnFocus, registerTabResizeObserverElement } = useTabsListContext();
 
-  const { highlightedIndex, onHighlightedIndexChange } = useCompositeRootContext();
+  const { isHighlighted: isIndexHighlighted, onHighlightedIndexChange } = useCompositeRootContext();
 
   // A static `id` (absent or literal) is read once: a constant accessor, no memo.
   const idIsStatic = !('id' in props) || isStatic(props, 'id');
@@ -399,11 +347,10 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
     GUESS_INDEX,
   );
   const index = listItem.index;
-  const isHighlighted = () => highlightedIndex() === index();
+  const isHighlighted = () => isIndexHighlighted(index());
 
-  const active = () => value() === activeTabValue();
+  const active = () => isActive(value());
 
-  let isNavigating = false;
   let unobserveTabElement: (() => void) | null = null;
 
   function observeTabElement(el: HTMLElement | null | undefined) {
@@ -411,55 +358,8 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
     unobserveTabElement = el ? registerTabResizeObserverElement(el) : null;
   }
 
-  // Keep the highlighted item in sync with the currently active tab when the value changes
-  // externally. One effect: the dependency snapshot is compared in the apply (no memo), so the
-  // body runs only when a value changed, as `createDepsEffect` runs it.
-  let previousDeps:
-    | {
-        active: boolean;
-        index: number;
-        highlightedIndex: number;
-        disabled: boolean;
-        tabsListElement: HTMLElement | null;
-      }
-    | undefined;
-  createEffect(
-    () => ({
-      active: active(),
-      index: index(),
-      highlightedIndex: highlightedIndex(),
-      disabled: disabled(),
-      tabsListElement: tabsListElement(),
-    }),
-    (deps) => {
-      if (previousDeps && shallowEqual(previousDeps, deps)) {
-        return;
-      }
-      previousDeps = deps;
-
-      if (isNavigating) {
-        isNavigating = false;
-        return;
-      }
-
-      if (!(deps.active && deps.index > -1 && deps.highlightedIndex !== deps.index)) {
-        return;
-      }
-
-      const listElement = deps.tabsListElement;
-      if (listElement != null) {
-        const activeEl = activeElement(ownerDocument(listElement));
-        if (activeEl && contains(listElement, activeEl)) {
-          return;
-        }
-      }
-
-      if (!deps.disabled) {
-        onHighlightedIndexChange(deps.index);
-      }
-    },
-  );
-
+  // The highlight follows the selected tab from the list (`TabsHighlightSync`), one effect for
+  // the list rather than one per tab.
   const tabPanelId = () => getTabPanelIdByValue(value());
 
   let isPressing = false;
@@ -540,15 +440,6 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
 
   // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
   const el = (<button type="button" />) as unknown as HTMLButtonElement;
-  // React's `onKeyDownCapture`: navigation keys reach the composite root before this tab's
-  // highlight sync runs, which must not undo the move.
-  el.addEventListener(
-    'keydown',
-    () => {
-      isNavigating = true;
-    },
-    true,
-  );
 
   return renderNativeElement(el, props, {
     own: OWN_KEYS,
@@ -557,12 +448,14 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
     reactive: true,
     literal: TAB,
     attributes: (w) => {
+      // One read of the selection per pass: each read of a keyed selector registers a release.
+      const isActive = active();
       w.set('tabindex', isHighlighted() ? 0 : -1);
       w.set('aria-disabled', disabled() ? 'true' : 'false');
       w.set('aria-controls', tabPanelId());
-      w.set('aria-selected', active() ? 'true' : 'false');
+      w.set('aria-selected', isActive ? 'true' : 'false');
       w.set('id', id());
-      w.set(ACTIVE_COMPOSITE_ITEM, active() ? '' : undefined);
+      w.set(ACTIVE_COMPOSITE_ITEM, isActive ? '' : undefined);
     },
     handlers: TAB_HANDLERS,
     handlersIfPassed: TAB_HANDLERS_IF_PASSED,

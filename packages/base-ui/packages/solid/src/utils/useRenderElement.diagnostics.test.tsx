@@ -8,6 +8,8 @@ import { Autocomplete } from '@solidports/base-ui/autocomplete';
 import { Avatar } from '@solidports/base-ui/avatar';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { Drawer } from '@solidports/base-ui/drawer';
+import { Radio } from '@solidports/base-ui/radio';
+import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { Field } from '@solidports/base-ui/field';
 import { Input } from '@solidports/base-ui/input';
 import { Menu } from '@solidports/base-ui/menu';
@@ -354,6 +356,51 @@ describe('Solid dev diagnostics', () => {
     await settle();
     await user.click(screen.getByRole('tab', { name: 'One' }));
     await settle();
+    expect(warnings).toEqual([]);
+  });
+
+  // Keyed selectors (`createIdSelector`): a writer the port owns pushes the change in its batch,
+  // and a controlled value arrives through its prop, which the selector's own effect follows.
+  it('controlled Tabs stay silent while switching tabs', async () => {
+    const [value, setValue] = createSignal('one');
+    const { user } = render(() => (
+      <Tabs.Root value={value()} onValueChange={(next) => setValue(next)}>
+        <Tabs.List>
+          <Tabs.Tab value="one">One</Tabs.Tab>
+          <Tabs.Tab value="two">Two</Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value="one">Panel one</Tabs.Panel>
+        <Tabs.Panel value="two">Panel two</Tabs.Panel>
+      </Tabs.Root>
+    ));
+    await user.click(screen.getByRole('tab', { name: 'Two' }));
+    await settle();
+    await user.click(screen.getByRole('tab', { name: 'One' }));
+    await settle();
+    expect(warnings).toEqual([]);
+  });
+
+  it('a RadioGroup stays silent while checking radios, uncontrolled and controlled', async () => {
+    const [value, setValue] = createSignal('a');
+    const { user } = render(() => (
+      <div>
+        <RadioGroup defaultValue="a">
+          <Radio.Root value="a" aria-label="ua" />
+          <Radio.Root value="b" aria-label="ub" />
+        </RadioGroup>
+        <RadioGroup value={value()} onValueChange={(next) => setValue(next as string)}>
+          <Radio.Root value="a" aria-label="ca" />
+          <Radio.Root value="b" aria-label="cb" />
+        </RadioGroup>
+      </div>
+    ));
+    await user.click(screen.getByRole('radio', { name: 'ub' }));
+    await settle();
+    await user.click(screen.getByRole('radio', { name: 'cb' }));
+    await settle();
+    await user.click(screen.getByRole('radio', { name: 'ca' }));
+    await settle();
+    expect(screen.getByRole('radio', { name: 'ca' })).toHaveAttribute('aria-checked', 'true');
     expect(warnings).toEqual([]);
   });
 

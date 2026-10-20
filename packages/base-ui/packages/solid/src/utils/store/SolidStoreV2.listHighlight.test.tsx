@@ -6,7 +6,7 @@
  * old and the new item only. Value selection with a custom `isItemEqualToValue` has no stable key,
  * so it stays a plain selector.
  */
-import { DEV, createMemo, createRoot, createSignal, flush } from 'solid-js';
+import { DEV, createMemo, createRenderEffect, createRoot, createSignal, flush } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { selectors as comboboxSelectors } from '../../combobox/store';
@@ -30,6 +30,11 @@ interface Case {
   field: string;
   /** How the item reads it: `useState` (Select, Menu) or a memo over `select` (Combobox). */
   via: 'useState' | 'select';
+  /**
+   * Index reads the first move may cost: Combobox's highlight is derived (`createDerivedIdSelector`),
+   * so the one reader that read before a second id existed re-runs once more onto the projection.
+   */
+  firstMove?: number;
 }
 
 const cases: Case[] = [
@@ -98,10 +103,15 @@ function mountList(testCase: Case) {
 
 describe('list stores: keyed highlight', () => {
   describe.each(cases)('$name', (testCase) => {
-    it('the first move re-runs at most every item once, and every later move only the old and new', () => {
+    // The keyed floor (`test/floor/listHighlight.ts`, D20): readers sit on their id's signal from
+    // mount, and the store pushes the old and the new id with its write, so the first move re-runs
+    // the old and the new item as every later move does.
+    it('every move, the first included, re-runs only the old and the new item', () => {
       const list = mountList(testCase);
       expect(list.current()).toEqual([0]);
-      expect(list.cost(() => list.store.set(testCase.field, 1))).toBeLessThanOrEqual(N);
+      expect(list.cost(() => list.store.set(testCase.field, 1))).toBeLessThanOrEqual(
+        testCase.firstMove ?? 2,
+      );
       expect(list.current()).toEqual([1]);
       for (const next of [2, 500, 999, 3]) {
         expect(list.cost(() => list.store.set(testCase.field, next))).toBeLessThanOrEqual(2);
@@ -110,6 +120,30 @@ describe('list stores: keyed highlight', () => {
       // No item is the current one.
       expect(list.cost(() => list.store.set(testCase.field, null))).toBeLessThanOrEqual(1);
       expect(list.current()).toEqual([]);
+      list.dispose();
+    });
+
+    // The list stores push the old and the new id's membership with the write (D21): every pass
+    // of a move sees one highlighted item, never the new one beside the stale one.
+    it('a move shows exactly one highlighted item in every pass, never two', () => {
+      const list = mountList(testCase);
+      const seen: number[] = [];
+      const disposeWatch = createRoot((disposeRoot) => {
+        createRenderEffect(
+          () => list.current().length,
+          (highlighted) => {
+            seen.push(highlighted);
+          },
+        );
+        return disposeRoot;
+      });
+      flush();
+      for (const next of [1, 2, 500, 999, 3]) {
+        list.store.set(testCase.field, next);
+        flush();
+      }
+      expect(seen.every((highlighted) => highlighted === 1)).toBe(true);
+      disposeWatch();
       list.dispose();
     });
 

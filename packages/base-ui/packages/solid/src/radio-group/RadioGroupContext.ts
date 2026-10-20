@@ -12,6 +12,11 @@ export interface RadioGroupContext<Value> {
   form: Accessor<string | undefined>;
   name: Accessor<string | undefined>;
   checkedValue: Accessor<Value | undefined>;
+  /**
+   * Whether `value` is the checked one (`createIdSelector`): a tracked read subscribes to that
+   * value only, so a click re-runs the old and the new radio, not every one.
+   */
+  isChecked: (value: unknown) => boolean;
   setCheckedValue: (
     value: Value,
     eventDetails: BaseUIChangeEventDetails<BaseUIEventReasons['none']>,

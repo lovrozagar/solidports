@@ -2,6 +2,9 @@ import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
 import { createComponent } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { canRenderNative } from '../../utils/native';
+import { createDerivedIdSelector } from '../../utils/createDerivedIdSelector';
+import { createIdSelector } from '../../utils/createIdSelector';
+import { createKeyedValues } from '../../utils/createKeyedValues';
 import { provideNativeContext } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
@@ -88,14 +91,10 @@ function createTabsRoot(
   const hasExplicitDefaultValueProp = untrack(() => local.defaultValue !== undefined);
 
   const tabPanelRefs: (HTMLElement | null | undefined)[] = [];
-  // The mounted panels' ids by value: one map mutated in place with a version signal readers
-  // track (React copies the map per registration; with 200 panels that is quadratic). Every read
-  // tracks the version, as a read of the map signal would. Solid: panels unregister from unmount
-  // cleanups, so the version allows owned writes.
-  const mountedTabPanels = new Map<TabsTab.Value, string>();
-  const [mountedTabPanelsVersion, setMountedTabPanelsVersion] = createSignal(0, {
-    ownedWrite: true,
-  });
+  // The mounted panels' ids by value, keyed: a tab reads its own value's id, so a panel mounting or
+  // unmounting re-runs that value's tab only (React copies the map per registration and re-renders
+  // every tab; one version signal over the map re-ran all of them on every tab switch).
+  const mountedTabPanels = createKeyedValues<TabsTab.Value, string>();
 
   const [value, setValue] = useControlled({
     controlled: valueProp,
@@ -105,6 +104,10 @@ function createTabsRoot(
   });
 
   const isControlled = () => valueProp() !== undefined;
+  // Each tab's and panel's "am I the selected one", keyed by value: a switch re-runs two of each.
+  // Uncontrolled, the root's own writes push it; a controlled value is the parent's, so it is read
+  // through a projection, which follows the prop in its own flush (no relay, no tear).
+  const isActive = untrack(isControlled) ? createDerivedIdSelector(value) : createIdSelector(value);
 
   const [tabMap, setTabMapState] = createSignal<TabMap>(new Map());
   // The first tab's id per value, rebuilt with the tab map (a per-panel scan of 200 tabs is
@@ -188,6 +191,11 @@ function createTabsRoot(
 
     // Tab values can be functions, which the uncontrolled setter would otherwise call as updaters.
     setValue(() => newValue);
+    // With the write: the old and the new tab change in its batch (a controlled value arrives
+    // through its prop, which the selector's own effect follows).
+    if (!untrack(isControlled)) {
+      isActive.push(newValue);
+    }
   };
 
   const notifyAutomaticValueChange = (
@@ -204,25 +212,20 @@ function createTabsRoot(
 
   const registerMountedTabPanel = (panelValue: TabsTab.Value, panelId: string) => {
     mountedTabPanels.set(panelValue, panelId);
-    setMountedTabPanelsVersion((version) => version + 1);
 
     return () => {
       // Another panel with the same value took ownership in the meantime;
       // leave its registration in place.
-      if (mountedTabPanels.get(panelValue) !== panelId) {
+      if (mountedTabPanels.peek(panelValue) !== panelId) {
         return;
       }
 
-      mountedTabPanels.delete(panelValue);
-      setMountedTabPanelsVersion((version) => version + 1);
+      mountedTabPanels.set(panelValue, undefined);
     };
   };
 
   // get the `id` attribute of <Tabs.Panel> to set as the value of `aria-controls` on <Tabs.Tab>
-  const getTabPanelIdByValue = (tabValue: TabsTab.Value) => {
-    mountedTabPanelsVersion();
-    return mountedTabPanels.get(tabValue);
-  };
+  const getTabPanelIdByValue = (tabValue: TabsTab.Value) => mountedTabPanels.get(tabValue);
 
   // get the `id` attribute of <Tabs.Tab> to set as the value of `aria-labelledby` on <Tabs.Panel>
   const getTabIdByPanelValue = (tabPanelValue: TabsTab.Value) => {
@@ -230,13 +233,30 @@ function createTabsRoot(
     return tabIdsByValue.get(tabPanelValue);
   };
 
+  // The selected tab's position in the list and whether it is disabled: the list keeps its
+  // highlight on it when the value changes from outside (`TabsHighlightSync`), one effect for the
+  // list instead of one per tab.
+  const selectedTab = createMemo<{ index: number; disabled: boolean } | undefined>(() => {
+    const current = value();
+    let index = 0;
+    for (const tabMetadata of tabMap().values()) {
+      if (tabMetadata.value === current) {
+        return { index, disabled: tabMetadata.disabled };
+      }
+      index += 1;
+    }
+    return undefined;
+  });
+
   const tabsContextValue: TabsRootContext = {
     getTabElementBySelectedValue,
     getTabIdByPanelValue,
     getTabPanelIdByValue,
+    isActive,
     onValueChange,
     orientation,
     registerMountedTabPanel,
+    selectedTab,
     setTabMap,
     tabActivationDirection,
     value,
@@ -297,6 +317,7 @@ function createTabsRoot(
       ) {
         // Tab values can be functions, which the uncontrolled setter would otherwise call as updaters.
         setValue(() => fallbackValue);
+        isActive.push(fallbackValue);
         // Automatic fallbacks are not directional transitions; reset the direction
         // alongside the value so the batched commit keeps both in sync.
         setActivationDirectionState({

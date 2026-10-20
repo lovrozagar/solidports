@@ -34,6 +34,8 @@ import type { ReactLikeRef } from '../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { REASONS } from '../utils/reasons';
 import { useBaseUiId } from '../utils/useBaseUiId';
+import { createDerivedIdSelector } from '../utils/createDerivedIdSelector';
+import { createIdSelector } from '../utils/createIdSelector';
 import { useControlled } from '../utils/useControlled';
 import { withCaptureListeners } from '../utils/withCaptureListeners';
 import { RadioGroupContext } from './RadioGroupContext';
@@ -99,6 +101,13 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     state: 'value',
   });
   const [touched, setTouched] = createSignal(false);
+  // Each radio's "am I the checked one", keyed by value: a click re-runs two radios, not all.
+  // Uncontrolled, the group's own writes push it; a controlled value is the parent's, read through
+  // a projection, which follows the prop in its own flush (no relay, no tear).
+  const isChecked =
+    untrack(externalValue) === undefined
+      ? createIdSelector(checkedValue)
+      : createDerivedIdSelector(checkedValue);
 
   const setCheckedValue = (value: Value, eventDetails: RadioGroup.ChangeEventDetails) => {
     local.onValueChange?.(value, eventDetails);
@@ -108,6 +117,11 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     }
 
     setCheckedValueUnwrapped(value);
+    // With the write: the old and the new radio change in its batch (a controlled value arrives
+    // through its prop, which the selector's own effect follows).
+    if (untrack(externalValue) === undefined) {
+      isChecked.push(value);
+    }
   };
 
   const getInputControl = validation.getInputControl;
@@ -264,6 +278,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
 
   const contextValue: RadioGroupContext<Value> = {
     checkedValue,
+    isChecked,
     disabled,
     form,
     validation,

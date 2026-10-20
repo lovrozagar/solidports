@@ -4,6 +4,11 @@ import type { JSX } from '@solidjs/web';
 
 export interface CompositeRootContext {
   highlightedIndex: Accessor<number>;
+  /**
+   * Whether `index` is the highlighted one (`createIdSelector`): a tracked read subscribes to that
+   * index only, so a highlight move re-runs the old and the new item, not every item.
+   */
+  isHighlighted: (index: number) => boolean;
   onHighlightedIndexChange: (index: number, shouldScrollIntoView?: boolean) => void;
   highlightItemOnHover: Accessor<boolean>;
   /**

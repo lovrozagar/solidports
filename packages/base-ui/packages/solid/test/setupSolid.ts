@@ -358,3 +358,18 @@ if (censusFile) {
   });
   beforeEach(() => census.install());
 }
+
+// Keyed selectors' writers push (D21): `createIdSelector`'s catch-all effect writes only for a change
+// no writer pushed, a flush where the new id shows beside its stale membership. Any such write fails
+// the test that made it; a test that makes them on purpose resets the counter itself.
+afterEach(() => {
+  const relays = (globalThis as { __baseUiIdSelectorRelays?: { writes: number } })
+    .__baseUiIdSelectorRelays;
+  if (relays !== undefined && relays.writes > 0) {
+    const writes = relays.writes;
+    relays.writes = 0;
+    throw new Error(
+      `createIdSelector's catch-all effect wrote ${writes} time(s): a writer of a keyed selector's current id does not push it.`,
+    );
+  }
+});

@@ -193,14 +193,14 @@ describe('SolidStore keyed selectors', () => {
     expect(keyed.owners).toBe(createdBy('isActivePlain').owners);
   });
 
-  it('what a keyed read creates outlives its reader and is disposed with the store', () => {
-    // A store per mount (a popup root, or a handle created in a component) leaves nothing behind.
+  it('what a keyed read creates is disposed with its last reader, and with the store', () => {
+    // A store per mount (a popup root, or a handle created in a component) leaves nothing behind,
+    // and a list that unmounts while its store lives on (a submenu's items) leaves nothing either.
     for (let mount = 0; mount < 3; mount += 1) {
       const [store, disposeStore] = ownedStore();
       let dispose!: () => void;
       const owners = ownersCreatedBy(() => {
-        // Readers of two ids: a projection is created on the first change of the current id once
-        // its readers ask about more than one.
+        // Readers of two ids: the id selector is created once they ask about more than one.
         [, dispose] = inRoot(() => {
           createMemo(() => store.select('isActive', () => '0'))();
           return createMemo(() => store.select('isActive', () => '2'))();
@@ -208,11 +208,11 @@ describe('SolidStore keyed selectors', () => {
         store.set('active', '1');
         flush();
       });
+      const created = owners.filter((owner) => !isDisposed(owner));
+      expect(created.length).toBeGreaterThan(0);
       dispose();
-      const kept = owners.filter((owner) => !isDisposed(owner));
-      expect(kept.length).toBeGreaterThan(0);
+      expect(created.filter((owner) => !isDisposed(owner))).toEqual([]);
       disposeStore();
-      expect(kept.filter((owner) => !isDisposed(owner))).toEqual([]);
     }
   });
 

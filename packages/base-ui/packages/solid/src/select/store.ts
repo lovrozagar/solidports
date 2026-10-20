@@ -79,7 +79,7 @@ export const selectors = {
   },
   id: (state: State) => state.id,
   // Keyed: a highlight move re-runs the old and the new item's readers, not every item's.
-  isActive: keyedSelector((state: State) => state.activeIndex),
+  isActive: keyedSelector((state: State) => state.activeIndex, undefined, { list: true }),
   isItemEqualToValue: (state: State) => state.isItemEqualToValue,
 
   isSelected: (state: State, itemValue: Accessor<any>) => {
