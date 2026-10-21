@@ -147,6 +147,14 @@ ${command.map(quote).join(' ')}
 code=$?
 mkdir -p ~/${outDir}
 ${collect}
+# The command runs in its own shell, so this one is still at the checkout's root. A run that leaves
+# files behind fails here, where its log shows them, instead of the next runs refusing the checkout.
+left=$(git status --porcelain)
+if [ -n "$left" ]; then
+  echo "remote-mac: the run left the checkout dirty; clean it before the next run:"
+  echo "$left"
+  [ "$code" -eq 0 ] && code=1
+fi
 exit $code
 `;
 }
