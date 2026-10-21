@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
+import type { KeyedSelector } from '../utils/createKeyedSelector';
 import type { BaseUIEventReasons } from '../utils/reasons';
 
 export interface ToggleGroupContext<Value> {
@@ -11,6 +12,8 @@ export interface ToggleGroupContext<Value> {
     eventDetails: BaseUIChangeEventDetails<BaseUIEventReasons['none']>,
   ) => void;
   disabled: Accessor<boolean>;
+  /** Whether a value is in the group's value (tracked): re-runs only when its membership changes. */
+  isPressed: KeyedSelector;
   /**
    * Indicates whether the value has been initialized via `value` or `defaultValue` props.
    * Used to determine if Toggle should warn users about data inconsistency problems.
