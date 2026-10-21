@@ -21,9 +21,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closest, matchesFilter, parseFilter } from '../test/perf-solid/shared/filter.mjs';
+import { splitAllowed } from '../test/perf-solid/shared/allowances.mjs';
 import { judgeRun, unmeasuredPairs, variantPairs } from '../test/perf-solid/shared/report.mjs';
 import { EXCLUSIVE_LOCK, LOCK_TIMEOUT_SECONDS } from './test-all.mjs';
-import { EXIT_BAR, exitBar, FDR_Q, GATED } from '../test/perf-solid/shared/regression.mjs';
+import { EXIT_BAR, exitBar, FDR_Q, GATED, median } from '../test/perf-solid/shared/regression.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const baseUi = path.resolve(here, '..');
@@ -529,6 +530,12 @@ export async function main(argv, deps = {}) {
   for (const verdict of judged.verdicts) {
     if (verdict.verdict === 'regressed') regressions.push(verdict);
   }
+  // Reviewed allowances (`shared/allowances.mjs`): reported, not failed, within their bound.
+  // An allowance holds only below React's median for the same row and metric in this session.
+  const { allowed, failing } = splitAllowed(regressions, (verdict) => {
+    const samples = browser?.summary[verdict.key]?.react?.samples[verdict.metric];
+    return samples?.length ? median(samples) : undefined;
+  });
   // Plan 3's exit bar on production builds: every SSR case with a floor twin.
   const bar = ssr ? exitBar(ssr.results, base ? 'cur' : 'solid') : [];
 
@@ -547,7 +554,7 @@ export async function main(argv, deps = {}) {
         (v) =>
           `exit bar: ${v.key} ${v.metric} ${v.port.toFixed(2)} ms is ${v.portVsFloor.toFixed(2)}x the floor and ${v.portVsReact.toFixed(2)}x React (floor ${v.floorVsReact.toFixed(2)}x React); the bar is ${EXIT_BAR}x the floor and below React`,
       ),
-    ...regressions.map(
+    ...failing.map(
       (r) =>
         `regressed: ${r.key} ${r.metric} ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (95% CI of the shift ${r.ci[0].toFixed(2)} to ${r.ci[1].toFixed(2)}, minimum effect ${r.minEffect.toFixed(2)}, p ${r.p.toExponential(1)})`,
     ),
@@ -621,6 +628,17 @@ export async function main(argv, deps = {}) {
         `| ${v.key} | ${v.metric} | ${fmt(v.base)} | ${fmt(v.cur)} | ${fmt(v.delta)}${v.orders ? ` (forward ${fmt(v.orders[0].delta)}, reversed ${fmt(v.orders[1].delta)})` : ''} | ${fmt(v.ci[0])} to ${fmt(v.ci[1])} | ${fmt(v.minEffect)} | ${v.p.toExponential(1)} | ${v.verdict} |`,
       );
     }
+  }
+  if (allowed.length) {
+    md.push(
+      '',
+      '## Allowed regressions (reviewed, `shared/allowances.mjs`)',
+      '',
+      ...allowed.map(
+        (r) =>
+          `- ${r.key} ${r.metric}: ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (shift ${r.delta.toFixed(2)}, allowed up to ${r.allowance.maxDelta}; React ${r.react.toFixed(2)}; ${r.allowance.decision}, until ${r.allowance.until}: ${r.allowance.reason})`,
+      ),
+    );
   }
   const unmeasured = [...notMeasured, ...ssrUnmeasured];
   if (unmeasured.length) {
