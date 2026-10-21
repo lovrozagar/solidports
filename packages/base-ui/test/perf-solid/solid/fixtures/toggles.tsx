@@ -11,6 +11,8 @@ import { Radio } from '@solidports/base-ui/radio';
 import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { Menu } from '@solidports/base-ui/menu';
+/* eslint-disable-next-line import/no-relative-packages -- the floors are the Solid package's test files, which it does not export */
+import { keyedHighlight } from '../../../../packages/solid/test/floor/listHighlight';
 import { items, size } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
@@ -289,6 +291,9 @@ function RawToggles() {
 function RawToggleGroup() {
   const [value, setValue] = createSignal<string[]>([]);
   const [highlighted, setHighlighted] = createSignal(0);
+  // The roving tab stop is a composite list's highlight: the keyed floor (D20).
+  // eslint-disable-next-line solid/reactivity -- keyedHighlight tracks the accessor in its own effect
+  const isHighlighted = keyedHighlight(highlighted);
   return (
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the floor mirrors ToggleGroup, whose root handles its items' arrow keys
     <div role="group" data-orientation="horizontal" onKeyDown={() => {}}>
@@ -296,7 +301,7 @@ function RawToggleGroup() {
         {(it, index) => (
           <button
             type="button"
-            tabindex={highlighted() === index() ? 0 : -1}
+            tabindex={isHighlighted(index()) ? 0 : -1}
             aria-disabled="false"
             aria-pressed={value().includes(it.value) ? 'true' : 'false'}
             data-pressed={value().includes(it.value) ? '' : undefined}
@@ -314,6 +319,9 @@ function RawToggleGroup() {
 function RawRadios() {
   const [value, setValue] = createSignal('item-0');
   const [highlighted, setHighlighted] = createSignal(0);
+  // The roving tab stop is a composite list's highlight: the keyed floor (D20).
+  // eslint-disable-next-line solid/reactivity -- keyedHighlight tracks the accessor in its own effect
+  const isHighlighted = keyedHighlight(highlighted);
   return (
     // eslint-disable-next-line jsx-a11y/interactive-supports-focus -- the floor mirrors RadioGroup, whose focus is on the checked radio
     <div role="radiogroup" onKeyDown={() => {}}>
@@ -322,7 +330,7 @@ function RawRadios() {
           <>
             <span
               role="radio"
-              tabindex={highlighted() === index() ? 0 : -1}
+              tabindex={isHighlighted(index()) ? 0 : -1}
               aria-checked={value() === it.value ? 'true' : 'false'}
               data-checked={value() === it.value ? '' : undefined}
               data-unchecked={value() === it.value ? undefined : ''}
