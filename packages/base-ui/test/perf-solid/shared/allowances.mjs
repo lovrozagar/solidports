@@ -101,6 +101,17 @@ export const ALLOWANCES = [
     reason:
       'the keyed composite highlight (e726bd36) costs a toolbar’s menu open no JS frame accounts for, and buys toolbar ArrowRight x100 -22.1 ms, 16x the loss',
   })),
+  // The same trade's menu close (regate8: sync 0.90 -> 1.10, CI [0.20, 0.20], React 1.40; its
+  // script fell 1.53 -> 1.29 in the same session). The base is below React, so the row stays below.
+  {
+    key: 'toolbar/200 › close menu',
+    metric: 'sync',
+    maxDelta: 0.2,
+    decision: 'D25',
+    until: '5.3',
+    reason:
+      'the keyed composite highlight (e726bd36) costs a toolbar’s menu close no JS frame accounts for (its script time fell), and buys toolbar ArrowRight x100 -22.1 ms, 16x the loss',
+  },
   // e726bd36 and ccb8432d's toggle-group/300-multiple: click 100 -13.8 ms and ArrowRight x50 -13.1
   // ms; the controlled value is below React (0.8 against 2.0 ms).
   ...[
@@ -174,6 +185,19 @@ export const ALLOWANCES = [
     nearReact: 1.1,
     reason:
       'the keyed pressed membership (ccb8432d) reads a projection at mount, its read path and a leaf per toggle (maccnt5), and buys click 100 and ArrowRight x50 over 10x the loss',
+  })),
+  // D27, D26 extended by the reviewer (2026-10-21): toggle-group/300-single mount, the same
+  // mechanism and commits. regate8: sync 8.10 -> 9.30 and script 7.69 -> 8.89, CI [.., 1.60], React
+  // 8.6 and 8.2 (1.08x). The same family's wins: click 100 -15.8 ms, ArrowRight x50 -12.3 ms.
+  ...['sync', 'script'].map((metric) => ({
+    key: 'toggle-group/300-single › mount',
+    metric,
+    maxDelta: 1.6,
+    decision: 'D27',
+    until: '5.3',
+    nearReact: 1.1,
+    reason:
+      'the keyed highlight slot and the keyed pressed leaf per toggle (e726bd36, ccb8432d) cost a single group’s mount as they do a multiple one’s (D26), and buy click 100 and ArrowRight x50 over 10x the loss',
   })),
   // D25's residual class: no mechanism after named experiments, equal calls, at most 0.5 ms.
   ...[
