@@ -10,7 +10,7 @@
 // --compare` reports allowed rows apart from its failures.
 import fs from 'node:fs';
 
-/** @type {readonly { key: string, metric: string, maxDelta: number, decision: string, until: string, reason: string, baseAboveReact?: boolean, class?: 'residual', evidence?: { calls: string, experiments: readonly string[] } }[]} */
+/** @type {readonly { key: string, metric: string, maxDelta: number, decision: string, until: string, reason: string, baseAboveReact?: boolean, nearReact?: number, class?: 'residual', evidence?: { calls: string, experiments: readonly string[] } }[]} */
 export const ALLOWANCES = [
   {
     key: 'toggle-group/300-single › heap after mount KB',
@@ -161,6 +161,20 @@ export const ALLOWANCES = [
     reason:
       'the keyed popup trigger selectors (d4e50c03) cost a detached-trigger unmount and buy hover across 50 -49.6 ms',
   })),
+  // D26, the user's choice (2026-10-21): toggle-group/300-multiple mount near React. The bound is
+  // the largest upper end of the shift's 95% CI from 3eef0aca (regate6: sync and script [.., 1.40]);
+  // the row at most 1.1x React's median in the same session (regate6: 9.0 against 8.5, 8.64 against
+  // 8.21). The same family's wins: click 100 -8.0 to -15.8 ms, ArrowRight x50 -11.2 and -12.3 ms.
+  ...['sync', 'script'].map((metric) => ({
+    key: 'toggle-group/300-multiple › mount',
+    metric,
+    maxDelta: 1.4,
+    decision: 'D26',
+    until: '5.3',
+    nearReact: 1.1,
+    reason:
+      'the keyed pressed membership (ccb8432d) reads a projection at mount, its read path and a leaf per toggle (maccnt5), and buys click 100 and ArrowRight x50 over 10x the loss',
+  })),
   // D25's residual class: no mechanism after named experiments, equal calls, at most 0.5 ms.
   ...[
     ['context-menu/200 › right-click open', 'sync', 0.4, true],
@@ -239,6 +253,26 @@ export function validateAllowances(allowances) {
 }
 
 /**
+ * Whether a regressed row keeps its React rule in the session that measured `react`. An entry
+ * allowed near React (D26, the user's choice) holds the row at most `nearReact` times React's
+ * median, whatever its base. A row not winning at the base (above React, or equal to it: D25,
+ * parity is not winning) keeps its ratio to React within base/react + maxDelta/react, that is,
+ * its own base plus the bound. Any other row stays below React.
+ * @param {(typeof ALLOWANCES)[number] | undefined} allowance
+ * @param {{ base: number, cur: number }} verdict
+ * @param {number} react
+ */
+function keepsReactRule(allowance, verdict, react) {
+  if (allowance?.nearReact !== undefined) {
+    return verdict.cur <= allowance.nearReact * react + BOUND_SLACK;
+  }
+  if (allowance?.baseAboveReact && verdict.base >= react) {
+    return verdict.cur - verdict.base <= allowance.maxDelta + BOUND_SLACK;
+  }
+  return verdict.cur < react;
+}
+
+/**
  * Splits regressed verdicts into the allowed ones (an allowance for their row and metric, the shift
  * within its bound, and its React rule held in the same session) and the failing rest.
  * @template {{ key: string, metric: string, delta: number, base: number, cur: number }} V
@@ -255,14 +289,7 @@ export function splitAllowed(regressions, reactMedian) {
       (entry) => entry.key === verdict.key && entry.metric === verdict.metric,
     );
     const react = allowance === undefined ? undefined : reactMedian(verdict);
-    // A row not winning at the base (above React, or equal to it: D25, parity is not winning) keeps
-    // its ratio to React within base/react + maxDelta/react, that is, its own base plus the bound;
-    // any other row stays below React.
-    const reactRule =
-      react !== undefined &&
-      (allowance?.baseAboveReact && verdict.base >= react
-        ? verdict.cur - verdict.base <= allowance.maxDelta + BOUND_SLACK
-        : verdict.cur < react);
+    const reactRule = react !== undefined && keepsReactRule(allowance, verdict, react);
     if (
       allowance !== undefined &&
       verdict.delta <= allowance.maxDelta + BOUND_SLACK &&

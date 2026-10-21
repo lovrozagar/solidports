@@ -133,4 +133,26 @@ describe("reviewed gate allowances", () => {
 		}
 		expect(splitAllowed([row], () => 2.0).allowed).toHaveLength(1)
 	})
+
+	// D26 (the user's choice): toggle-group/300-multiple mount may sit near React, at most 1.1x its
+	// median in the same session, within its shift bound.
+	describe("an entry allowed near React", () => {
+		const mount = (base: number, cur: number) => ({
+			...verdict("toggle-group/300-multiple › mount", "sync", cur - base),
+			base,
+			cur,
+		})
+
+		test("is allowed at or under 1.1x React within its bound", () => {
+			expect(splitAllowed([mount(8.0, 9.0)], () => 8.5).allowed).toHaveLength(1)
+		})
+
+		test("fails past 1.1x React even within its bound", () => {
+			expect(splitAllowed([mount(8.4, 9.5)], () => 8.5).failing).toHaveLength(1)
+		})
+
+		test("fails past its bound even near React", () => {
+			expect(splitAllowed([mount(7.0, 9.0)], () => 8.5).failing).toHaveLength(1)
+		})
+	})
 })
