@@ -1,7 +1,7 @@
 ---
 tags: [porting, native, perf, workflow, playbook]
 sources: [packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/native/static.cost.test.tsx, packages/base-ui/packages/solid/test/parityHarness.tsx, packages/base-ui/packages/solid/test/defineSsrFixtures.ts, packages/base-ui/scripts/bench-component.mjs, packages/base-ui/scripts/remote-mac.mjs]
-verified: 2026-10-18
+verified: 2026-10-22
 ---
 
 # Port a component to the native path
@@ -13,6 +13,16 @@ The living playbook for moving a family onto the native kit (D15): read it befor
 The slow path is the largest bucket of library time, and only native ports shrink it (core-audit, "The slow path after the core phase"). Within phase 5, take a family's parts in order of their slow-path share in the latest attribution (`attribution.mjs`, the render-element bucket by component): among the list families, Combobox (497 ms expected) and Select (461 ms) come first.
 
 Popup families carry a heap gap the core phase does not close: 500 closed Tooltip roots retain 23.4 MB against React's 11.2 MB (the bench's heap after mount, measured with a full collection). Each popup family's port takes its share of that gap as an exit criterion.
+
+## Sweep mode (D32)
+
+Until every family is on the native kit, the sweep takes precedence over the exit bar and over the unit loop's steps 5 and 6 below.
+
+- Order, by user-perceived weight: Select; Menu, with ContextMenu and Menubar; Combobox and Autocomplete; Popover, Tooltip, PreviewCard; Dialog, AlertDialog, Drawer; NavigationMenu; Toast; the forms.
+- Per family: write the family's floor (`packages/solid/test/floor/`, plain Solid, library-free per D31) and red cost tests against it, then port its parts through the kit.
+- Gate, local only: `bun run test:base-ui:all --changed <main>` with its pass, fail and not-run table, and the family's deterministic cost checks (dev owner and node counts against the floor, and a Chromium heap row against the floor). Counts and heap go down or stay flat; no per-row timing bench.
+- Commit and push each family as its own unit once the gate is green. Report its counts and heap before and after, and the suites table.
+- The Mac runs one full regate per batch of two or three families, or nightly; a row slower there is fixed in the next batch. No per-commit Mac A/B, no hand-written allowance for a row under 1 ms, and no family held to the full exit bar before the next starts. Exit-bar polish follows the sweep.
 
 ## Unit loop
 

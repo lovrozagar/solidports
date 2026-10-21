@@ -342,3 +342,23 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
 - Every build aliases `@solidports/base-ui-floor` to the working tree's `packages/solid/test/floor`, whatever library variant it bundles, and the floors join the harness hash. One library copy per build holds without a hook.
 - The hash-equality test now commits the working tree without the floors, as an older commit is: it failed on D30's alias (the missing floor) and passes with this one.
 - regate8's control run (ctl, 2026-10-21) still stands: its control rows, button/raw-1000, toggle/raw-1000 and collapsible/raw-300, are plain Solid in the bench's own fixtures (`basics.tsx`, `toggles.tsx`, `raw-disclosure.tsx` with `shared/raw-motion.ts`) and import nothing from the library or from `test/floor`.
+
+### D32 — Native sweep before exit-bar polish (2026-10-22)
+
+- The user challenged the pace: a day of harness and gate work landed no library speedup. The reviewer set the strategy, and plan 3 holds it as leaf 5.0.
+- Evidence that the slow path is the lever:
+  - The profiling pass put `useRenderElement`, the props view and `mergeProps` at 34% of the library's browser script and half of its server JavaScript (`perf/core-audit.md`).
+  - 5.6.0's first measurement: select/1000's first open keeps 28.1 MB and 773k objects against React's 12.6 MB and 405k (Chromium heap, production bundles, both collected). The excess is about 32 reactive nodes and two props-view merge scopes per option, the slow path's signature; at mount Solid keeps less than React (544 against 808 KB).
+- The sweep: every family still on the slow path moves onto the native kit, in order of user-perceived weight:
+  1. Select (5.6.0 is its item).
+  2. Menu, with ContextMenu and Menubar.
+  3. Combobox and Autocomplete.
+  4. Popover, Tooltip, PreviewCard.
+  5. Dialog, AlertDialog, Drawer.
+  6. NavigationMenu.
+  7. Toast.
+  8. The forms.
+- Gate per family, local only: `bun run test:base-ui:all --changed <main>` (parity, hydration, jsdom and Chromium), plus deterministic cost checks: dev owner and node counts against the family's floor, and a Chromium heap row against the floor. Counts and heap go down or stay flat. Each family is committed and pushed as its own unit once that gate is green, reported with its counts and heap before and after and the suites table.
+- The Mac runs one full regate per batch of two or three families, or nightly; a row slower there is fixed in the next batch.
+- Suspended during the sweep: D15's rule of one family to the full exit bar before the next, per-commit Mac A/Bs, and hand-written allowances for rows under 1 ms. Exit-bar polish, the rest to 1.25x the floor and below React everywhere, follows the sweep.
+- Harness and infrastructure threads (the worker-kill canary, the TTI per-sample sizing) take no session time unless they block a push.
