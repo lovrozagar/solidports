@@ -9,7 +9,7 @@
  *   reset until the next frame) and holds the measured size until its animations finish after
  *   `'starting'` ends, then releases it to `auto`.
  */
-import { AnimationFrame, queueAfterFrame } from '../../src/utils/useAnimationFrame';
+import { cancelFrame, queueAfterFrame, requestFrame } from './frame';
 
 export interface PanelSize {
   height: number;
@@ -19,7 +19,7 @@ export interface PanelSize {
 /** Runs `callback` in the task after the next frame (the shared one); returns its cancel. */
 export function afterNextFrame(callback: () => void) {
   let cancelled = false;
-  const frame = AnimationFrame.request(() => {
+  const frame = requestFrame(() => {
     queueAfterFrame(() => {
       if (!cancelled) {
         callback();
@@ -28,7 +28,7 @@ export function afterNextFrame(callback: () => void) {
   });
   return () => {
     cancelled = true;
-    AnimationFrame.cancel(frame);
+    cancelFrame(frame);
   };
 }
 
@@ -65,7 +65,7 @@ export function openPanel(
       panel.style.setProperty(name, 'initial', 'important');
     }
     measured({ height: panel.scrollHeight, width: panel.scrollWidth });
-    AnimationFrame.request(() => {
+    requestFrame(() => {
       for (const name of LAYOUT_STYLES) {
         panel.style.removeProperty(name);
       }
