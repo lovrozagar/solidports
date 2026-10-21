@@ -405,6 +405,43 @@ describe("queued Mac runs", () => {
 		expect(readFileSync(join(home, ".gates/remote-mac-out/x/out/r.json"), "utf8")).toBe("result\n")
 		expect(await new Response(run.stdout).text()).toContain("remote-mac: could not collect missing.json")
 	}, 30_000)
+
+	test("a run that leaves the checkout dirty fails and names what it left", async () => {
+		// A unit's cleanup used paths relative to the root after a cd: its probe files stayed in the
+		// checkout, and the next three runs refused to start on it. The run that dirtied it fails.
+		const { dir } = shims()
+		const home = join(dir, "home")
+		const bin = join(home, ".bun/bin")
+		mkdirSync(join(home, "solidports-ci/.git"), { recursive: true })
+		mkdirSync(bin, { recursive: true })
+		writeFileSync(
+			join(bin, "git"),
+			'#!/bin/sh\nif [ "$1" = status ]; then echo "?? packages/base-ui/test/zz-probe.mjs"; fi\nexit 0\n',
+		)
+		writeFileSync(join(bin, "bun"), "#!/bin/sh\nexit 0\n")
+		chmodSync(join(bin, "git"), 0o755)
+		chmodSync(join(bin, "bun"), 0o755)
+		const run = Bun.spawn(
+			[
+				"bash",
+				"-c",
+				remoteScript({
+					sha: "abc",
+					timeout: 60,
+					command: ["true"],
+					bundle: "b.bundle",
+					ref: "refs/remote-mac/x",
+					fetch: [],
+					outDir: ".gates/remote-mac-out/x",
+				}),
+			],
+			{ env: { ...process.env, HOME: home }, stdout: "pipe", stderr: "ignore" },
+		)
+		expect(await run.exited).toBe(1)
+		const out = await new Response(run.stdout).text()
+		expect(out).toContain("remote-mac: the run left the checkout dirty")
+		expect(out).toContain("?? packages/base-ui/test/zz-probe.mjs")
+	}, 30_000)
 })
 
 // One dropped link (a Tailscale blip) failed nine queued runs in seconds: each run's first scp
