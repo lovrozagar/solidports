@@ -28,6 +28,7 @@ import { diagFromEnv, withDiag, writeDiag } from './shared/diag.mjs';
 import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
 import { balancedOrders, splitRuns } from './shared/order.mjs';
 import { summarize } from './shared/report.mjs';
+import { knownDifference } from './shared/known.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const builds = path.resolve(here, '../../../../.tmp/grunt/bench-builds');
@@ -176,7 +177,10 @@ for (const { id, steps } of list) {
         const before = await metrics(cdp);
         // In a task of its own, so `script` counts a synchronous step (`shared/measure.mjs`).
         const inPage = () =>
-          evaluateInTask(page, ([scenario, step]) => window.bench.step(scenario, step), [id, index]);
+          evaluateInTask(page, ([scenario, step]) => window.bench.step(scenario, step), [
+            id,
+            index,
+          ]);
         const result =
           timedRun && callInCycle > 2
             ? await withDiag(DIAG, cdp, name, `${id} › ${steps[index]}`, inPage)
@@ -260,22 +264,7 @@ for (const { id, steps } of list) {
       const actual = results[id][name].summaries[step];
       if (expected !== actual) {
         const known = KNOWN[id]?.[step];
-        const delta = (summary) => JSON.parse(summary ?? 'null')?.nodes;
-        // A known entry either allows a node delta (`nodesDelta`) or ignores named summary fields
-        // (`fields`); every other part of the summary must still match.
-        const without = (summary) => {
-          const value = { ...JSON.parse(summary ?? '{}') };
-          for (const field of known?.fields ?? []) {
-            delete value[field];
-          }
-          if (known?.nodesDelta !== undefined) {
-            value.nodes = 0;
-          }
-          return JSON.stringify(value);
-        };
-        const nodesOk =
-          known?.nodesDelta === undefined || delta(actual) - delta(expected) === known.nodesDelta;
-        if (known && nodesOk && without(actual) === without(expected)) {
+        if (knownDifference(known, expected, actual)) {
           knownHits.push(`${id} › ${step}: ${known.reason}`);
         } else {
           problems.push(`${id} › ${step}: ${NAMES[0]} ${expected} ≠ ${name} ${actual}`);

@@ -72,7 +72,7 @@ node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 
 ### Correctness gate, not a speed gate
 
-- `verify` summaries (mount: `document.body` element count plus `verifyMount`; unmount: root child count) must match across variants. `known-differences.json` lists 16 intentional deltas (inert trailing focus guards, kept-mounted combobox dismiss buttons), each with a `nodesDelta` or ignored `fields` and a reason.
+- `verify` summaries (mount: `document.body` element count plus `verifyMount`; unmount: root child count) must match across variants. `known-differences.json` lists 17 intentional deltas (inert trailing focus guards, kept-mounted combobox dismiss buttons), each with a `nodesDelta` or ignored `fields` and a reason; the SSR bench checks its hydrated summaries against the same file, under a case's `hydrate` step, between a React and a Solid variant (`shared/known.mjs`).
 - Exit 1 only on a step error or an unlisted summary mismatch. There are no thresholds and no stored baseline: a slower build passes CI. Track numbers in [baseline](baseline.md).
 
 ### Reading numbers
