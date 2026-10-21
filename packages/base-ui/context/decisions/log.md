@@ -282,3 +282,20 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
 - The same family's wins: click 100 −15.8 ms (single) and ArrowRight x50 −12.3 ms, over 10x the loss.
 - Leaf 5.3 removes this mount cost rather than renewing it: its acceptance criterion is that D26's and D27's entries are deleted and both mount rows pass.
 - The same regate's other new row, toolbar/200 close menu sync (0.90 → 1.10 ms, CI 0.20 to 0.20, React 1.40), is allowed under D25's D24 rule with toolbar ArrowRight x100 −22.1 ms (16x), bound 0.2 ms, below React. Its script time fell in the same session (1.53 → 1.29 ms), so the cost is a frame no JavaScript accounts for.
+
+### D28 — Gate cadence: a scoped gate per commit, a full regate daily (2026-10-21)
+
+- Proposed by the reviewer and accepted with the session's amendments to items 3 and 4. A full regate takes most of a day on the Mac, so it can no longer gate each push.
+- Per commit: push on a scoped gate, the verify stamp plus a Mac A/B over only the families that import the touched modules (the importer rule), user-facing scenarios first. Target under an hour.
+- Full regate: once a day at main's tip, overnight, and before every release tag, in chunks, after the fact. A flagged row is fixed forward the next day and never blocks the commits in between.
+- Sequential stopping in `bench:component`, inside the TTI/INP harness work, with tests:
+  - Fixed looks at 6, 9 and 12 runs with a Pocock-adjusted threshold per look (about 0.022 for three looks at 0.05 overall); the Benjamini–Hochberg input is each pair's p at the look it stopped on. Testing after every run would inflate each pair's false-positive rate two to three times over 120–280 pairs a chunk.
+  - A pair stops early only on "same" (the CI inside the minimum effect) or "improved"; a pair heading for "regressed" always runs to 12.
+  - It ships only after an A/A run measures a false-positive rate of 5% or less and a known-regression A/B catches the planted regression.
+- Generated allowances (the D24 rule applied by the gate), in the same harness work:
+  - The win and the loss come from the same commit range (the pair's base..cur), not merely the same session; a same-session CI bounds nothing.
+  - The allowed shift is capped at max(0.5 ms, 10% of the base median), the keeps-React rule applies, and `until` is set to the family's next leaf.
+  - A paying win comes from a pair measured to all 12 runs: an early stop on "improved" overstates the win (the winner's curse). The gate re-measures an early-stopped win to 12 runs before it generates the allowance, or the row goes to hand review.
+  - The gate writes each generated row with its win, ratio, cap and commit range to a report; `validateAllowances` checks generated rows against these rules, and only rows outside them need a hand-written entry and review.
+- Every row a regate flags and leaves unallowed carries into the next regate's checklist until it is fixed or allowed, and the checklist is generated from the last report rather than written by hand: navigation-menu/8x100 mount flagged in regate6, was never routed, and flagged again in regate8.
+- Order after D27: the Drawer VirtualKeyboardProvider bug on Mac WebKit, then the TTI/INP harness (with sequential stopping and generated allowances), then the bundle-position bias fix, which lowers the noise and so the runs needed.
