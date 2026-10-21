@@ -190,6 +190,13 @@ export const ALLOWANCES = [
 const DECISION_LOG = new URL('../../../context/decisions/log.md', import.meta.url);
 
 /**
+ * Floating-point slack for a shift at its bound: medians come at 0.1 ms resolution, and 0.8 - 0.23
+ * is 0.5700000000000001 (regate6 failed two rows exactly at their bounds). Far below any metric's
+ * resolution, so it widens no bound.
+ */
+const BOUND_SLACK = 1e-6;
+
+/**
  * The problems with a list of allowances, empty when every entry is complete: a reason, a positive
  * bound, a decision the log holds, and an expiry naming a plan leaf or a decision.
  * @param {readonly (typeof ALLOWANCES)[number][]} allowances
@@ -254,9 +261,13 @@ export function splitAllowed(regressions, reactMedian) {
     const reactRule =
       react !== undefined &&
       (allowance?.baseAboveReact && verdict.base >= react
-        ? verdict.cur - verdict.base <= allowance.maxDelta
+        ? verdict.cur - verdict.base <= allowance.maxDelta + BOUND_SLACK
         : verdict.cur < react);
-    if (allowance !== undefined && verdict.delta <= allowance.maxDelta && reactRule) {
+    if (
+      allowance !== undefined &&
+      verdict.delta <= allowance.maxDelta + BOUND_SLACK &&
+      reactRule
+    ) {
       allowed.push({ ...verdict, allowance, react });
     } else {
       failing.push(verdict);

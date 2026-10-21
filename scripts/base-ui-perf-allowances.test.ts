@@ -122,4 +122,15 @@ describe("reviewed gate allowances", () => {
 			])
 		})
 	})
+
+	// regate6: a shift exactly at its bound (medians at 0.1 ms resolution) read past it in floating
+	// point, 0.8 - 0.23 = 0.5700000000000001 against 0.57.
+	test("a shift at its bound is allowed despite floating-point rounding", () => {
+		const row = {
+			...verdict("toggle-group/300-multiple › controlled value", "script", 0.8 - 0.23),
+			base: 0.23,
+			cur: 0.8,
+		}
+		expect(splitAllowed([row], () => 2.0).allowed).toHaveLength(1)
+	})
 })
