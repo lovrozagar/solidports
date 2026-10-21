@@ -91,6 +91,8 @@ function config(name, ssr) {
         '@base-ui/react': path.join(packages, 'react/src'),
         '@base-ui/utils': path.join(packages, 'utils/src'),
         '@solidports/base-ui': src,
+        // The raw-Solid floors come from the same package copy as the library (D30).
+        '@solidports/base-ui-floor': path.join(src, '../test/floor'),
       },
       // One reactive core even when a variant builds from a baseline copy of the source.
       dedupe: ['react', 'react-dom', 'solid-js', '@solidjs/web', '@solidjs/signals'],
@@ -292,7 +294,9 @@ if (!process.env.SERVER_ONLY) {
         });
         await page.close();
       } catch (error) {
-        problems.push(`${key} [${name}, ${CHECK}] ${String(error?.message ?? error).slice(0, 200)}`);
+        problems.push(
+          `${key} [${name}, ${CHECK}] ${String(error?.message ?? error).slice(0, 200)}`,
+        );
       }
     }
   }
@@ -398,7 +402,9 @@ if (!process.env.SERVER_ONLY) {
         const url = `http://localhost:${port}/${name}/?fixture=${encodeURIComponent(key)}&auto=1`;
         let measured;
         try {
-          measured = await measureInteraction(browser, url, interaction, { throttle: CPU_THROTTLE });
+          measured = await measureInteraction(browser, url, interaction, {
+            throttle: CPU_THROTTLE,
+          });
         } catch (error) {
           if (String(error?.message).startsWith(DEAD_TRIGGER)) {
             // A dead trigger fails the case outright: no further loads of it.
@@ -424,7 +430,14 @@ if (!process.env.SERVER_ONLY) {
     }
     for (const name of NAMES) {
       const entry = results[key][name];
-      for (const metric of ['ttiMs', 'inpFirstMs', 'inpMs', 'hydrateLoadCommitMs', 'loadScriptMs', 'bundleBytes']) {
+      for (const metric of [
+        'ttiMs',
+        'inpFirstMs',
+        'inpMs',
+        'hydrateLoadCommitMs',
+        'loadScriptMs',
+        'bundleBytes',
+      ]) {
         entry[metric] = entry.samples[metric].length ? median(entry.samples[metric]) : null;
       }
       entry.hydrateSyncMs = median(entry.samples.hydrateSyncMs);

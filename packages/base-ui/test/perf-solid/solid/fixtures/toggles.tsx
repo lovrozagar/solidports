@@ -11,8 +11,7 @@ import { Radio } from '@solidports/base-ui/radio';
 import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { Menu } from '@solidports/base-ui/menu';
-/* eslint-disable-next-line import/no-relative-packages -- the floors are the Solid package's test files, which it does not export */
-import { keyedHighlight } from '../../../../packages/solid/test/floor/listHighlight';
+import { keyedHighlight } from '@solidports/base-ui-floor/listHighlight';
 import { items, size } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 

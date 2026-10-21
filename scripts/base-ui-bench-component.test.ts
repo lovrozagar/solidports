@@ -3,11 +3,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
+	baseArchivePaths,
 	baselineBlockers,
 	costPattern,
 	costPlan,
 	depsDrift,
 	dirHash,
+	extractBase,
 	gitProvenance,
 	lockedCommand,
 	benchTimeoutSeconds,
@@ -204,4 +206,85 @@ describe("bench:component driver", () => {
 		expect(run.stdout.toString().trim()).toBe(git(dir, "rev-parse", "HEAD"))
 		expect(git(canary, "rev-parse", "HEAD")).toBe(canaryHead)
 	})
+})
+
+describe("baseline archive", () => {
+	const root = join(import.meta.dir, "..")
+	const baseUi = join(root, "packages/base-ui")
+
+	test("holds the whole Solid package and every config its tsconfig extends chain reaches outside it", () => {
+		const dir = repo()
+		const pkg = join(dir, "packages/base-ui/packages/solid")
+		mkdirSync(join(pkg, "src"), { recursive: true })
+		mkdirSync(join(dir, "configs"), { recursive: true })
+		writeFileSync(join(pkg, "src/index.ts"), "export {}\n")
+		// JSONC, as TypeScript reads it: a comment and a trailing comma.
+		writeFileSync(
+			join(pkg, "tsconfig.json"),
+			'{\n  // the package config\n  "extends": "../../tsconfig.base.json",\n}\n',
+		)
+		writeFileSync(join(pkg, "tsconfig.build.json"), '{ "extends": ["./tsconfig.json", "@tsconfig/strictest"] }\n')
+		writeFileSync(join(dir, "packages/base-ui/tsconfig.base.json"), '{ "extends": "../../configs/root" }\n')
+		writeFileSync(join(dir, "configs/root.json"), "{}\n")
+		writeFileSync(join(dir, "configs/unused.json"), "{}\n")
+		git(dir, "add", ".")
+		git(dir, "commit", "-q", "--no-verify", "-m", "package")
+		expect(baseArchivePaths(dir, git(dir, "rev-parse", "HEAD"))).toEqual([
+			"configs/root.json",
+			"packages/base-ui/packages/solid",
+			"packages/base-ui/tsconfig.base.json",
+		])
+	})
+
+	test("a commit built from its archive bundles byte for byte like the same tree checked out", () => {
+		// D30: a baseline built from `src` alone lost the tsconfig chain (no inlined enums) and the
+		// package's `sideEffects: false` (no tree shaking), so base and cur bundles of one commit
+		// differed. The commit holds the working tree's content, written through a scratch index:
+		// objects only, no ref or index of the repo changes.
+		const env = {
+			...withoutGitVariables(),
+			GIT_INDEX_FILE: join(temp(), "index"),
+			GIT_AUTHOR_NAME: "bench",
+			GIT_AUTHOR_EMAIL: "bench@test",
+			GIT_COMMITTER_NAME: "bench",
+			GIT_COMMITTER_EMAIL: "bench@test",
+		}
+		const gitIn = (...args: string[]) => {
+			const run = Bun.spawnSync(["git", ...args], { cwd: root, env, stdout: "pipe", stderr: "pipe" })
+			if (run.exitCode !== 0) throw new Error(run.stderr.toString())
+			return run.stdout.toString().trim()
+		}
+		gitIn("read-tree", "HEAD")
+		gitIn("add", "-A")
+		const commit = gitIn("commit-tree", gitIn("write-tree"), "-p", "HEAD", "-m", "archive test")
+		const tag = `archive-test-${process.pid}`
+		const src = join(root, ".tmp/grunt/bench-src", tag)
+		const outputs = [`solid/${tag}-archive`, `solid/${tag}-tree`, `ssr-${tag}-archive`, `ssr-${tag}-tree`].map((out) =>
+			join(root, ".tmp/grunt/bench-builds", out),
+		)
+		const bundle = (command: string[], extra: Record<string, string>) => {
+			const run = Bun.spawnSync(command, {
+				cwd: baseUi,
+				env: { ...withoutGitVariables(), ...extra },
+				stdout: "pipe",
+				stderr: "pipe",
+			})
+			if (run.exitCode !== 0) throw new Error(`${command.join(" ")}: ${run.stderr.toString()}`)
+		}
+		try {
+			const srcRoot = extractBase(root, commit, src)
+			const vite = ["bun", "x", "vite", "build", "-c", "test/perf-solid/vite.config.mjs"]
+			bundle(vite, { LIB: "solid", SOLID_SRC: srcRoot, OUT: `${tag}-archive` })
+			bundle(vite, { LIB: "solid", OUT: `${tag}-tree` })
+			bundle(["node", "test/perf-solid/ssr/run.mjs"], {
+				BUILD_ONLY: "1",
+				SSR_VARIANTS: `archive:solid:${srcRoot}:ssr-${tag}-archive,tree:solid::ssr-${tag}-tree`,
+			})
+			const [browserArchive, browserTree, ssrArchive, ssrTree] = outputs.map(dirHash)
+			expect(browserArchive).toBe(browserTree)
+			expect(ssrArchive).toBe(ssrTree)
+		} finally {
+			for (const dir of [src, ...outputs]) rmSync(dir, { recursive: true, force: true })
+		}
+	}, 600_000)
 })
