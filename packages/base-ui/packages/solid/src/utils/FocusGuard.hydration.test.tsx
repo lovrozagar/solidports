@@ -3,18 +3,18 @@
  * create the same hydration-id-consuming nodes whatever the client runs on. VoiceOver on WebKit
  * (Mac and iOS Safari) gives the guards their `button` role after mount; a computation created for
  * it under the guard's owner took that owner's next hydration id on the client only, so every
- * later server node missed its key and stayed inert.
+ * later server node missed its key and stayed inert. Outside hydration there are no server keys to
+ * keep, so a client render costs the same reactive nodes on every platform.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@solidjs/testing-library';
-import { flush } from 'solid-js';
+import { render, screen } from '@solidjs/testing-library';
+import { DEV, flush } from 'solid-js';
 import { isJSDOM } from '#test-utils';
 import { renderServer } from '../../test/ssrFixtures';
 import menuFixtures from '../menu/root/MenuRoot.ssr-fixtures';
 import popoverFixtures from '../popover/root/PopoverRoot.ssr-fixtures';
 
 const client = vi.hoisted(() => ({ voiceOver: false, webkit: false }));
-
 
 // Each flag the guards read, switched per test: the module values are computed once, at load.
 vi.mock('./platform/screen-reader', () => ({
@@ -93,5 +93,41 @@ describe.skipIf(!isJSDOM).each(platforms)('an open menu hydrated on $name', (pla
     expect(guards().map((guard) => guard.getAttribute('role'))).toEqual(
       guards().map(() => expected),
     );
+  });
+});
+
+type Hooks = { onOwner?: ((owner: unknown) => void) | undefined };
+const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
+
+/** The owners and computations a client render of a closed root creates, through Solid's dev hook. */
+function ownersOf(fixture: () => unknown) {
+  let count = 0;
+  hooks.onOwner = (owner) => {
+    count += owner ? 1 : 0;
+  };
+  try {
+    const view = render(() => fixture() as never);
+    flush();
+    view.unmount();
+  } finally {
+    hooks.onOwner = undefined;
+  }
+  return count;
+}
+
+describe.skipIf(!isJSDOM)('a closed root rendered on the client', () => {
+  it.each([
+    { label: 'Menu', fixture: menuFixtures.fixtures.renderTrigger },
+    { label: 'Popover', fixture: popoverFixtures.fixtures.renderTrigger },
+  ])('costs a $label root the same reactive nodes on every platform', ({ fixture }) => {
+    const elsewhere = ownersOf(fixture);
+    for (const platform of platforms) {
+      client.voiceOver = platform.voiceOver;
+      client.webkit = platform.webkit;
+      expect({ platform: platform.name, owners: ownersOf(fixture) }).toEqual({
+        platform: platform.name,
+        owners: elsewhere,
+      });
+    }
   });
 });

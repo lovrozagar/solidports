@@ -1,4 +1,4 @@
-import { createSignal, getOwner, omit, onSettled } from 'solid-js';
+import { createSignal, getOwner, isHydrating, omit, onSettled } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';
 import { platform } from './platform';
 import { runInLazyScope } from './runInLazyScope';
@@ -35,19 +35,25 @@ export function FocusGuard(
 }
 
 const NO_ROLE = () => undefined;
+const BUTTON_ROLE = () => 'button' as const;
 
 /**
  * The guard's role: `button` under VoiceOver on WebKit once mounted. Unlike NVDA and JAWS,
  * VoiceOver's virtual cursor triggers `onFocus` as it moves, but only on focusable/role-button
  * elements through WebKit's NSAccessibility path, so the role lets the focus trap catch the
- * cursor. Set after mount so server and hydration markup match. Other environments create nothing.
+ * cursor. Other environments create nothing.
  *
- * The server cannot see the platform, so the mount hook lives in a lazy scope: `onSettled` takes a
- * hydration id, and under the guard's owner it would take one the server gave a later node.
+ * Only hydration waits for the mount, since the server rendered no role. The server cannot see the
+ * platform, so the mount hook lives in a lazy scope: `onSettled` takes a hydration id, and under
+ * the guard's owner it would take one the server gave a later node. A client render has no server
+ * markup to match and gets the role at once, with no node.
  */
 export function useSafariGuardRole(): () => 'button' | undefined {
   if (!(platform.screenReader.voiceOver && platform.engine.webkit)) {
     return NO_ROLE;
+  }
+  if (!isHydrating()) {
+    return BUTTON_ROLE;
   }
   const [role, setRole] = createSignal<'button' | undefined>();
   runInLazyScope(getOwner(), () =>
