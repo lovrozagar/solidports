@@ -38,8 +38,10 @@ import { median } from '../shared/regression.mjs';
 import { SERVER_SAMPLING, sampleServer } from './sample.mjs';
 import { mainThreadLines } from '../shared/report.mjs';
 import { DEAD_TRIGGER, checkMode, measureInteraction } from './interact.mjs';
+import { knownDifference } from '../shared/known.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const KNOWN = JSON.parse(fs.readFileSync(path.join(here, '../known-differences.json'), 'utf8'));
 const packages = path.resolve(here, '../../../packages');
 const repo = path.resolve(here, '../../../../..');
 const builds = path.join(repo, '.tmp/grunt/bench-builds');
@@ -456,7 +458,11 @@ if (!process.env.SERVER_ONLY) {
         : null;
     }
     for (const name of NAMES.slice(1)) {
-      if (JSON.stringify(summaries[NAMES[0]]) !== JSON.stringify(summaries[name])) {
+      const expected = JSON.stringify(summaries[NAMES[0]]);
+      const actual = JSON.stringify(summaries[name]);
+      // A React/Solid difference `known-differences.json` names for the case's `hydrate` step.
+      const known = VARIANTS[NAMES[0]].lib !== VARIANTS[name].lib ? KNOWN[key]?.hydrate : undefined;
+      if (expected !== actual && !knownDifference(known, expected, actual)) {
         problems.push(
           `${key}: hydrated DOM differs: ${NAMES[0]} ${JSON.stringify(summaries[NAMES[0]])} ≠ ${name} ${JSON.stringify(summaries[name])}`,
         );

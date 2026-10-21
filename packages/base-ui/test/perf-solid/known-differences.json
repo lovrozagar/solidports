@@ -12,6 +12,12 @@
       "reason": "One inert trailing focus guard per closed Menu.Trigger (see menu/500)."
     }
   },
+  "menu/page": {
+    "hydrate": {
+      "nodesDelta": 1,
+      "reason": "The SSR menu page (menu/500 server-rendered): Solid renders Menu.Trigger's inert trailing focus guard on the server and keeps it after hydration (utils/popups/TriggerFocusGuards.tsx; see menu/500); React renders the trigger alone."
+    }
+  },
   "combobox/1000": {
     "mount": {
       "nodesDelta": 1,
