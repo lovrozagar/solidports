@@ -39,6 +39,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const baseUi = path.resolve(here, '..');
 const repo = path.resolve(baseUi, '../..');
 const perf = path.join(baseUi, 'test/perf-solid');
+const floors = path.join(baseUi, 'packages/solid/test/floor');
 const builds = path.join(repo, '.tmp/grunt/bench-builds');
 const resultsDir = path.join(repo, '.tmp/grunt/bench-results');
 const USAGE =
@@ -400,7 +401,8 @@ export function extractBase(cwd, sha, dest) {
  * hash. `name` is the SSR variant's name; `others` are the other SSR variants built alongside.
  */
 function buildArchived(sha, name, others) {
-  const harness = treeHash(repo, [path.relative(repo, perf), 'bun.lock']);
+  // The harness: the bench, its raw-Solid floors (D31) and the lockfile.
+  const harness = treeHash(repo, [path.relative(repo, perf), path.relative(repo, floors), 'bun.lock']);
   const key = `${baseArchiveHash(repo, sha).slice(0, 12)}-${harness.slice(0, 12)}`;
   const browserOut = `${name}-${key}`;
   const browserDir = path.join(builds, 'solid', browserOut);

@@ -24,9 +24,9 @@ export default defineConfig({
       '@base-ui/react': path.join(base, 'react/src'),
       '@base-ui/utils': path.join(base, 'utils/src'),
       '@solidports/base-ui': solidSrc,
-      // The raw-Solid floors come from the same package copy as the library (D30): they import its
-      // internals, so a baseline that took them from the working tree bundled two copies.
-      '@solidports/base-ui-floor': path.join(solidSrc, '../test/floor'),
+      // The raw-Solid floors are the harness's (D31): always the working tree's, whatever library
+      // variant this build bundles. They import nothing from the library.
+      '@solidports/base-ui-floor': path.join(base, 'solid/test/floor'),
     },
     // One reactive core even when SOLID_SRC points at a baseline copy of the source.
     dedupe: ['react', 'react-dom', 'solid-js', '@solidjs/web', '@solidjs/signals'],

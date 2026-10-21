@@ -236,11 +236,13 @@ describe("baseline archive", () => {
 		])
 	})
 
-	test("a commit built from its archive bundles byte for byte like the same tree checked out", () => {
+	test("a commit built from its archive bundles byte for byte like the same tree checked out, floors or not", () => {
 		// D30: a baseline built from `src` alone lost the tsconfig chain (no inlined enums) and the
 		// package's `sideEffects: false` (no tree shaking), so base and cur bundles of one commit
-		// differed. The commit holds the working tree's content, written through a scratch index:
-		// objects only, no ref or index of the repo changes.
+		// differed. The commit holds the working tree's content without the raw-Solid floors, as a
+		// commit older than a floor does (D31: the floors are the harness's, from the working tree,
+		// and a 3eef0aca baseline could not build). It is written through a scratch index: objects
+		// only, no ref or index of the repo changes.
 		const env = {
 			...withoutGitVariables(),
 			GIT_INDEX_FILE: join(temp(), "index"),
@@ -256,6 +258,7 @@ describe("baseline archive", () => {
 		}
 		gitIn("read-tree", "HEAD")
 		gitIn("add", "-A")
+		gitIn("rm", "-r", "-q", "--cached", "packages/base-ui/packages/solid/test/floor")
 		const commit = gitIn("commit-tree", gitIn("write-tree"), "-p", "HEAD", "-m", "archive test")
 		const tag = `archive-test-${process.pid}`
 		const src = join(root, ".tmp/grunt/bench-src", tag)

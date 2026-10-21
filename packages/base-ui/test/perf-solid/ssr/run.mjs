@@ -91,8 +91,8 @@ function config(name, ssr) {
         '@base-ui/react': path.join(packages, 'react/src'),
         '@base-ui/utils': path.join(packages, 'utils/src'),
         '@solidports/base-ui': src,
-        // The raw-Solid floors come from the same package copy as the library (D30).
-        '@solidports/base-ui-floor': path.join(src, '../test/floor'),
+        // The raw-Solid floors are the harness's (D31): always the working tree's.
+        '@solidports/base-ui-floor': path.join(packages, 'solid/test/floor'),
       },
       // One reactive core even when a variant builds from a baseline copy of the source.
       dedupe: ['react', 'react-dom', 'solid-js', '@solidjs/web', '@solidjs/signals'],
