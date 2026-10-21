@@ -76,6 +76,12 @@ describe("reviewed gate allowances", () => {
 			expect(splitAllowed([at(22.1, 3)], () => 11.4).failing).toHaveLength(1)
 		})
 
+		// D25: parity is not winning. A base equal to React's median takes the bounded rule.
+		test("takes the bounded rule when the base equals React", () => {
+			expect(splitAllowed([at(22.1, 1.6)], () => 22.1).allowed).toHaveLength(1)
+			expect(splitAllowed([at(22.1, 3)], () => 22.1).failing).toHaveLength(1)
+		})
+
 		test("takes the below-React rule when the base is below React", () => {
 			expect(splitAllowed([at(20, 1.6)], () => 21).failing).toHaveLength(1)
 			expect(splitAllowed([at(20, 1.6)], () => 30).allowed).toHaveLength(1)
@@ -90,5 +96,30 @@ describe("reviewed gate allowances", () => {
 		const row = { ...verdict("preview-card/roots-200 › move across 20", "sync", 1.8), base: 25.1, cur: 26.9 }
 		expect(splitAllowed([row], () => 31.5).allowed).toHaveLength(1)
 		expect(splitAllowed([row], () => 20).failing).toHaveLength(1)
+	})
+
+	// D25: a residual without mechanism carries its evidence and stays under 0.5 ms.
+	describe("a residual without mechanism", () => {
+		const residual = ALLOWANCES.find((entry) => entry.class === "residual")!
+
+		test("exists, and validates with its evidence", () => {
+			expect(residual).toBeDefined()
+			expect(validateAllowances([residual])).toEqual([])
+		})
+
+		test("is rejected without equal call counts or an experiment that recovered nothing", () => {
+			expect(validateAllowances([{ ...residual, evidence: { ...residual.evidence!, calls: "" } }])).toEqual([
+				`${residual.key} ${residual.metric}: a residual names the equal call counts (evidence.calls)`,
+			])
+			expect(validateAllowances([{ ...residual, evidence: { ...residual.evidence!, experiments: [] } }])).toEqual([
+				`${residual.key} ${residual.metric}: a residual names an experiment that recovered nothing (evidence.experiments)`,
+			])
+		})
+
+		test("is rejected over 0.5 ms", () => {
+			expect(validateAllowances([{ ...residual, maxDelta: 0.6 }])).toEqual([
+				`${residual.key} ${residual.metric}: a residual allows at most 0.5 ms`,
+			])
+		})
 	})
 })
