@@ -70,7 +70,6 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
   const value = useBaseUiId(() => valueProp() || undefined);
 
   const groupContext = useToggleGroupContext();
-  const groupValue = () => groupContext?.value() ?? [];
 
   const disabled = () => (disabledProp() || groupContext?.disabled()) ?? false;
 
@@ -93,7 +92,7 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
   }
 
   const [pressed, setPressedState] = useControlled({
-    controlled: () => (groupContext ? groupValue()?.indexOf(value()) > -1 : pressedProp()),
+    controlled: () => (groupContext ? groupContext.isPressed(value()) : pressedProp()),
     default: defaultPressedProp,
     name: 'Toggle',
     state: 'pressed',
@@ -320,7 +319,6 @@ function NativeToggle(props: Toggle.Props<string>): JSX.Element {
   const groupContext = useToggleGroupContext();
   const composite = useCompositeRootContext(true);
   const toolbarContext = useToolbarRootContext(true);
-  const groupValue = () => groupContext?.value() ?? [];
   // `|| undefined` handles cases, where value is falsy (i.e. "")
   const value = isStatic(props, 'value')
     ? useBaseUiId(props.value || undefined)
@@ -346,7 +344,7 @@ function NativeToggle(props: Toggle.Props<string>): JSX.Element {
   }
 
   const [pressed, setPressedState] = useControlled({
-    controlled: () => (groupContext ? groupValue()?.indexOf(value()!) > -1 : props.pressed),
+    controlled: () => (groupContext ? groupContext.isPressed(value()) : props.pressed),
     default: () => props.defaultPressed ?? false,
     name: 'Toggle',
     state: 'pressed',

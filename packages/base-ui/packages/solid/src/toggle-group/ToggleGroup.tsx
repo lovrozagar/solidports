@@ -12,6 +12,7 @@ import {
 import { provideContext, splitComponentProps } from '../solid-helpers';
 import { useToolbarRootContext } from '../toolbar/root/ToolbarRootContext';
 import { useToolbarGroupContext } from '../toolbar/group/ToolbarGroupContext';
+import { createKeyedSelector } from '../utils/createKeyedSelector';
 import { EMPTY_ARRAY } from '../utils/empty';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { REASONS } from '../utils/reasons';
@@ -104,6 +105,9 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
   const contextValue: ToggleGroupContext<Value> = {
     disabled,
     isValueInitialized,
+    // Keyed: a change of the value re-runs only the toggles whose membership changed, not every
+    // toggle's lookup in the array.
+    isPressed: createKeyedSelector(() => groupValue() ?? EMPTY_ARRAY),
     setGroupValue,
     value: groupValue,
   };
