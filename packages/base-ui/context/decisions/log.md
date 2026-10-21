@@ -299,3 +299,21 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
   - The gate writes each generated row with its win, ratio, cap and commit range to a report; `validateAllowances` checks generated rows against these rules, and only rows outside them need a hand-written entry and review.
 - Every row a regate flags and leaves unallowed carries into the next regate's checklist until it is fixed or allowed, and the checklist is generated from the last report rather than written by hand: navigation-menu/8x100 mount flagged in regate6, was never routed, and flagged again in regate8.
 - Order after D27: the Drawer VirtualKeyboardProvider bug on Mac WebKit, then the TTI/INP harness (with sequential stopping and generated allowances), then the bundle-position bias fix, which lowers the noise and so the runs needed.
+
+### D29 — No sequential stopping; the scoped gate reuses React's medians; TTI and INP are gated (2026-10-21)
+
+- Supersedes D28's sequential stopping, which the session's data ruled out and the reviewer withdrew:
+  - The judge refuses fewer than 10 samples a side (`MIN_SAMPLES` in `shared/regression.mjs`), and its Mann–Whitney normal approximation is sound only from about 8, so looks at 6 and 9 runs could not be judged; a browser sample is one run, and `bench:component` takes 12.
+  - Time goes to the browser phase: in regate8's chunk 4 on the Mac it took about 14½ of 16 minutes, both SSR orders under a minute and the cost tests 5 s. The one legal early look, at 10 of 12, would save at most 17% of it.
+- The per-commit scoped gate runs base and cur only. React's bundle changes only with an upstream version, so the keeps-React and near-React checks read React's medians from the last daily regate, stored with the session's date, commit, React version and Mac power state; a React version change or another power state invalidates them.
+  - Drift guard: a cached median is used only when the row clears it by a margin (initially 0.9x the median, or 0.9x the near-React cap). A row inside the margin re-measures React in the same session, automatically. The margin is then set from the drift one full regate measures between cached and same-session medians.
+  - This takes a third of the variants out of every browser session.
+- D28's generated allowances stand, without the clause on early-stopped wins: every pair now runs its full count.
+- A slow creep below the per-step threshold is what the daily regate against a fixed baseline catches, and per-commit gates cannot. The first case: popover/handle-20 mount, +0.8 ms from 3eef0aca to 5c85c3cc in regate8, where neither bisect stage judged any single step (stage one read +0.7 between 522f6177 and f98512f7, stage two +0.2 over the same range).
+- D28's per-commit scoped gate gains a required step: every push touching `packages/base-ui/packages/solid` first runs `bun run test:base-ui:all --changed <main>` (jsdom and Chromium over the module graph's diff) and reports its pass, fail and not-run table. The verify stamp runs the repository's gates, not the Base UI suites: 33216ed1 passed its stamp and Chromium and Mac WebKit checks, then failed main's JSDOM suite (run 39652535264), because its test file read `CSS.supports` at module load and jsdom has none (fixed in 28c62fe5). The Mac WebKit and Safari probes stay extra checks, not substitutes.
+- TTI and INP are gated, as the user asked: what matters is when a user can click and that the click responds.
+  - TTI is the time from navigation start to the first real click whose effect appears (CDP mouse events once per frame on the case's trigger). The hydration commit is recorded beside it, not gated.
+  - A click that never takes effect within about 10 s fails the case outright ("trigger never became interactive"), not as a slow sample: the Safari hydration failure of eab5146a was a dead button.
+  - INP is gated for the first click (the one TTI lands on) and a warm second click.
+  - If an A/A shows a metric too noisy to gate at the default minimum effect, its floor is set from the A/A's numbers and recorded here; it is not made report-only.
+  - Chromium is the timing engine. The daily regate also runs the TTI/INP cases at 4x CPU throttling as a gated set with its own A/A floor, and in Mac WebKit for correctness only (no dead interaction, no hydration errors).

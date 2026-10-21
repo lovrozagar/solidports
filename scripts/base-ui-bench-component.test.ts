@@ -49,6 +49,11 @@ function repo() {
 }
 
 describe("bench:component driver", () => {
+	test("parseArgs reads a CPU throttle for the SSR runs (D29: the daily regate's 4x set)", () => {
+		expect(parseArgs(["menu", "--cpu-throttle", "4"]).cpuThrottle).toBe(4)
+		expect(() => parseArgs(["menu", "--cpu-throttle", "0.5"])).toThrow("--cpu-throttle")
+	})
+
 	test("parseArgs reads names, runs, an extra filter, and the baseline flags", () => {
 		expect(parseArgs(["collapsible,accordion", "--runs", "4", "--filter", "!tag:raw", "--compare", "b0"])).toEqual({
 			names: ["collapsible", "accordion"],
@@ -58,6 +63,8 @@ describe("bench:component driver", () => {
 			saveBaseline: null,
 			at: null,
 			compare: "b0",
+			cpuThrottle: 1,
+			scoped: false,
 		})
 		expect(() => parseArgs([])).toThrow("bench:component <name>[,...]|all")
 		expect(() => parseArgs(["button", "--save-baseline", "b0", "--compare", "b0"])).toThrow(

@@ -24,6 +24,7 @@ import { matchConsole } from './shared/console.mjs';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
 import { heapCycle, retainedKB, timingCycle } from './shared/cycles.mjs';
 import { engineSpec, measuredColumns } from './shared/engines.mjs';
+import { diagFromEnv, withDiag, writeDiag } from './shared/diag.mjs';
 import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
 import { balancedOrders, splitRuns } from './shared/order.mjs';
 import { summarize } from './shared/report.mjs';
@@ -37,6 +38,8 @@ const HEAP_RUNS = Number(process.env.HEAP_RUNS ?? 6);
 const THROTTLE = Number(process.env.THROTTLE ?? 1);
 const QUERY = process.env.SIZE === 'large' ? '?size=large' : '';
 const ENGINE = engineSpec(process.env.ENGINE);
+// Off by default: one step traced or profiled inside the bench's own cycle (`shared/diag.mjs`).
+const DIAG = diagFromEnv(process.env);
 const COLUMNS = measuredColumns(ENGINE);
 if (THROTTLE > 1 && !ENGINE.cdp) {
   console.error(`bench: THROTTLE needs CDP, which ${ENGINE.name} does not have.`);
@@ -165,19 +168,26 @@ for (const { id, steps } of list) {
       // Without CDP there is no forced full collection: the cycles skip it.
       const collect = cdp ? () => collectGarbage(cdp) : async () => {};
       const readHeap = () => page.evaluate('performance.memory.usedJSHeapSize');
+      // The cycle's untimed warm-up mount and unmount are its first two calls (`timingCycle`).
+      let timedRun = false;
+      let callInCycle = 0;
       const runStep = async (index) => {
+        callInCycle += 1;
         const before = await metrics(cdp);
         // In a task of its own, so `script` counts a synchronous step (`shared/measure.mjs`).
-        const result = await evaluateInTask(
-          page,
-          ([scenario, step]) => window.bench.step(scenario, step),
-          [id, index],
-        );
+        const inPage = () =>
+          evaluateInTask(page, ([scenario, step]) => window.bench.step(scenario, step), [id, index]);
+        const result =
+          timedRun && callInCycle > 2
+            ? await withDiag(DIAG, cdp, name, `${id} › ${steps[index]}`, inPage)
+            : await inPage();
         const after = await metrics(cdp);
         return { result, before, after };
       };
       const stepCount = steps.length;
       for (let run = 0; run < WARMUP + roundRuns; run += 1) {
+        timedRun = run >= WARMUP;
+        callInCycle = 0;
         const timed = await timingCycle({
           collect,
           runStep,
@@ -234,6 +244,7 @@ for (const { id, steps } of list) {
           }
         });
       }
+      timedRun = false;
       for (let run = 0; ENGINE.heap && run < HEAP_ROUNDS[round]; run += 1) {
         entry.heapKB.push(await heapCycle({ collect, readHeap, runStep, stepCount }));
       }
@@ -377,6 +388,7 @@ fs.writeFileSync(
   ),
 );
 fs.writeFileSync(`${out}.md`, lines.join('\n'));
+writeDiag(DIAG, fs);
 console.log(lines.join('\n'));
 console.log(`\nwritten ${out}.{md,json}`);
 process.exit(problems.length ? 1 : 0);

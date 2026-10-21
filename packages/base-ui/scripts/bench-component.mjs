@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // bench:component: one report per component across every perf instrument (plan 3, leaves 1.5–1.7).
 //
-//   bun run bench:component <name>[,...]|all [--runs 12] [--ssr-runs 20] [--filter <terms>]
+//   bun run bench:component <name>[,...]|all [--runs 12] [--ssr-runs 20] [--filter <terms>] [--cpu-throttle N]
 //                           [--save-baseline <label> [--at <sha>]] [--compare <label>]
 //
 // Builds once, then runs the browser scenarios that list a component (`component:<name>` terms,
@@ -21,7 +21,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closest, matchesFilter, parseFilter } from '../test/perf-solid/shared/filter.mjs';
-import { splitAllowed } from '../test/perf-solid/shared/allowances.mjs';
+import {
+  generateAllowances,
+  generatedCap,
+  splitAllowed,
+  validateGenerated,
+} from '../test/perf-solid/shared/allowances.mjs';
+import { reactCacheFrom, resolveReact } from '../test/perf-solid/shared/react-cache.mjs';
 import { judgeRun, unmeasuredPairs, variantPairs } from '../test/perf-solid/shared/report.mjs';
 import { EXCLUSIVE_LOCK, LOCK_TIMEOUT_SECONDS } from './test-all.mjs';
 import { EXIT_BAR, exitBar, FDR_Q, GATED, median } from '../test/perf-solid/shared/regression.mjs';
@@ -33,7 +39,7 @@ const perf = path.join(baseUi, 'test/perf-solid');
 const builds = path.join(repo, '.tmp/grunt/bench-builds');
 const resultsDir = path.join(repo, '.tmp/grunt/bench-results');
 const USAGE =
-  'bench:component <name>[,...]|all [--runs N] [--ssr-runs N] [--filter terms] [--save-baseline label [--at sha] | --compare label]';
+  'bench:component <name>[,...]|all [--runs N] [--ssr-runs N] [--filter terms] [--cpu-throttle N] [--scoped] [--save-baseline label [--at sha] | --compare label]';
 
 /** @param {string[]} argv */
 /**
@@ -42,6 +48,34 @@ const USAGE =
  * (D16) flags five true 2x regressions among 400 judged pairs under the Mac's GC noise.
  */
 export const DEFAULT_RUNS = 12;
+
+/** The SSR metrics the gate judges base against cur (D16, D29): only rows that measure them. */
+export const SSR_GATED_METRICS = ['serverMs', 'hydrateSyncMs', 'ttiMs', 'inpFirstMs', 'inpMs'];
+
+/**
+ * The SSR comparisons of a run: each gated metric a row measured on both sides in both variant
+ * orders (D22), and the ones measured only in part.
+ * @param {{ results: Record<string, any> }} ssr @param {{ results: Record<string, any> } | undefined} ssrSwapped
+ */
+export function ssrPairs(ssr, ssrSwapped) {
+  const pairs = [];
+  const unmeasured = [];
+  for (const [key, row] of Object.entries(ssr.results)) {
+    const swappedRow = ssrSwapped?.results[key];
+    for (const metric of SSR_GATED_METRICS) {
+      const a = row.base?.samples[metric] ?? [];
+      const b = row.cur?.samples[metric] ?? [];
+      const sa = swappedRow?.base?.samples[metric] ?? [];
+      const sb = swappedRow?.cur?.samples[metric] ?? [];
+      if (a.length && b.length && sa.length && sb.length) {
+        pairs.push({ key, metric, orders: [{ base: a, cur: b }, { base: sa, cur: sb }], rule: GATED[metric] });
+      } else if (a.length || b.length || sa.length || sb.length) {
+        unmeasured.push(`${key} ${metric}: not measured by both sides in both orders`);
+      }
+    }
+  }
+  return { pairs, unmeasured };
+}
 
 export function parseArgs(argv) {
   const options = {
@@ -52,6 +86,10 @@ export function parseArgs(argv) {
     saveBaseline: null,
     at: null,
     compare: null,
+    // D29: the SSR runs' CPU throttle (the daily regate's 4x TTI/INP set); 1 is none.
+    cpuThrottle: 1,
+    // D29: the per-commit gate, base against cur only; React's medians come from the daily regate.
+    scoped: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -66,6 +104,11 @@ export function parseArgs(argv) {
     else if (arg === '--save-baseline') options.saveBaseline = value();
     else if (arg === '--compare') options.compare = value();
     else if (arg === '--at') options.at = value();
+    else if (arg === '--scoped') options.scoped = true;
+    else if (arg === '--cpu-throttle') {
+      options.cpuThrottle = Number(value());
+      if (!(options.cpuThrottle >= 1)) throw new Error(`--cpu-throttle needs a rate of 1 or more; usage: ${USAGE}`);
+    }
     else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}; usage: ${USAGE}`);
     else options.names.push(...arg.split(',').filter(Boolean));
   }
@@ -354,7 +397,8 @@ export async function main(argv, deps = {}) {
   let base = null;
   /** With `--at`, the commit measured instead of the working tree. */
   let measured = null;
-  const browserVariants = ['react:react:dist'];
+  // D29: the scoped gate leaves React out of the browser session; the daily regate measures it.
+  const browserVariants = options.scoped ? [] : ['react:react:dist'];
   const ssrVariants = ['react:react'];
   if (options.compare) {
     const file = path.join(outDir, 'baselines', `${options.compare}.json`);
@@ -406,6 +450,22 @@ export async function main(argv, deps = {}) {
   const browser = fs.existsSync(`${out}-browser.json`)
     ? JSON.parse(fs.readFileSync(`${out}-browser.json`, 'utf8'))
     : null;
+  // D29: the session React was measured in, as the scoped gate's cache needs it.
+  const reactSession = {
+    reactVersion: JSON.parse(
+      fs.readFileSync(path.join(repo, 'packages/base-ui/packages/react/package.json'), 'utf8'),
+    ).version,
+    power: process.env.GATE_POWER ?? 'unknown',
+  };
+  const cacheFile = path.join(outDir, 'react-medians.json');
+  if (base && browser && !options.scoped) {
+    const meta = {
+      date: new Date().toISOString(),
+      sha: git(repo, ['rev-parse', 'HEAD']).trim(),
+      ...reactSession,
+    };
+    fs.writeFileSync(cacheFile, JSON.stringify(reactCacheFrom(browser.summary, meta), null, 2));
+  }
 
   // --- SSR cases ---
   const ssrTerms = parseFilter(components.map((c) => `component:${c}`).join(','), {
@@ -423,7 +483,12 @@ export async function main(argv, deps = {}) {
       // `--expose-gc`: the server sampler collects before each batch (`ssr/sample.mjs`).
       ['--expose-gc', 'test/perf-solid/ssr/run.mjs', String(options.ssrRuns), ssrIds.join(',')],
       {
-        env: { NO_BUILD: '1', SSR_VARIANTS: variants.join(','), RESULTS_FILE: file },
+        env: {
+          NO_BUILD: '1',
+          SSR_VARIANTS: variants.join(','),
+          RESULTS_FILE: file,
+          CPU_THROTTLE: String(options.cpuThrottle),
+        },
         allowFail: true,
         locked: true,
         timeoutSeconds: benchTimeoutSeconds(ssrIds.length * options.ssrRuns, 10),
@@ -500,22 +565,11 @@ export async function main(argv, deps = {}) {
     pairs.push(...variantPairs(browser.summary, 'base', 'cur', { raw: browser.raw }));
   }
   const browserPairCount = pairs.length;
-  const ssrUnmeasured = [];
+  let ssrUnmeasured = [];
   if (base && ssr) {
-    for (const [key, row] of Object.entries(ssr.results)) {
-      const swappedRow = ssrSwapped?.results[key];
-      for (const metric of ['serverMs', 'hydrateSyncMs']) {
-        const a = row.base?.samples[metric] ?? [];
-        const b = row.cur?.samples[metric] ?? [];
-        const sa = swappedRow?.base?.samples[metric] ?? [];
-        const sb = swappedRow?.cur?.samples[metric] ?? [];
-        if (a.length && b.length && sa.length && sb.length) {
-          pairs.push({ key, metric, orders: [{ base: a, cur: b }, { base: sa, cur: sb }], rule: GATED[metric] });
-        } else if (a.length || b.length || sa.length || sb.length) {
-          ssrUnmeasured.push(`${key} ${metric}: not measured by both sides in both orders`);
-        }
-      }
-    }
+    const judged = ssrPairs(ssr, ssrSwapped);
+    pairs.push(...judged.pairs);
+    ssrUnmeasured = judged.unmeasured;
   }
   const judged = judgeRun(pairs);
   // What neither side's verdict covers: steps this engine skipped, and metrics one side measured.
@@ -532,10 +586,70 @@ export async function main(argv, deps = {}) {
   }
   // Reviewed allowances (`shared/allowances.mjs`): reported, not failed, within their bound.
   // An allowance holds only below React's median for the same row and metric in this session.
-  const { allowed, failing } = splitAllowed(regressions, (verdict) => {
-    const samples = browser?.summary[verdict.key]?.react?.samples[verdict.metric];
+  const sessionReact = (summary, verdict) => {
+    const samples = summary?.[verdict.key]?.react?.samples[verdict.metric];
     return samples?.length ? median(samples) : undefined;
+  };
+  const cache =
+    options.scoped && fs.existsSync(cacheFile)
+      ? JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
+      : undefined;
+  const split = splitAllowed(regressions, (verdict, allowance) => {
+    if (!options.scoped) return sessionReact(browser?.summary, verdict);
+    const resolved = resolveReact(verdict, allowance, {
+      session: sessionReact(browser?.summary, verdict),
+      cache,
+      current: reactSession,
+    });
+    return 'react' in resolved ? resolved.react : resolved;
   });
+  const { allowed, failing } = split;
+  // D29: a row the cached React median could not decide runs again with React, base and cur in one
+  // session, its cases only, and that session's own verdict decides it.
+  if (split.remeasure.length) {
+    const ids = [...new Set(split.remeasure.map((v) => v.key.split(' › ')[0]))];
+    const rerunFile = `${out}-browser-react`;
+    exec('node', ['test/perf-solid/run.mjs', String(options.runs), ids.join(',')], {
+      env: { VARIANTS: ['react:react:dist', ...browserVariants].join(','), RESULTS_FILE: rerunFile },
+      allowFail: true,
+      locked: true,
+      timeoutSeconds: benchTimeoutSeconds(ids.length * options.runs, 50),
+    });
+    const rerun = fs.existsSync(`${rerunFile}.json`)
+      ? JSON.parse(fs.readFileSync(`${rerunFile}.json`, 'utf8'))
+      : null;
+    const rejudged = rerun ? judgeRun(variantPairs(rerun.summary, 'base', 'cur')).verdicts : [];
+    for (const row of split.remeasure) {
+      const again = rejudged.find((v) => v.key === row.key && v.metric === row.metric);
+      if (!again) {
+        failing.push(row);
+      } else if (again.verdict === 'regressed') {
+        const second = splitAllowed([again], (verdict) => sessionReact(rerun.summary, verdict));
+        allowed.push(...second.allowed);
+        failing.push(...second.failing);
+      }
+    }
+  }
+  // D28 as amended by D29: the gate applies the D24 rule itself to what no hand entry allows.
+  const auto = generateAllowances(
+    failing.splice(0),
+    judged.verdicts.filter((v) => v.verdict === 'improved'),
+    {
+      reactMedian: (verdict) => {
+        const resolved = options.scoped
+          ? resolveReact(verdict, { maxDelta: generatedCap(verdict.base) }, {
+              session: sessionReact(browser?.summary, verdict),
+              cache,
+              current: reactSession,
+            })
+          : { react: sessionReact(browser?.summary, verdict) };
+        return resolved.react;
+      },
+    },
+  );
+  failing.push(...auto.failing);
+  const { generated } = auto;
+  const generatedProblems = validateGenerated(generated);
   // Plan 3's exit bar on production builds: every SSR case with a floor twin.
   const bar = ssr ? exitBar(ssr.results, base ? 'cur' : 'solid') : [];
 
@@ -548,6 +662,7 @@ export async function main(argv, deps = {}) {
     ...(browser?.problems ?? []).map((p) => `browser: ${p}`),
     ...(ssr?.problems ?? []).map((p) => `ssr: ${p}`),
     ...cost.problems.map((p) => `cost: ${p}`),
+    ...generatedProblems.map((p) => `generated allowance: ${p}`),
     ...bar
       .filter((v) => !v.pass)
       .map(
@@ -573,6 +688,8 @@ export async function main(argv, deps = {}) {
     cost,
     verdicts,
     exitBar: bar,
+    // The checklist generator's input (`scripts/regate-checklist.mjs`, D28).
+    regressions: { failing, allowed, generated },
     failures,
   };
   fs.writeFileSync(`${out}.json`, JSON.stringify(result, null, 2));
@@ -639,6 +756,14 @@ export async function main(argv, deps = {}) {
           `- ${r.key} ${r.metric}: ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (shift ${r.delta.toFixed(2)}, allowed up to ${r.allowance.maxDelta}; React ${r.react.toFixed(2)}; ${r.allowance.decision}, until ${r.allowance.until}: ${r.allowance.reason})`,
       ),
     );
+  }
+  if (generated.length) {
+    const lines = generated.map(
+      (r) =>
+        `- ${r.key} ${r.metric}: ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (shift ${r.delta.toFixed(2)}, cap ${r.allowance.cap.toFixed(2)}; React ${r.react.toFixed(2)}; paid by ${r.allowance.win}, ${r.allowance.ratio.toFixed(1)}x; base ${base?.sha?.slice(0, 8) ?? '-'}..cur; until ${r.allowance.until})`,
+    );
+    md.push('', "## Generated allowances (D28: the gate's own D24 rule)", '', ...lines);
+    fs.writeFileSync(`${out}-allowances-generated.md`, ['# Generated allowances', '', ...lines, ''].join('\n'));
   }
   const unmeasured = [...notMeasured, ...ssrUnmeasured];
   if (unmeasured.length) {

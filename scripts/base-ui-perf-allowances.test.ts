@@ -60,6 +60,21 @@ describe("reviewed gate allowances", () => {
 		expect(splitAllowed(row, () => undefined).failing).toHaveLength(1)
 	})
 
+	test("a row whose cached React median could flip the decision is re-measured, not judged (D29)", () => {
+		const row = [verdict("toggle-group/300-single › heap after mount KB", "heapKB", 42.3)]
+		const seen: unknown[] = []
+		const { allowed, failing, remeasure } = splitAllowed(row, (v, allowance) => {
+			seen.push(allowance?.decision)
+			return { remeasure: true }
+		})
+		expect(seen).toEqual(["D23"])
+		expect(allowed).toEqual([])
+		expect(failing).toEqual([])
+		expect(remeasure.map((v) => `${v.key} ${v.metric}`)).toEqual([
+			"toggle-group/300-single › heap after mount KB heapKB",
+		])
+	})
+
 	// D24: a row already above React at the base (menu/500 open by keyboard, 1.94x at 3eef0aca) may
 	// take its bounded shift; the mode applies only when the base is above React in the session.
 	describe("an entry for a row above React at the base", () => {

@@ -296,15 +296,7 @@ const PENDING: Partial<Record<ComponentName, readonly CoverageAxis[]>> = {
     'render-element',
     'render-component',
   ],
-  menu: [
-    'scale-1000',
-    'reactive-props',
-    'wrapper',
-    'render-element',
-    'render-component',
-    'ssr',
-    'hydrate',
-  ],
+  menu: ['scale-1000', 'reactive-props', 'wrapper', 'render-element', 'render-component'],
   menubar: [
     'scale-1',
     'scale-1000',
@@ -374,8 +366,6 @@ const PENDING: Partial<Record<ComponentName, readonly CoverageAxis[]>> = {
     'render-fn',
     'render-element',
     'render-component',
-    'ssr',
-    'hydrate',
   ],
   'preview-card': [
     'scale-1',

@@ -41,6 +41,11 @@ export const GATED = {
   settled: { floor: 0.1 },
   serverMs: { floor: 0.1 },
   hydrateSyncMs: { floor: 0.1 },
+  // What a user feels on a server-rendered page (D29): navigation start to the first click handled,
+  // that click's response, and a warm second click's.
+  ttiMs: { floor: 0.1 },
+  inpFirstMs: { floor: 0.1 },
+  inpMs: { floor: 0.1 },
   heapKB: { floor: 0, minBoth: 100 },
   // What a step retains (collected heap after it minus before it): read, as the heap after mount,
   // only where both sides retain over 100 KB. Its growth with the garbage is not judged: it moves

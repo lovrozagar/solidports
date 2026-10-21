@@ -1,7 +1,7 @@
 ---
 tags: [testing, flush, jsdom, ssr]
 sources: [packages/base-ui/packages/solid/test/setupSolid.ts, packages/base-ui/packages/solid/test/createRenderer.ts, packages/base-ui/packages/solid/test/act.ts, packages/base-ui/packages/solid/test/flushMicrotasks.ts, packages/base-ui/packages/solid/test/ssrFixtures.ts, packages/base-ui/packages/solid/test/defineSsrFixtures.ts, packages/base-ui/packages/solid/test/hydration/globalSetup.ts, packages/base-ui/packages/solid/src/utils/testUtils.ts, packages/base-ui/vitest.shared.mts]
-verified: 2026-10-16
+verified: 2026-10-21
 ---
 
 # Test quirks
@@ -43,6 +43,7 @@ Solid 2 batches writes until a flush, so the harness flushes after every testing
 
 - Desktop Firefox lacks `Touch`/`TouchEvent`, and WebKit throws from `new Touch(...)`. `setupSolid.ts` installs constructors that carry the touch lists; library code never feature-detects them.
 - Engine-specific skips use `isWebKit`, `platform.engine.*` or `/WebKit/.test(navigator.userAgent)`; the parity script models each.
+- Environment probes in a test file (`CSS.supports`, engine flags, `navigator` reads) are evaluated inside the test or the skip condition, never at module load: a module-level throw takes out every test in the file, and some reporters show it as "0 tests". jsdom defines `CSS` without `CSS.supports`; a load-time `CSS.supports(...)` in the drawer keyboard tests failed main's JSDOM suite (28c62fe5 fixed it). Safari implements no `overflow-anchor`, and Solid's style binding drops a property the engine lacks, so its tests assert the scroll anchor only where `CSS.supports('overflow-anchor', 'auto')` holds.
 - CI retries a failed test once (`vitest.shared.mts`). Browser parity confirms Solid-only failures with two reruns.
 
 ## Time zone

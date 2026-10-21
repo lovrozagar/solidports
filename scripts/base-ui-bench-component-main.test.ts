@@ -61,7 +61,7 @@ function ssrResult(curMs: number) {
 }
 
 /** Runs main with canned runners; `curMs` sets cur's browser and server time (base is 40). */
-async function bench(curMs: number) {
+async function bench(curMs: number, extra: string[] = []) {
 	const dir = mkdtempSync(join(tmpdir(), "bench-main-"))
 	temps.push(dir)
 	const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf8" }).stdout.trim()
@@ -71,6 +71,7 @@ async function bench(curMs: number) {
 	writeFileSync(join(dir, "builds/solid/dist/index.js"), "export {}\n")
 	writeFileSync(join(dir, "baselines", "b.json"), JSON.stringify({ label: "b", sha: head }))
 	const commands: string[] = []
+	const browserVariants: string[] = []
 	const timeouts: Record<string, number | undefined> = {}
 	const run = (
 		command: string,
@@ -78,7 +79,10 @@ async function bench(curMs: number) {
 		options: { env?: Record<string, string>; timeoutSeconds?: number } = {},
 	) => {
 		commands.push([command, ...args].join(" "))
-		if (args.includes("test/perf-solid/run.mjs")) timeouts.browser = options.timeoutSeconds
+		if (args.includes("test/perf-solid/run.mjs")) {
+			timeouts.browser = options.timeoutSeconds
+			browserVariants.push(options.env?.VARIANTS ?? "")
+		}
 		if (args.includes("test/perf-solid/ssr/run.mjs") && options.env?.RESULTS_FILE) timeouts.ssr = options.timeoutSeconds
 		const file = options.env?.RESULTS_FILE
 		const write = (result: object, title: string) => {
@@ -102,7 +106,7 @@ async function bench(curMs: number) {
 	console.log = () => {}
 	let code: number
 	try {
-		code = await main(["separator", "--compare", "b"], {
+		code = await main(["separator", "--compare", "b", ...extra], {
 			run,
 			buildArchived,
 			resultsDir: dir,
@@ -112,7 +116,7 @@ async function bench(curMs: number) {
 		console.log = log
 	}
 	const md = readdirSync(dir).find((name) => /^component-separator-[^-].*\d{3}Z\.md$/.test(name))!
-	return { code, md: readFileSync(join(dir, md), "utf8"), commands, timeouts }
+	return { code, md: readFileSync(join(dir, md), "utf8"), commands, timeouts, browserVariants, dir }
 }
 
 describe("bench:component main", () => {
@@ -139,5 +143,20 @@ describe("bench:component main", () => {
 		expect(md).toContain("## Failures")
 		expect(md).toMatch(/- regressed: static\/separator-input-1000 › mount sync \d+\.\d+ → \d+\.\d+/)
 		expect(md).toMatch(/- regressed: input\/1000 serverMs/)
+	})
+
+	test("a full compare writes React's medians, with its session, for the scoped gate (D29)", async () => {
+		const { dir } = await bench(40)
+		const cache = JSON.parse(readFileSync(join(dir, "react-medians.json"), "utf8"))
+		expect(Object.keys(cache.meta).sort()).toEqual(["date", "power", "reactVersion", "sha"])
+		expect(cache.medians["static/separator-input-1000 › mount"].sync).toBeGreaterThan(9)
+	})
+
+	test("the scoped gate measures base against cur without React (D29)", async () => {
+		const { browserVariants } = await bench(40, ["--scoped"])
+		expect(browserVariants).toHaveLength(1)
+		expect(browserVariants[0]).not.toContain("react:")
+		expect(browserVariants[0]).toContain("base:")
+		expect(browserVariants[0]).toContain("cur:")
 	})
 })
