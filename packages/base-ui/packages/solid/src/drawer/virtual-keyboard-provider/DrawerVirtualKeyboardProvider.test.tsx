@@ -10,6 +10,19 @@ import { useDrawerVirtualKeyboardContext } from './DrawerVirtualKeyboardContext'
 // eslint-disable-next-line @typescript-eslint/no-unused-expressions
 autofocus;
 
+// Solid: Safari implements no `overflow-anchor`. Solid's style binding writes through `setProperty`,
+// which an engine drops for a property it does not implement, so the read stays `undefined`; React's
+// camelCase assignment leaves a plain JS property the read returns, though it styles nothing. The
+// scroll anchor is asserted only where the engine implements it.
+const supportsOverflowAnchor =
+  typeof CSS !== 'undefined' && CSS.supports('overflow-anchor', 'auto');
+
+function expectOverflowAnchor(element: HTMLElement, value: string) {
+  if (supportsOverflowAnchor) {
+    expect(element.style.overflowAnchor).toBe(value);
+  }
+}
+
 describe('<Drawer.VirtualKeyboardProvider />', () => {
   const { render } = createRenderer();
 
@@ -311,7 +324,7 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
           expect(Number.parseFloat(scroll.style.paddingBottom)).toBeGreaterThan(20);
         });
         await waitFor(() => {
-          expect(scroll.style.overflowAnchor).toBe('none');
+          expectOverflowAnchor(scroll, 'none');
         });
         await waitFor(() => {
           const scrollRect = scroll.getBoundingClientRect();
@@ -771,7 +784,7 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
         expect(Number.parseFloat(scroll.style.paddingBottom)).toBeGreaterThan(20);
       });
       await waitFor(() => {
-        expect(scroll.style.overflowAnchor).toBe('none');
+        expectOverflowAnchor(scroll, 'none');
       });
 
       await act(async () => {
@@ -785,7 +798,7 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
         expect(scroll.style.scrollPaddingBottom).toBe('');
       });
       await waitFor(() => {
-        expect(scroll.style.overflowAnchor).toBe('auto');
+        expectOverflowAnchor(scroll, 'auto');
       });
     } finally {
       visualViewport.restore();
@@ -2756,7 +2769,7 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
           expect(viewport.style.getPropertyValue('--drawer-keyboard-inset')).toBe('0px');
         });
         expect(scroll.style.paddingBottom).toBe('20px');
-        expect(scroll.style.overflowAnchor).toBe('');
+        expectOverflowAnchor(scroll, '');
       } finally {
         visualViewport.restore();
         restoreInnerHeight();
@@ -3226,7 +3239,7 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
           expect(Number.parseFloat(scroll2.style.paddingBottom)).toBeGreaterThan(10);
         });
         expect(scroll1.style.paddingBottom).toBe('10px');
-        expect(scroll1.style.overflowAnchor).toBe('');
+        expectOverflowAnchor(scroll1, '');
       } finally {
         visualViewport.restore();
         restoreInnerHeight();
@@ -3409,7 +3422,7 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
           expect(Number.parseFloat(scroll2.style.paddingBottom)).toBeGreaterThan(0);
         });
         expect(scroll1.style.paddingBottom).toBe('10px');
-        expect(scroll1.style.overflowAnchor).toBe('');
+        expectOverflowAnchor(scroll1, '');
       } finally {
         visualViewport.restore();
         restoreInnerHeight();
@@ -4292,7 +4305,7 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
           expect(scroll.style.scrollPaddingBottom).not.toBe('');
         });
         await waitFor(() => {
-          expect(scroll.style.overflowAnchor).toBe('none');
+          expectOverflowAnchor(scroll, 'none');
         });
         await waitFor(() => {
           const scrollRect = scroll.getBoundingClientRect();
@@ -4313,7 +4326,7 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
           expect(scroll.style.scrollPaddingBottom).toBe('');
         });
         await waitFor(() => {
-          expect(scroll.style.overflowAnchor).toBe('auto');
+          expectOverflowAnchor(scroll, 'auto');
         });
       } finally {
         visualViewport.restore();
