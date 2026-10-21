@@ -11,9 +11,9 @@
 // measures that commit's library instead of the working tree's (built as `--compare` builds a
 // baseline, so an old commit gets today's harness) and skips the working tree's cost tests. Only
 // correctness failures block a baseline: exit-bar misses are recorded as targets. `--compare` builds the
-// labelled commit's library source (extracted with `git archive`, so it is the commit and nothing
-// else), caches that build by SHA and harness hash, runs it interleaved with the working tree and
-// React in one session, and fails on any regression under the rule (`shared/regression.mjs`, D16). Run with Bun: it imports
+// labelled commit's Solid package (extracted with `git archive`, so it is the commit and nothing
+// else, D30), caches that build by the archive's content hash and the harness hash, runs it
+// interleaved with the working tree and React in one session, and fails on any regression under the rule (`shared/regression.mjs`, D16). Run with Bun: it imports
 // the TypeScript manifests directly.
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
