@@ -122,14 +122,14 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
   };
 
   const rootTriggerProps = () => currentStore().select('triggerProps', isMountedByThisTrigger);
-  // Rebuilt when the open state changes, as React rebuilds it on render.
-  const inlineRectTriggerProps = createMemo(
-    () => getInlineRectTriggerProps(inlineRectCoordsRef(), isOpenedByThisTrigger()) as HTMLProps,
-  );
+  // Built once: the handlers read the open state when they fire (`getInlineRectTriggerProps`).
+  const inlineRectTriggerProps = getInlineRectTriggerProps(
+    inlineRectCoordsRef,
+    isOpenedByThisTrigger,
+  ) as HTMLProps;
 
   // Read per key by the element props: a change does not rebuild the props chain.
   const rootTriggerSource = propsSourceAccessor(() => rootTriggerProps());
-  const inlineRectSource = propsSourceAccessor(() => inlineRectTriggerProps());
   const element = useRenderElement('a', componentProps, {
     state,
     ref: (el: Element | null) => {
@@ -141,7 +141,7 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
       propsSourceAccessor(() => interactions()?.hoverProps),
       propsSourceAccessor(() => interactions()?.focusProps.reference as HTMLProps | undefined),
       rootTriggerSource,
-      inlineRectSource,
+      inlineRectTriggerProps,
       {
         get id() {
           return thisTriggerId();

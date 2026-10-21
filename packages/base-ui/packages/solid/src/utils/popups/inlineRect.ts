@@ -1,5 +1,7 @@
 import type { Middleware, VirtualElement } from '@floating-ui/dom';
 import { isElement } from '@floating-ui/utils/dom';
+import { access } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 
 // Floating UI ships an `inline()` middleware. This local version mirrors its line-rect
 // selection while adding trigger identity checks, delayed-open hit-line reuse, and
@@ -204,27 +206,31 @@ function getContextElement(reference: Element | VirtualElement): Element | undef
   return isElement(reference) ? reference : undefined;
 }
 
+// Solid: the coordinates ref and the open state may be accessors, read when a handler fires, so a
+// trigger builds its props once. React rebuilds them on every render; rebuilt on every open or
+// active trigger change, they re-spread the trigger's event props each time.
 export function getInlineRectTriggerProps(
-  coordsRef: InlineRectCoordsRef,
-  isOpen: boolean,
+  coordsRef: MaybeAccessor<InlineRectCoordsRef>,
+  isOpen: MaybeAccessor<boolean>,
 ): {
   onFocus: () => void;
   onMouseEnter: (event: MouseEvent) => void;
   onMouseMove: (event: MouseEvent) => void;
 } {
-  function updateCoords(event: MouseEvent) {
-    updateInlineRectCoords(coordsRef, event.currentTarget as Element, event.clientX, event.clientY);
-  }
-
   function updateCoordsIfClosed(event: MouseEvent) {
-    if (!isOpen) {
-      updateCoords(event);
+    if (!access(isOpen)) {
+      updateInlineRectCoords(
+        access(coordsRef),
+        event.currentTarget as Element,
+        event.clientX,
+        event.clientY,
+      );
     }
   }
 
   return {
     onFocus() {
-      coordsRef.current = undefined;
+      access(coordsRef).current = undefined;
     },
     onMouseEnter: updateCoordsIfClosed,
     onMouseMove: updateCoordsIfClosed,
