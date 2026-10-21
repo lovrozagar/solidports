@@ -317,3 +317,18 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
   - INP is gated for the first click (the one TTI lands on) and a warm second click.
   - If an A/A shows a metric too noisy to gate at the default minimum effect, its floor is set from the A/A's numbers and recorded here; it is not made report-only.
   - Chromium is the timing engine. The daily regate also runs the TTI/INP cases at 4x CPU throttling as a gated set with its own A/A floor, and in Mac WebKit for correctness only (no dead interaction, no hydration errors).
+
+### D30 — A baseline builds from its commit's whole package, and both build paths must bundle alike (2026-10-21)
+
+- Harness bug, found by the session; the fix's shape is the reviewer's. `--compare` built its baseline from `git archive <sha> packages/base-ui/packages/solid/src` alone, while `cur` builds from the checkout, so one commit bundled two ways:
+  - Without the package's tsconfig chain (`packages/solid/tsconfig*.json`, which extend `packages/base-ui/tsconfig.base.json`), the bundler did not inline const enums.
+  - Without the package's `package.json`, it lost `"sideEffects": false` and kept modules that tree shaking drops.
+  - At 3b7ba73d the `src`-only archive bundled to hash 4bebfa956239df72; adding the tsconfig chain gave eeea77dc6eeadaa7; adding `package.json` too gave 7477ea13c36403e3, the checkout's own.
+  - The fixtures imported the raw-Solid floors from the checkout by relative path, and the floors import the library's internals, so a baseline SSR bundle carried two copies of `utils/useAnimationFrame` and its floors came from the working tree, outside the build cache key.
+- The bias ran one way: the baseline bundle was the bigger one, so `cur` read faster than the same code. Every `--compare` result before this commit carries it.
+- Fix:
+  - `baseArchivePaths` archives the whole `packages/base-ui/packages/solid` directory plus every config its tsconfig `extends` chain reaches outside it, resolved from the commit's own tsconfig files (package specifiers resolve from `node_modules`, as they do for the checkout).
+  - The fixtures import the floors as `@solidports/base-ui-floor/*`, aliased in both builds to `test/floor` beside the library source in use.
+  - The build cache is keyed on the archive's content hash (git's object IDs for those paths) plus the harness hash, so commits with the same package share a build and a floor change invalidates it.
+  - A scripts test commits the working tree's content through a scratch index, bundles that commit through the archive path and the checkout, in the browser and in SSR, and requires identical hashes. It failed on the `src`-only archive, then on the floors' duplicate module, before passing.
+- Follow-ups, in order: re-judge the wins that paid for allowances (toolbar ArrowRight at 16 toolbars, the tabs arrow keys, toggle-group click and ArrowRight) against a corrected baseline, and correct any user-facing "faster than the previous build" claim taken from `--compare`.

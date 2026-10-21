@@ -1,14 +1,12 @@
 import { For } from 'solid-js';
 import { Accordion } from '@solidports/base-ui/accordion';
-/* eslint-disable import/no-relative-packages -- the floors are the Solid package's test files, which it does not export */
 import {
   FloorAccordionHeader,
   FloorAccordionItem,
   FloorAccordionPanel,
   FloorAccordionRoot,
   FloorAccordionTrigger,
-} from '../../../../../packages/solid/test/floor/accordion';
-/* eslint-enable import/no-relative-packages */
+} from '@solidports/base-ui-floor/accordion';
 import { fixtures as basics } from '../../../solid/fixtures/basics';
 import { useExposed } from '../../../solid/exposed';
 import { items, size } from '../../../shared/sizes';

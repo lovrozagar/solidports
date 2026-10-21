@@ -9,6 +9,7 @@ const base = path.resolve(here, '../../packages');
 // Builds live outside the repo tree (gitignored scratch): `<repo>/.tmp/grunt/bench-builds/<lib>/<OUT>`.
 const builds = path.resolve(here, '../../../../.tmp/grunt/bench-builds');
 const lib = process.env.LIB;
+const solidSrc = process.env.SOLID_SRC || path.join(base, 'solid/src');
 export default defineConfig({
   root: path.join(here, lib),
   // BENCH_DEV=1 builds with the development runtime (for diffing dev-only vs production-only behavior).
@@ -22,7 +23,10 @@ export default defineConfig({
     alias: {
       '@base-ui/react': path.join(base, 'react/src'),
       '@base-ui/utils': path.join(base, 'utils/src'),
-      '@solidports/base-ui': process.env.SOLID_SRC || path.join(base, 'solid/src'),
+      '@solidports/base-ui': solidSrc,
+      // The raw-Solid floors come from the same package copy as the library (D30): they import its
+      // internals, so a baseline that took them from the working tree bundled two copies.
+      '@solidports/base-ui-floor': path.join(solidSrc, '../test/floor'),
     },
     // One reactive core even when SOLID_SRC points at a baseline copy of the source.
     dedupe: ['react', 'react-dom', 'solid-js', '@solidjs/web', '@solidjs/signals'],

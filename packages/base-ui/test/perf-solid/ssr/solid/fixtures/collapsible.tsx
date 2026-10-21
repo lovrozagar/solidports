@@ -1,12 +1,10 @@
 import { For } from 'solid-js';
 import { Collapsible } from '@solidports/base-ui/collapsible';
-/* eslint-disable import/no-relative-packages -- the floors are the Solid package's test files, which it does not export */
 import {
   FloorCollapsiblePanel,
   FloorCollapsibleRoot,
   FloorCollapsibleTrigger,
-} from '../../../../../packages/solid/test/floor/collapsible';
-/* eslint-enable import/no-relative-packages */
+} from '@solidports/base-ui-floor/collapsible';
 import { fixtures as toggles } from '../../../solid/fixtures/toggles';
 import { useExposed } from '../../../solid/exposed';
 import { size } from '../../../shared/sizes';

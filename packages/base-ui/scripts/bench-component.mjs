@@ -18,6 +18,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closest, matchesFilter, parseFilter } from '../test/perf-solid/shared/filter.mjs';
@@ -32,6 +33,8 @@ import { judgeRun, unmeasuredPairs, variantPairs } from '../test/perf-solid/shar
 import { EXCLUSIVE_LOCK, LOCK_TIMEOUT_SECONDS } from './test-all.mjs';
 import { EXIT_BAR, exitBar, FDR_Q, GATED, median } from '../test/perf-solid/shared/regression.mjs';
 
+// TypeScript reads tsconfig's JSONC; loaded only when a baseline is archived.
+const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const baseUi = path.resolve(here, '..');
 const repo = path.resolve(baseUi, '../..');
@@ -68,7 +71,15 @@ export function ssrPairs(ssr, ssrSwapped) {
       const sa = swappedRow?.base?.samples[metric] ?? [];
       const sb = swappedRow?.cur?.samples[metric] ?? [];
       if (a.length && b.length && sa.length && sb.length) {
-        pairs.push({ key, metric, orders: [{ base: a, cur: b }, { base: sa, cur: sb }], rule: GATED[metric] });
+        pairs.push({
+          key,
+          metric,
+          orders: [
+            { base: a, cur: b },
+            { base: sa, cur: sb },
+          ],
+          rule: GATED[metric],
+        });
       } else if (a.length || b.length || sa.length || sb.length) {
         unmeasured.push(`${key} ${metric}: not measured by both sides in both orders`);
       }
@@ -107,9 +118,9 @@ export function parseArgs(argv) {
     else if (arg === '--scoped') options.scoped = true;
     else if (arg === '--cpu-throttle') {
       options.cpuThrottle = Number(value());
-      if (!(options.cpuThrottle >= 1)) throw new Error(`--cpu-throttle needs a rate of 1 or more; usage: ${USAGE}`);
-    }
-    else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}; usage: ${USAGE}`);
+      if (!(options.cpuThrottle >= 1))
+        throw new Error(`--cpu-throttle needs a rate of 1 or more; usage: ${USAGE}`);
+    } else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}; usage: ${USAGE}`);
     else options.names.push(...arg.split(',').filter(Boolean));
   }
   if (options.names.length === 0) throw new Error(`usage: ${USAGE}`);
@@ -307,14 +318,90 @@ function run(
   return result.status ?? 1;
 }
 
+const SOLID_PACKAGE = 'packages/base-ui/packages/solid';
+
+/**
+ * The repo paths `git archive` extracts for a baseline build of commit `sha` (D30): the whole Solid
+ * package (its `package.json` declares `sideEffects: false`, which tree shaking reads) and every
+ * config its tsconfig `extends` chain reaches outside it (the compiler options the bundler reads),
+ * all read at `sha`. A package specifier in `extends` resolves from node_modules, as it does for the
+ * working tree.
+ */
+export function baseArchivePaths(cwd, sha) {
+  const ts = require('typescript');
+  const paths = new Set([SOLID_PACKAGE]);
+  const pending = git(cwd, ['ls-tree', '-r', '--name-only', sha, '--', SOLID_PACKAGE])
+    .split('\n')
+    .filter((file) => /(?:^|\/)tsconfig[^/]*\.json$/.test(file));
+  const seen = new Set();
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (seen.has(file)) {
+      continue;
+    }
+    seen.add(file);
+    const { config, error } = ts.parseConfigFileTextToJson(
+      file,
+      git(cwd, ['show', `${sha}:${file}`]),
+    );
+    if (error) {
+      throw new Error(
+        `${file} at ${sha}: ${ts.flattenDiagnosticMessageText(error.messageText, '\n')}`,
+      );
+    }
+    for (const target of [config.extends ?? []].flat()) {
+      if (!target.startsWith('.')) {
+        continue;
+      }
+      const resolved = path.posix.join(path.posix.dirname(file), target);
+      const extended = resolved.endsWith('.json') ? resolved : `${resolved}.json`;
+      if (!extended.startsWith(`${SOLID_PACKAGE}/`)) {
+        paths.add(extended);
+      }
+      pending.push(extended);
+    }
+  }
+  return [...paths].sort();
+}
+
+/**
+ * The content hash of commit `sha`'s baseline archive: git's object IDs for each of its paths, so
+ * two commits whose archives match share one build.
+ */
+export function baseArchiveHash(cwd, sha) {
+  const hash = sha256();
+  for (const file of baseArchivePaths(cwd, sha)) {
+    hash.update(`${file}\0${git(cwd, ['rev-parse', `${sha}:${file}`]).trim()}\0`);
+  }
+  return hash.digest('hex');
+}
+
+/**
+ * Extracts commit `sha`'s baseline archive into `dest` (emptied first) and returns the library
+ * source root inside it.
+ */
+export function extractBase(cwd, sha, dest) {
+  fs.rmSync(dest, { recursive: true, force: true });
+  fs.mkdirSync(dest, { recursive: true });
+  const archive = spawnSync('git', ['archive', sha, ...baseArchivePaths(cwd, sha)], {
+    cwd,
+    env: repoEnv(),
+    maxBuffer: 1 << 30,
+  });
+  if (archive.status !== 0) throw new Error(`git archive ${sha}: ${archive.stderr}`);
+  const untar = spawnSync('tar', ['-x', '-C', dest], { input: archive.stdout });
+  if (untar.status !== 0) throw new Error(`tar: ${untar.stderr}`);
+  return path.join(dest, SOLID_PACKAGE, 'src');
+}
+
 /**
  * Builds the library of commit `sha`, extracted with `git archive` (the commit and nothing else),
- * for the browser bench and the SSR bench, cached by SHA and harness hash. `name` is the SSR
- * variant's name; `others` are the other SSR variants built alongside.
+ * for the browser bench and the SSR bench, cached by the archive's content hash and the harness
+ * hash. `name` is the SSR variant's name; `others` are the other SSR variants built alongside.
  */
 function buildArchived(sha, name, others) {
   const harness = treeHash(repo, [path.relative(repo, perf), 'bun.lock']);
-  const key = `${sha.slice(0, 12)}-${harness.slice(0, 12)}`;
+  const key = `${baseArchiveHash(repo, sha).slice(0, 12)}-${harness.slice(0, 12)}`;
   const browserOut = `${name}-${key}`;
   const browserDir = path.join(builds, 'solid', browserOut);
   const ssrOut = `ssr-${name}-${key}`;
@@ -322,19 +409,8 @@ function buildArchived(sha, name, others) {
   const src = path.join(repo, '.tmp/grunt/bench-src', sha);
   const needBrowser = !cachedBuild(browserDir);
   const needSsr = !cachedBuild(ssrDir);
-  if (needBrowser || needSsr) {
-    fs.rmSync(src, { recursive: true, force: true });
-    fs.mkdirSync(src, { recursive: true });
-    const archive = spawnSync('git', ['archive', sha, 'packages/base-ui/packages/solid/src'], {
-      cwd: repo,
-      env: repoEnv(),
-      maxBuffer: 1 << 30,
-    });
-    if (archive.status !== 0) throw new Error(`git archive ${sha}: ${archive.stderr}`);
-    const untar = spawnSync('tar', ['-x', '-C', src], { input: archive.stdout });
-    if (untar.status !== 0) throw new Error(`tar: ${untar.stderr}`);
-  }
-  const srcRoot = path.join(src, 'packages/base-ui/packages/solid/src');
+  const srcRoot =
+    needBrowser || needSsr ? extractBase(repo, sha, src) : path.join(src, SOLID_PACKAGE, 'src');
   const ssrVariant = `${name}:solid:${srcRoot}:${ssrOut}`;
   try {
     if (needBrowser) {
@@ -610,7 +686,10 @@ export async function main(argv, deps = {}) {
     const ids = [...new Set(split.remeasure.map((v) => v.key.split(' › ')[0]))];
     const rerunFile = `${out}-browser-react`;
     exec('node', ['test/perf-solid/run.mjs', String(options.runs), ids.join(',')], {
-      env: { VARIANTS: ['react:react:dist', ...browserVariants].join(','), RESULTS_FILE: rerunFile },
+      env: {
+        VARIANTS: ['react:react:dist', ...browserVariants].join(','),
+        RESULTS_FILE: rerunFile,
+      },
       allowFail: true,
       locked: true,
       timeoutSeconds: benchTimeoutSeconds(ids.length * options.runs, 50),
@@ -637,11 +716,15 @@ export async function main(argv, deps = {}) {
     {
       reactMedian: (verdict) => {
         const resolved = options.scoped
-          ? resolveReact(verdict, { maxDelta: generatedCap(verdict.base) }, {
-              session: sessionReact(browser?.summary, verdict),
-              cache,
-              current: reactSession,
-            })
+          ? resolveReact(
+              verdict,
+              { maxDelta: generatedCap(verdict.base) },
+              {
+                session: sessionReact(browser?.summary, verdict),
+                cache,
+                current: reactSession,
+              },
+            )
           : { react: sessionReact(browser?.summary, verdict) };
         return resolved.react;
       },
@@ -763,7 +846,10 @@ export async function main(argv, deps = {}) {
         `- ${r.key} ${r.metric}: ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (shift ${r.delta.toFixed(2)}, cap ${r.allowance.cap.toFixed(2)}; React ${r.react.toFixed(2)}; paid by ${r.allowance.win}, ${r.allowance.ratio.toFixed(1)}x; base ${base?.sha?.slice(0, 8) ?? '-'}..cur; until ${r.allowance.until})`,
     );
     md.push('', "## Generated allowances (D28: the gate's own D24 rule)", '', ...lines);
-    fs.writeFileSync(`${out}-allowances-generated.md`, ['# Generated allowances', '', ...lines, ''].join('\n'));
+    fs.writeFileSync(
+      `${out}-allowances-generated.md`,
+      ['# Generated allowances', '', ...lines, ''].join('\n'),
+    );
   }
   const unmeasured = [...notMeasured, ...ssrUnmeasured];
   if (unmeasured.length) {
