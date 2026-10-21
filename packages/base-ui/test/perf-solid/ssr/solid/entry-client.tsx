@@ -15,3 +15,16 @@ import { ssrFixtures } from './fixtures/index';
   const syncMs = performance.now() - start;
   return { syncMs, committed: Promise.resolve(syncMs) };
 };
+
+// D29: `?auto=1` hydrates as a page does, once the bundle has run, and records the commit against
+// navigation start, for TTI (`ssr/interact.mjs`).
+const params = new URLSearchParams(location.search);
+if (params.get('auto') === '1') {
+  const fixture = params.get('fixture')!;
+  const { committed } = (
+    window as unknown as { __hydrate: (key: string) => { committed: Promise<number> } }
+  ).__hydrate(fixture);
+  void committed.then(() => {
+    (window as unknown as { __hydratedAt: number }).__hydratedAt = performance.now();
+  });
+}

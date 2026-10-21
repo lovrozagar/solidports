@@ -37,6 +37,7 @@ import { balancedOrders } from '../shared/order.mjs';
 import { median } from '../shared/regression.mjs';
 import { SERVER_SAMPLING, sampleServer } from './sample.mjs';
 import { mainThreadLines } from '../shared/report.mjs';
+import { DEAD_TRIGGER, checkMode, measureInteraction } from './interact.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packages = path.resolve(here, '../../../packages');
@@ -57,6 +58,10 @@ const LAYOUT_METRICS = [
   ['Styles', 'RecalcStyleCount', 1],
 ];
 const WARMUP = 3;
+// D29: TTI and INP under CPU throttling (`CPU_THROTTLE=4`, as a phone); off by default.
+const CPU_THROTTLE = Number(process.env.CPU_THROTTLE ?? 1);
+// D29: `SSR_CHECK=webkit` checks the interactive cases in WebKit, pass or fail, untimed.
+const CHECK = checkMode(process.env);
 
 const VARIANTS = Object.fromEntries(
   (process.env.SSR_VARIANTS ?? 'react:react,solid:solid').split(',').map((entry) => {
@@ -176,6 +181,14 @@ for (const key of keys) {
         hydrateScriptMs: [],
         firstCloseMs: [],
         firstCloseScriptMs: [],
+        // D29, the cases with an interaction: navigation to the first click handled (gated), the
+        // hydration commit on that load, and its script time and client bundle bytes.
+        ttiMs: [],
+        inpFirstMs: [],
+        inpMs: [],
+        hydrateLoadCommitMs: [],
+        loadScriptMs: [],
+        bundleBytes: [],
         ...Object.fromEntries(
           LAYOUT_METRICS.flatMap(([sample]) => [
             [`commit${sample}`, []],
@@ -216,7 +229,7 @@ for (const key of keys) {
 // --- Hydration (Chromium) ---
 const problems = [];
 if (!process.env.SERVER_ONLY) {
-  const { chromium } = await import('playwright');
+  const playwright = await import('playwright');
   const templates = Object.fromEntries(
     NAMES.map((name) => [
       name,
@@ -249,15 +262,41 @@ if (!process.env.SERVER_ONLY) {
     })
     .listen(0);
   const port = httpServer.address().port;
-  const browser = await chromium.launch();
-  {
+  const browser = await playwright[CHECK ?? 'chromium'].launch();
+  if (!CHECK) {
     const page = await browser.newPage();
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Performance.enable');
     await assertScriptMetric(page, cdp);
     await page.close();
   }
-  for (const key of keys) {
+  // The check: each interactive case once per variant, failing on a dead trigger or a hydration
+  // error; nothing timed.
+  for (const key of CHECK ? keys : []) {
+    const interaction = first.cases.find((c) => c.id === key)?.interaction;
+    for (const name of interaction ? NAMES : []) {
+      const url = `http://localhost:${port}/${name}/?fixture=${encodeURIComponent(key)}&auto=1`;
+      try {
+        const { page } = await measureInteraction(browser, url, interaction, {
+          cdp: false,
+          onPage: (opened) => {
+            opened.on('console', (message) => {
+              if (/hydrat|mismatch|unclaimed/i.test(message.text())) {
+                problems.push(`${key} [${name}, ${CHECK}] ${message.text().slice(0, 200)}`);
+              }
+            });
+            opened.on('pageerror', (error) =>
+              problems.push(`${key} [${name}, ${CHECK}] pageerror: ${String(error).slice(0, 200)}`),
+            );
+          },
+        });
+        await page.close();
+      } catch (error) {
+        problems.push(`${key} [${name}, ${CHECK}] ${String(error?.message ?? error).slice(0, 200)}`);
+      }
+    }
+  }
+  for (const key of CHECK ? [] : keys) {
     const summaries = {};
     const total = Object.fromEntries(NAMES.map((name) => [name, []]));
     for (let run = 0; run < WARMUP + RUNS; run += 1) {
@@ -351,8 +390,43 @@ if (!process.env.SERVER_ONLY) {
         await page.close();
       }
     }
+    const interaction = first.cases.find((c) => c.id === key)?.interaction;
+    // A cold load per run and variant, clicked from the first paint (`interact.mjs`).
+    let dead = false;
+    for (let run = 0; interaction && !dead && run < WARMUP + RUNS; run += 1) {
+      for (const name of orders[run % orders.length]) {
+        const url = `http://localhost:${port}/${name}/?fixture=${encodeURIComponent(key)}&auto=1`;
+        let measured;
+        try {
+          measured = await measureInteraction(browser, url, interaction, { throttle: CPU_THROTTLE });
+        } catch (error) {
+          if (String(error?.message).startsWith(DEAD_TRIGGER)) {
+            // A dead trigger fails the case outright: no further loads of it.
+            problems.push(`${key} [${name}] ${error.message}`);
+            dead = true;
+            break;
+          }
+          throw error;
+        }
+        await measured.page.close();
+        if (run >= WARMUP) {
+          const samples = results[key][name].samples;
+          samples.ttiMs.push(measured.ttiMs);
+          samples.inpFirstMs.push(measured.inpFirstMs);
+          samples.inpMs.push(measured.inpMs);
+          samples.loadScriptMs.push(measured.scriptMs);
+          samples.bundleBytes.push(measured.bundleBytes);
+          if (measured.hydrateLoadCommitMs != null) {
+            samples.hydrateLoadCommitMs.push(measured.hydrateLoadCommitMs);
+          }
+        }
+      }
+    }
     for (const name of NAMES) {
       const entry = results[key][name];
+      for (const metric of ['ttiMs', 'inpFirstMs', 'inpMs', 'hydrateLoadCommitMs', 'loadScriptMs', 'bundleBytes']) {
+        entry[metric] = entry.samples[metric].length ? median(entry.samples[metric]) : null;
+      }
       entry.hydrateSyncMs = median(entry.samples.hydrateSyncMs);
       entry.hydrateCommitMs = median(entry.samples.hydrateCommitMs);
       entry.hydrateTotalMs = median(total[name]);
@@ -389,7 +463,7 @@ const withClose = (entry) => entry.hydrateScriptMs + (entry.firstCloseScriptMs ?
 const lines = [
   `# Base UI SSR bench ${new Date().toISOString()}`,
   '',
-  `runs ${RUNS} · hydration warmup ${WARMUP} · server warmup ${SERVER_SAMPLING.warmup}, samples: batch means (${keys.map((key) => `${key} ×${serverBatch[key]}`).join(', ')}), GC before each batch · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
+  `runs ${RUNS} · hydration warmup ${WARMUP}${CPU_THROTTLE > 1 ? ` · CPU ${CPU_THROTTLE}x slower` : ''} · server warmup ${SERVER_SAMPLING.warmup}, samples: batch means (${keys.map((key) => `${key} ×${serverBatch[key]}`).join(', ')}), GC before each batch · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
   '',
   `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate ms / hydrate script ms / first close ms / close script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate / hydrate+close script`).join(' | ')} |`,
   `|---|${NAMES.map(() => '---').join('|')}|${others.map(() => '---').join('|')}|`,

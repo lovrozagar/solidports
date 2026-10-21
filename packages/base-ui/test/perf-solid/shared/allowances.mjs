@@ -9,6 +9,7 @@
 // against the regate's base (3eef0aca) and is re-derived at the next regate. `bench:component
 // --compare` reports allowed rows apart from its failures.
 import fs from 'node:fs';
+import { pendingAxes } from './coverage.ts';
 
 /** @type {readonly { key: string, metric: string, maxDelta: number, decision: string, until: string, reason: string, baseAboveReact?: boolean, nearReact?: number, class?: 'residual', evidence?: { calls: string, experiments: readonly string[] } }[]} */
 export const ALLOWANCES = [
@@ -286,7 +287,7 @@ export function validateAllowances(allowances) {
  * @param {{ base: number, cur: number }} verdict
  * @param {number} react
  */
-function keepsReactRule(allowance, verdict, react) {
+export function keepsReactRule(allowance, verdict, react) {
   if (allowance?.nearReact !== undefined) {
     return verdict.cur <= allowance.nearReact * react + BOUND_SLACK;
   }
@@ -298,21 +299,30 @@ function keepsReactRule(allowance, verdict, react) {
 
 /**
  * Splits regressed verdicts into the allowed ones (an allowance for their row and metric, the shift
- * within its bound, and its React rule held in the same session) and the failing rest.
+ * within its bound, and its React rule held), the failing rest, and the rows to re-measure.
  * @template {{ key: string, metric: string, delta: number, base: number, cur: number }} V
  * @param {readonly V[]} regressions
- * @param {(verdict: V) => number | undefined} reactMedian React's median for the verdict's row and
- *   metric in this session; a row React did not measure is never allowed.
- * @returns {{ allowed: (V & { allowance: (typeof ALLOWANCES)[number], react: number })[], failing: V[] }}
+ * @param {(verdict: V, allowance: (typeof ALLOWANCES)[number]) => number | undefined | { remeasure: true }} reactMedian
+ *   React's median for the verdict's row and metric (in this session, or a cached one the drift
+ *   guard trusts, `react-cache.mjs`); `{ remeasure: true }` when only a same-session React median
+ *   may decide; a row React did not measure is never allowed.
+ * @returns {{ allowed: (V & { allowance: (typeof ALLOWANCES)[number], react: number })[], failing: V[], remeasure: V[] }}
  */
 export function splitAllowed(regressions, reactMedian) {
   const allowed = [];
   const failing = [];
+  // D29: rows whose cached React median could flip the keeps-React decision, for the gate to
+  // re-measure with React in the same session.
+  const remeasure = [];
   for (const verdict of regressions) {
     const allowance = ALLOWANCES.find(
       (entry) => entry.key === verdict.key && entry.metric === verdict.metric,
     );
-    const react = allowance === undefined ? undefined : reactMedian(verdict);
+    const react = allowance === undefined ? undefined : reactMedian(verdict, allowance);
+    if (react !== null && typeof react === 'object' && react.remeasure) {
+      remeasure.push(verdict);
+      continue;
+    }
     const reactRule = react !== undefined && keepsReactRule(allowance, verdict, react);
     if (
       allowance !== undefined &&
@@ -324,5 +334,113 @@ export function splitAllowed(regressions, reactMedian) {
       failing.push(verdict);
     }
   }
-  return { allowed, failing };
+  return { allowed, failing, remeasure };
+}
+
+/** Time metrics the gate may allow by itself (D28): heap and retention stay with hand entries. */
+const GENERATED_METRICS = new Set([
+  'sync',
+  'script',
+  'settled',
+  'serverMs',
+  'hydrateSyncMs',
+  'ttiMs',
+  'inpFirstMs',
+  'inpMs',
+]);
+
+/** The ratio of a family's best win to its losses the D24 rule requires. */
+export const GENERATED_MIN_RATIO = 10;
+
+/** The largest shift the gate allows by itself: 0.5 ms, or 10% of the base median above 5 ms. */
+export const generatedCap = (base) => Math.max(0.5, 0.1 * base);
+
+const familyOf = (key) => key.split('/')[0];
+
+/**
+ * D28 as amended by D29: the D24 rule applied by the gate. A failing time regression is allowed when
+ * the run that found it (base..cur, one commit range) holds a win in the same family and metric at
+ * least 10x the family's losses in that metric, the shift is within `generatedCap`, the keeps-React
+ * rule holds, and the family has a next leaf to expire at. A row with a hand entry is never
+ * generated: a generated rule must not widen a reviewed bound.
+ * @template {{ key: string, metric: string, base: number, cur: number, delta: number }} V
+ * @param {readonly V[]} failing regressions no hand entry allowed
+ * @param {readonly V[]} improved the run's improved verdicts
+ * @param {{ reactMedian: (verdict: V) => number | undefined }} options
+ */
+export function generateAllowances(failing, improved, options) {
+  const generated = [];
+  const still = [];
+  const losses = new Map();
+  for (const v of failing) {
+    const id = `${familyOf(v.key)} ${v.metric}`;
+    losses.set(id, (losses.get(id) ?? 0) + v.delta);
+  }
+  for (const verdict of failing) {
+    const hand = ALLOWANCES.some(
+      (entry) => entry.key === verdict.key && entry.metric === verdict.metric,
+    );
+    const family = familyOf(verdict.key);
+    const until = pendingAxes(family).leaf;
+    const cap = generatedCap(verdict.base);
+    const wins = improved.filter(
+      (w) => familyOf(w.key) === family && w.metric === verdict.metric && w.delta < 0,
+    );
+    const best = wins.reduce((a, w) => (a === undefined || w.delta < a.delta ? w : a), undefined);
+    const loss = losses.get(`${family} ${verdict.metric}`);
+    const ratio = best === undefined ? 0 : -best.delta / loss;
+    const react = options.reactMedian(verdict);
+    const entry = {
+      key: verdict.key,
+      metric: verdict.metric,
+      maxDelta: cap,
+      decision: 'D28',
+      until,
+      generated: true,
+      win: best === undefined ? '' : `${best.key} ${best.metric}`,
+      ratio,
+      cap,
+      reason: best === undefined ? '' : `the same commit range's ${best.key} ${best.metric} ${best.delta.toFixed(2)} ms pays for it, ${ratio.toFixed(1)}x the family's losses`,
+    };
+    if (
+      !hand &&
+      GENERATED_METRICS.has(verdict.metric) &&
+      until !== '' &&
+      ratio >= GENERATED_MIN_RATIO &&
+      verdict.delta <= cap + BOUND_SLACK &&
+      react !== undefined &&
+      keepsReactRule(entry, verdict, react)
+    ) {
+      generated.push({ ...verdict, allowance: entry, react });
+    } else {
+      still.push(verdict);
+    }
+  }
+  return { generated, failing: still };
+}
+
+/**
+ * Generated rows checked against the rule they were made under: a hand edit of a generated row
+ * that widens it, or evidence that no longer pays, is a problem.
+ * @param {readonly { key: string, metric: string, base: number, delta: number, allowance: { ratio: number, cap: number, until: string, win: string } }[]} generated
+ */
+export function validateGenerated(generated) {
+  const problems = [];
+  for (const row of generated) {
+    const name = `${row.key} ${row.metric}`;
+    const { ratio, cap, until, win } = row.allowance;
+    if (cap !== generatedCap(row.base)) {
+      problems.push(`${name}: the cap is not max(0.5 ms, 10% of base)`);
+    }
+    if (row.delta > cap + BOUND_SLACK) {
+      problems.push(`${name}: the shift is past the cap`);
+    }
+    if (!(ratio >= GENERATED_MIN_RATIO) || win === '') {
+      problems.push(`${name}: no win of 10x pays for it`);
+    }
+    if (until === '') {
+      problems.push(`${name}: no leaf to expire at`);
+    }
+  }
+  return problems;
 }

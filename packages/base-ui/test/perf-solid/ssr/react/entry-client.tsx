@@ -31,3 +31,16 @@ function Committed(props: { onCommit: () => void; children: React.ReactNode }) {
   );
   return { syncMs: performance.now() - start, committed };
 };
+
+// D29: `?auto=1` hydrates as a page does, once the bundle has run, and records the commit against
+// navigation start, for TTI (`ssr/interact.mjs`).
+const params = new URLSearchParams(location.search);
+if (params.get('auto') === '1') {
+  const fixture = params.get('fixture')!;
+  const { committed } = (
+    window as unknown as { __hydrate: (key: string) => { committed: Promise<number> } }
+  ).__hydrate(fixture);
+  void committed.then(() => {
+    (window as unknown as { __hydratedAt: number }).__hydratedAt = performance.now();
+  });
+}
