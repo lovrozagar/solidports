@@ -13,9 +13,12 @@ autofocus;
 // Solid: Safari implements no `overflow-anchor`. Solid's style binding writes through `setProperty`,
 // which an engine drops for a property it does not implement, so the read stays `undefined`; React's
 // camelCase assignment leaves a plain JS property the read returns, though it styles nothing. The
-// scroll anchor is asserted only where the engine implements it.
+// scroll anchor is asserted only where the engine implements it. jsdom defines `CSS` without
+// `CSS.supports`, and this module loads there too, though its tests skip jsdom.
 const supportsOverflowAnchor =
-  typeof CSS !== 'undefined' && CSS.supports('overflow-anchor', 'auto');
+  typeof CSS !== 'undefined' &&
+  typeof CSS.supports === 'function' &&
+  CSS.supports('overflow-anchor', 'auto');
 
 function expectOverflowAnchor(element: HTMLElement, value: string) {
   if (supportsOverflowAnchor) {
