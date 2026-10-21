@@ -94,6 +94,39 @@ describe.skipIf(!isJSDOM)('keyed selector reads', () => {
     expect(untracked.selectors).toBe(0);
   });
 
+  // regate4's preview-card/roots-200 move across 20: every root has one trigger, and each trigger
+  // read also read the current id untracked (the store's latest-value path) before the tracked read
+  // it subscribes through. A one-id popup compares the tracked value alone.
+  it('reads a one-id popup selector with no untracked store read', () => {
+    untracked.selectors = 0;
+    const dispose = createRoot((disposeRoot) => {
+      const store = SolidStore({ active: -1 }, {}, {
+        isActive: keyedSelector((state: { active: number }) => state.active),
+      }) as unknown as {
+        useState(key: string, id: () => number): () => unknown;
+        set(key: string, value: unknown): void;
+      };
+      const readers = Array.from({ length: 20 }, () => {
+        const active = store.useState('isActive', () => 3);
+        return createMemo(() => active());
+      });
+      readers.forEach((reader) => void reader());
+      flush();
+      // The write's own commit runs untracked; the readers' re-runs are what is counted.
+      store.set('active', 3);
+      untracked.calls = 0;
+      untracked.on = true;
+      flush();
+      readers.forEach((reader) => void reader());
+      untracked.on = false;
+      expect(readers.map((reader) => reader())).toEqual(readers.map(() => true));
+      expect(untracked.calls).toBe(0);
+      return disposeRoot;
+    });
+    dispose();
+    expect(untracked.selectors).toBe(0);
+  });
+
   // A list store's items each read their own id: its selector starts at the first tracked read, so
   // no item compares directly before it exists.
   it("starts a list store's id selector at its first tracked read", () => {

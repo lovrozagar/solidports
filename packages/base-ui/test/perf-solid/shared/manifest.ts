@@ -223,7 +223,11 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   ],
   'navigation-menu': [closedRoot('NavigationMenu')],
   popover: [closedRoot('Popover')],
-  'preview-card': [closedRoot('PreviewCard')],
+  'preview-card': [
+    closedRoot('PreviewCard'),
+    '<PreviewCard.Trigger /> cost > builds its inline-rect props once, whatever its card and the active trigger do',
+    '<PreviewCard.Trigger /> cost > records the pointer while its card is closed and keeps it while the card is open',
+  ],
   progress: [
     staticPart('a Progress.Track costs at most 2 nodes'),
     staticPart('a Progress.Indicator costs at most 2 nodes'),

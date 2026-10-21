@@ -102,26 +102,6 @@ type KeyedSelector = (state: any, id: Accessor<unknown>) => boolean;
 /** `readIds`' mark for a key whose readers asked about more than one id. */
 const MANY_IDS = Symbol('many ids');
 
-// `key(state)` read untracked through module-level state, so a reader's call makes no closure
-// (every item reads its keyed selector on the current id's first change).
-let pendingKey: ((state: any) => unknown) | undefined;
-let pendingState: object | undefined;
-function readPendingKey() {
-  return pendingKey!(pendingState);
-}
-function readKeyUntracked(key: (state: any) => unknown, state: object): unknown {
-  const previousKey = pendingKey;
-  const previousState = pendingState;
-  pendingKey = key;
-  pendingState = state;
-  try {
-    return untrack(readPendingKey);
-  } finally {
-    pendingKey = previousKey;
-    pendingState = previousState;
-  }
-}
-
 /**
  * A Store that supports controlled state keys, non-reactive values and provides utility methods for React.
  */
@@ -174,13 +154,14 @@ export function SolidStore<
       return selector(state, id);
     }
     const { key, gate, derived, list } = keyedSelectorKeys.get(selector)!;
+    const value = id();
+    // A list item mounts unregistered (index -1) and reads again once its index arrives: it cannot
+    // be the active one, so it tracks its index only, with no membership, slot or cleanup.
+    if (list && value === -1) {
+      return false;
+    }
     let isCurrent = memberships.get(key);
-    let value: unknown;
     if (isCurrent === undefined) {
-      // Compared untracked: a reader that moves onto its id's signal does not stay subscribed to
-      // the raw current id.
-      const current = readKeyUntracked(key, state);
-      value = id();
       if (value !== undefined) {
         if (!readIds.has(key)) {
           readIds.set(key, value);
@@ -189,9 +170,11 @@ export function SolidStore<
         }
       }
       if (!list && readIds.get(key) !== MANY_IDS) {
-        // While every reader asks about one id: compared directly, subscribed to what the current
-        // id reads, so its next change re-runs this reader.
-        key(state);
+        // While every reader asks about one id: compared directly with the committed id, which
+        // this read subscribes to, so its next change re-runs the reader. (A first untracked read
+        // of the latest id cost every trigger of preview-card/roots-200 the store's latest-value
+        // path on each move, for a value the tracked read gives anyway.)
+        const current = key(state);
         // `gate` read after the key matched: only the current id's readers subscribe to it.
         return value !== undefined && current === value && (gate === undefined || gate(state));
       }
@@ -213,8 +196,6 @@ export function SolidStore<
         }
       }
       memberships.set(key, isCurrent);
-    } else {
-      value = id();
     }
     return value !== undefined && isCurrent(value) && (gate === undefined || gate(state));
   }

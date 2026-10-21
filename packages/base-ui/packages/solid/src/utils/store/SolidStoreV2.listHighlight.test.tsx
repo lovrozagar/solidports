@@ -147,6 +147,58 @@ describe('list stores: keyed highlight', () => {
       list.dispose();
     });
 
+    // menu/500 open by keyboard: items mount unregistered (index -1) and read again once their
+    // index arrives. An unregistered item cannot be the active one, so its read builds nothing of
+    // the keyed selector's (no membership, no slot, no cleanup) and tracks its index only.
+    it('an unregistered item (index -1) reads no membership and follows its index once it arrives', () => {
+      const hooks = (DEV as unknown as { hooks: { onOwner?: (owner: unknown) => void } }).hooks;
+      // Four readers at index -1 reading `key`; the owners created until their first reads settle.
+      const mountUnregistered = (key: string) => {
+        const ids: Setter<number>[] = [];
+        let store!: ListStore;
+        let reads!: Accessor<unknown>[];
+        let owners = 0;
+        hooks.onOwner = () => {
+          owners += 1;
+        };
+        try {
+          const dispose = createRoot((d) => {
+            store = testCase.create();
+            store.set(testCase.field, 2);
+            reads = Array.from({ length: 4 }, () => {
+              const [id, setId] = createSignal(-1);
+              ids.push(setId);
+              if (testCase.via === 'useState') {
+                const selected = store.useState(key, id);
+                return createMemo(() => selected());
+              }
+              return createMemo(() => store.select(key, id));
+            });
+            return d;
+          });
+          flush();
+          reads.forEach((read) => read());
+          return { owners, ids, store, reads, dispose };
+        } finally {
+          hooks.onOwner = undefined;
+        }
+      };
+      // The control reads the store's `activeIndex` key: the store's nodes and one memo per reader.
+      // `useState` of a selector with arguments adds one memo per reader of its own.
+      const control = mountUnregistered(testCase.field);
+      control.dispose();
+      const list = mountUnregistered(testCase.key);
+      expect(list.reads.map((read) => read())).toEqual([false, false, false, false]);
+      expect(list.owners).toBe(control.owners + (testCase.via === 'useState' ? 4 : 0));
+      list.ids.forEach((setId, index) => setId(index));
+      flush();
+      expect(list.reads.map((read) => read())).toEqual([false, false, true, false]);
+      list.store.set(testCase.field, 3);
+      flush();
+      expect(list.reads.map((read) => read())).toEqual([false, false, false, true]);
+      list.dispose();
+    });
+
     it('an item whose index changes follows it, and later moves still re-run only two items', () => {
       const list = mountList(testCase);
       list.store.set(testCase.field, 1);
