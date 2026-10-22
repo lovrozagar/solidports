@@ -294,6 +294,11 @@ describe("the browser test files a range changed", () => {
 // The scoped parity suites under `--changed`: both suites on the selected files only, the coverage
 // check limited to them, and WebKit through Playwright's Docker image (local WebKit lacks the host's
 // libraries). A full run keeps the whole-suite parity.
+
+/** The planned parity suite for `browser`. */
+const parity = (planned: ReturnType<typeof planSuites>, browser: string) =>
+	planned.find((suite) => suite.name === `parity-${browser}`)!
+
 describe("scoped browser parity under --changed", () => {
 	const browserTests = {
 		files: [
@@ -306,8 +311,6 @@ describe("scoped browser parity under --changed", () => {
 	}
 	const plan = (extra: Record<string, unknown> = {}) =>
 		planSuites({ changed: "main", only: null, fullBench: false, browserTests, docker: true, ...extra })
-	const parity = (planned: ReturnType<typeof planSuites>, browser: string) =>
-		planned.find((suite) => suite.name === `parity-${browser}`)!
 
 	test("selects both parity suites with the changed files as exact filters", () => {
 		for (const browser of ["firefox", "webkit"]) {
