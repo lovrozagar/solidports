@@ -16,6 +16,46 @@ describe('<Combobox.Item />', () => {
     },
   }));
 
+  // D32's native item keeps its pointer and selection state per item and per root: a selection in
+  // one Combobox leaves nothing behind that stops another Combobox on the page from selecting.
+  it('selects in a second Combobox on the page after selecting in the first', async () => {
+    const onSecond = vi.fn();
+    const { user } = render(() => (
+      <div>
+        <For each={['first', 'second']}>
+          {(name) => (
+            <Combobox.Root
+              items={[`${name} a`, `${name} b`]}
+              onValueChange={name === 'second' ? onSecond : undefined}
+            >
+              <Combobox.Input data-testid={`${name}-input`} />
+              <Combobox.Portal>
+                <Combobox.Positioner>
+                  <Combobox.Popup>
+                    <Combobox.List>
+                      {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                    </Combobox.List>
+                  </Combobox.Popup>
+                </Combobox.Positioner>
+              </Combobox.Portal>
+            </Combobox.Root>
+          )}
+        </For>
+      </div>
+    ));
+
+    await user.click(screen.getByTestId('first-input'));
+    await user.click(await screen.findByRole('option', { name: 'first b' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: 'first b' })).toBe(null);
+    });
+
+    await user.click(screen.getByTestId('second-input'));
+    await user.click(await screen.findByRole('option', { name: 'second a' }));
+    expect(onSecond).toHaveBeenCalledTimes(1);
+    expect(onSecond.mock.calls[0][0]).toBe('second a');
+  });
+
   it('selects item and closes in single mode', async () => {
     render(() => (
       <Combobox.Root defaultOpen>
