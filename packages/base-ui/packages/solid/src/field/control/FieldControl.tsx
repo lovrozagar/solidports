@@ -8,6 +8,9 @@ import { useLabelableContext } from '../../internals/labelable-provider/Labelabl
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useValueChanged } from '../../internals/useValueChanged';
 import { splitComponentProps, useRef } from '../../solid-helpers';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
@@ -22,6 +25,70 @@ import { useSetFieldFocused } from '../root/useSetFieldFocused';
 import { fieldValidityMapping } from '../utils/constants';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
+const INPUT = { tag: 'input', create: () => (<input />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'id',
+  'name',
+  'value',
+  'disabled',
+  'onValueChange',
+  'defaultValue',
+  'autofocus',
+  // Merged with the field's own: the description ids and the invalid state.
+  'aria-describedby',
+  'aria-invalid',
+]);
+const writeControlState = compileStateWriter(
+  ['disabled', 'touched', 'dirty', 'valid', 'filled', 'focused'],
+  fieldValidityMapping,
+);
+
+/** What the native control's attributes and handlers read: one object per control. */
+interface FieldControlModel {
+  id: () => string | undefined;
+  disabled: () => boolean;
+  name: () => string | undefined;
+  labelId: () => string | undefined;
+  autofocus: () => boolean | string;
+  valueProps: () => { value?: unknown; defaultValue?: unknown };
+  validation: { readonly 'aria-describedby'?: unknown; readonly 'aria-invalid'?: unknown };
+  onInput: (event: InputEvent) => void;
+  onFocus: () => void;
+  onBlur: (event: FocusEvent) => void;
+  onKeyDown: (event: KeyboardEvent) => void;
+}
+
+/** The control's attributes, as its slow path's props merge produces them. */
+function writeControlAttributes(w: SetAttribute, model: FieldControlModel) {
+  w.set('id', model.id());
+  w.set('disabled', model.disabled() || undefined);
+  w.set('name', model.name());
+  w.set('aria-labelledby', model.labelId());
+  const autofocus = model.autofocus();
+  w.set('autofocus', autofocus === false ? undefined : autofocus);
+  const valueProps = model.valueProps();
+  if ('value' in valueProps) {
+    w.set('value', valueProps.value);
+  } else {
+    w.set('defaultValue', valueProps.defaultValue);
+  }
+  w.set('aria-describedby', model.validation['aria-describedby']);
+  w.set('aria-invalid', model.validation['aria-invalid']);
+}
+
+const CONTROL_HANDLERS = {
+  onInput: partHandler<FieldControlModel, InputEvent>('onInput', (model, event) =>
+    model.onInput(event),
+  ),
+  onFocus: partHandler<FieldControlModel>('onFocus', (model) => model.onFocus()),
+  onBlur: partHandler<FieldControlModel, FocusEvent>('onBlur', (model, event) =>
+    model.onBlur(event),
+  ),
+  onKeyDown: partHandler<FieldControlModel, KeyboardEvent>('onKeyDown', (model, event) =>
+    model.onKeyDown(event),
+  ),
+};
+
 /**
  * The form control to label and validate.
  * Renders an `<input>` element.
@@ -32,16 +99,8 @@ import { mergeProps as solidMergeProps } from '../../solid-1-compat';
  *
  * Documentation: [Base UI Field](https://base-ui.com/react/components/field)
  */
-export function FieldControl(componentProps: FieldControl.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'id',
-    'name',
-    'value',
-    'disabled',
-    'onValueChange',
-    'defaultValue',
-    'autofocus',
-  ]);
+export function FieldControl(componentProps: FieldControl.Props): JSX.Element {
+  const local = componentProps;
   // Solid: JSX attribute types allow `false` to remove the attribute; it means unset here.
   const idProp = () => (local.id === false ? undefined : local.id);
   const nameProp = () => (local.name === false ? undefined : local.name);
@@ -192,6 +251,124 @@ export function FieldControl(componentProps: FieldControl.Props) {
     return isServer ? { value: local.defaultValue } : { defaultValue: local.defaultValue };
   };
 
+  const handlers = {
+    onInput(event: InputEvent) {
+      const inputValue = (event.currentTarget as HTMLInputElement).value;
+      const details = createChangeEventDetails(REASONS.none, event);
+      local.onValueChange?.(inputValue, details);
+
+      // Controlled values sync from the `value` prop instead, so that a value the consumer
+      // rejects or rewrites never reaches the field state.
+      if (untrack(isControlled)) {
+        return;
+      }
+
+      // `validation.change` reads `markedDirtyRef`, so update dirty before validating.
+      setDirty(inputValue !== (validityData.initialValue ?? ''));
+      setInputDirty(inputValue !== (validityData.initialValue ?? ''));
+      setInputFilled(inputValue !== '');
+
+      // Workaround for https://github.com/facebook/react/issues/9023
+      if (!event.defaultPrevented && !details.isCanceled) {
+        clearErrors(untrack(name));
+        validation.change(inputValue);
+      }
+    },
+    onFocus() {
+      setFocused(true);
+    },
+    onBlur(event: FocusEvent) {
+      setTouched(true);
+      setFocused(false);
+
+      if (untrack(validationMode) === 'onBlur') {
+        const inputValue = (event.currentTarget as HTMLInputElement).value;
+        validation.commit(inputValue);
+
+        if (untrack(isControlled)) {
+          // Controlled blur handlers can normalize the value before this microtask runs.
+          // A rewrite back to the initial value is a programmatic reset: the field looks
+          // pristine, so committing it would only surface `valueMissing` noise.
+          queueMicrotask(() => {
+            const nextValue = validation.inputRef.current?.value;
+            if (
+              nextValue !== undefined &&
+              nextValue !== inputValue &&
+              nextValue !== (validityData.initialValue ?? '')
+            ) {
+              validation.commit(nextValue);
+            }
+          });
+        }
+      }
+    },
+    onKeyDown(event: KeyboardEvent) {
+      const target = event.currentTarget as HTMLInputElement;
+      if (target.tagName === 'INPUT' && event.key === 'Enter') {
+        setTouched(true);
+        const inputValue = target.value;
+        const form = target.form;
+        if (form && form === formElementRef.current && !event.defaultPrevented) {
+          const input = target;
+          const submitCount = submitCountRef.current;
+
+          // Implicit submission runs after keydown. Fall back unless Form handles it first.
+          enterValidationTimeout.start(0, () => {
+            if (submitCountRef.current === submitCount) {
+              validation.commit(input.value);
+            }
+          });
+        } else {
+          validation.commit(inputValue);
+        }
+      }
+    },
+  };
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<input>` with the
+  // field's attributes, validation and handlers, no props view (D32). Client renders only: the
+  // server prints the value as the `value` attribute and hydration keeps a control's form-state
+  // attributes, which `useRenderElement` reconciles and the native kit does not.
+  if (canRenderNative(componentProps)) {
+    const model: FieldControlModel = {
+      id,
+      disabled: () => Boolean(disabled()),
+      name,
+      labelId,
+      autofocus,
+      valueProps,
+      validation: validation.getValidationSource(disabled, componentProps as Record<string, unknown>),
+      ...handlers,
+    };
+    return renderNativeElement(INPUT, componentProps, {
+      own: OWN_KEYS,
+      state,
+      stateWriter: writeControlState,
+      mapping: fieldValidityMapping,
+      attributes: writeControlAttributes,
+      handlers: CONTROL_HANDLERS,
+      handlerTarget: model,
+      reactive: true,
+      refs: [
+        setValidationInputRef,
+        (el: HTMLInputElement | null) => {
+          inputRef.current = el;
+        },
+      ],
+      consumerChildren: false,
+    }) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, [
+    'id',
+    'name',
+    'value',
+    'disabled',
+    'onValueChange',
+    'defaultValue',
+    'autofocus',
+  ]);
+
   const element = useRenderElement('input', componentProps, {
     ref: [setValidationInputRef, inputRef],
     state,
@@ -213,77 +390,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
           get autofocus() {
             return autofocus();
           },
-          onInput(event: InputEvent) {
-            const inputValue = (event.currentTarget as HTMLInputElement).value;
-            const details = createChangeEventDetails(REASONS.none, event);
-            local.onValueChange?.(inputValue, details);
-
-            // Controlled values sync from the `value` prop instead, so that a value the consumer
-            // rejects or rewrites never reaches the field state.
-            if (untrack(isControlled)) {
-              return;
-            }
-
-            // `validation.change` reads `markedDirtyRef`, so update dirty before validating.
-            setDirty(inputValue !== (validityData.initialValue ?? ''));
-            setInputDirty(inputValue !== (validityData.initialValue ?? ''));
-            setInputFilled(inputValue !== '');
-
-            // Workaround for https://github.com/facebook/react/issues/9023
-            if (!event.defaultPrevented && !details.isCanceled) {
-              clearErrors(untrack(name));
-              validation.change(inputValue);
-            }
-          },
-          onFocus() {
-            setFocused(true);
-          },
-          onBlur(event: FocusEvent) {
-            setTouched(true);
-            setFocused(false);
-
-            if (untrack(validationMode) === 'onBlur') {
-              const inputValue = (event.currentTarget as HTMLInputElement).value;
-              validation.commit(inputValue);
-
-              if (untrack(isControlled)) {
-                // Controlled blur handlers can normalize the value before this microtask runs.
-                // A rewrite back to the initial value is a programmatic reset: the field looks
-                // pristine, so committing it would only surface `valueMissing` noise.
-                queueMicrotask(() => {
-                  const nextValue = validation.inputRef.current?.value;
-                  if (
-                    nextValue !== undefined &&
-                    nextValue !== inputValue &&
-                    nextValue !== (validityData.initialValue ?? '')
-                  ) {
-                    validation.commit(nextValue);
-                  }
-                });
-              }
-            }
-          },
-          onKeyDown(event: KeyboardEvent) {
-            const target = event.currentTarget as HTMLInputElement;
-            if (target.tagName === 'INPUT' && event.key === 'Enter') {
-              setTouched(true);
-              const inputValue = target.value;
-              const form = target.form;
-              if (form && form === formElementRef.current && !event.defaultPrevented) {
-                const input = target;
-                const submitCount = submitCountRef.current;
-
-                // Implicit submission runs after keydown. Fall back unless Form handles it first.
-                enterValidationTimeout.start(0, () => {
-                  if (submitCountRef.current === submitCount) {
-                    validation.commit(input.value);
-                  }
-                });
-              } else {
-                validation.commit(inputValue);
-              }
-            }
-          },
+          ...handlers,
         },
         valueProps(),
         elementProps,
