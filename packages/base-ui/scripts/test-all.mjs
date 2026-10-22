@@ -96,6 +96,9 @@ export const suites = [
     cwd: baseUi,
     generated: ['packages/base-ui/docs/react/src/error-codes.json'],
     run: ['bun run extract-error-codes'],
+    // Run by `--changed` too: the verify stamp never extracts the codes, and a new `Error` pushed
+    // without its code failed CI (9a9f246b).
+    changed: true,
     // code-infra's extractor lists the workspace with `pnpm ls`.
     unavailable: hasCommand('pnpm') ? null : 'needs pnpm (code-infra lists the workspace with it)',
   },
