@@ -1,8 +1,16 @@
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { useToastLabelElement, useToastLabelPart } from '../utils/useToastLabelPart';
+import { canRenderNative } from '../../utils/native';
+import {
+  renderNativeToastLabel,
+  useToastLabelElement,
+  useToastLabelPart,
+} from '../utils/useToastLabelPart';
 import { getRenderContent } from '../utils/useRenderableElement';
+
+const H2 = { tag: 'h2', create: () => (<h2 />) as unknown as Element };
 
 /**
  * A title that labels the toast.
@@ -10,7 +18,12 @@ import { getRenderContent } from '../utils/useRenderableElement';
  *
  * Documentation: [Base UI Toast](https://base-ui.com/react/components/toast)
  */
-export function ToastTitle(componentProps: ToastTitle.Props) {
+export function ToastTitle(componentProps: ToastTitle.Props): JSX.Element {
+  // Native fast path (`context/architecture/render-pipeline.md`).
+  if (canRenderNative(componentProps, undefined, true)) {
+    return renderNativeToastLabel(componentProps, H2, 'title');
+  }
+
   const [, local, elementProps] = splitComponentProps(componentProps, ['id', 'children']);
 
   const { id, children, type, setId } = useToastLabelPart(
