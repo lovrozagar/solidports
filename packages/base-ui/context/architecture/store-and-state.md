@@ -1,7 +1,7 @@
 ---
 tags: [store, state, helpers, compat]
-sources: [packages/base-ui/packages/solid/src/utils/store/SolidStoreV2.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/native/context.ts]
-verified: 2026-10-18
+sources: [packages/base-ui/packages/solid/src/utils/store/SolidStoreV2.ts, packages/base-ui/packages/solid/src/utils/store/storeCollections.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/native/context.ts]
+verified: 2026-10-22
 ---
 
 # Store and state
@@ -21,6 +21,8 @@ Users: popup stores (`utils/popups/store.ts`, Dialog, Popover, Menu, Tooltip, Pr
 - Getter fields stay live and are never written. The key set has a version signal for `has`/`ownKeys`.
 - `setState` takes `(key, value)`, a draft function (one patch), or a patch object. A commit skips `Object.is` no-ops, then calls listeners synchronously, guarding recursive writes as React's store does.
 - Server: signals are never written; reads return recorded values.
+- Collections are created on first use (D32's closed-root unit): the slot, binding, pending-write, unbound-value and getter Maps, the added-key and listener Sets, and the keyed selectors' bookkeeping. Each empty one costs a hash table in Chromium, and a closed popup root holds two stores; `storeCollections.cost.test.tsx` budgets them (a closed Popover root: 7 against 30 before).
+- A bound key is one `Binding` object with its methods on the prototype, not a closure per method over a shared scope: about 200 bytes less per key, at about 14 keys per closed popup root.
 
 ### Methods
 
