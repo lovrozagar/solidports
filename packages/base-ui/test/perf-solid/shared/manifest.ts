@@ -115,6 +115,8 @@ const closedRoot = (name: string) =>
   `closed popup root cost > a closed ${name} root stays within its node budget`;
 const bareRoot = (name: string) =>
   `closed popup root cost > a closed ${name} root alone stays within its node budget`;
+const rootCollections = (name: string) =>
+  `closed popup root collections > a closed ${name} root constructs at most its budget of Maps and Sets`;
 const BUTTON_NATIVE =
   'native part cost > a native Button with literal props costs only the dev component root beyond its element';
 const BUTTON_REACTIVE =
@@ -219,7 +221,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'combobox cost against the hand-written floor > an open Combobox.Item costs at most the floor item plus 25%',
   ],
   'context-menu': [closedRoot('ContextMenu')],
-  dialog: [closedRoot('Dialog'), bareRoot('Dialog')],
+  dialog: [closedRoot('Dialog'), bareRoot('Dialog'), rootCollections('Dialog')],
   drawer: [closedRoot('Drawer'), bareRoot('Drawer')],
   menu: [
     closedRoot('Menu'),
@@ -235,6 +237,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   popover: [
     closedRoot('Popover'),
     bareRoot('Popover'),
+    rootCollections('Popover'),
     'popover cost against the hand-written floor > the floor renders the same DOM as a closed Popover.Trigger',
     'popover cost against the hand-written floor > a closed Popover.Trigger renders on the native path',
     'popover cost against the hand-written floor > a closed Popover.Trigger costs at most the native trigger budget',
@@ -272,7 +275,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     GROUPED_TOGGLE,
   ],
   'toggle-group': [GROUPED_TOGGLE],
-  tooltip: [closedRoot('Tooltip'), bareRoot('Tooltip')],
+  tooltip: [closedRoot('Tooltip'), bareRoot('Tooltip'), rootCollections('Tooltip')],
 };
 
 /** Components with no cost test yet, each naming the plan 3 leaf that adds its budget. */

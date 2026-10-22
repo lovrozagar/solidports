@@ -56,7 +56,7 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync time in ms.
 Heap after mount: roots-500 uses 23993 KB versus React's 11218 KB; handle-500 uses 1781 KB versus 9910 KB.
 
 
-D32's closed-root unit, step 1, local Chromium heap diff (`tooltip/roots-500` mount, objects kept, 2026-10-22): React 13,126 KB, Solid before 23,855 KB, after 22,698 KB.
+D32's closed-root unit, step 1, local Chromium heap diff (`tooltip/roots-500` mount, objects kept, 2026-10-22): React 13,126 KB, Solid before 23,855 KB, after 22,698 KB. Step 2 (store collections on first use, one object per bound key): 20,762 KB.
 
 ## Hot spots
 

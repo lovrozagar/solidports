@@ -59,7 +59,7 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync time in ms.
 
 Heap after mount: roots-500 uses 26322 KB versus React's 11294 KB.
 
-D32's native trigger, local Chromium heap diff (`popover/roots-500` mount, objects kept, 2026-10-22): React 12,930 KB, Solid before 26,729 KB, after 20,033 KB (774k to 581k objects). D32's closed-root unit, step 1: 18,783 KB (547k objects).
+D32's native trigger, local Chromium heap diff (`popover/roots-500` mount, objects kept, 2026-10-22): React 12,930 KB, Solid before 26,729 KB, after 20,033 KB (774k to 581k objects). D32's closed-root unit, step 1: 18,783 KB (547k objects). Step 2 (store collections on first use, one object per bound key): 16,842 KB (487k objects).
 
 ## Hot spots
 

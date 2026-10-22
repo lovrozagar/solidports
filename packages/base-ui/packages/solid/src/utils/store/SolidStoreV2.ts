@@ -9,7 +9,7 @@ import {
   runWithOwner,
   untrack,
 } from 'solid-js';
-import type { Accessor, Signal, Store } from 'solid-js';
+import type { Accessor, Owner, Signal, Store } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { access, createDepsEffect, createDepsMemo } from '../../solid-helpers';
 import type { MaybeAccessor, MaybeAccessorValue } from '../../solid-helpers';
@@ -126,22 +126,26 @@ export function SolidStore<
   // (`NullStore`), whose state never changes, and an ownerless effect would be an error when the
   // first read comes from an effect callback.
   const storeOwner = getOwner();
-  const memberships = new Map<Function, IdSelector>();
+  let memberships: Map<Function, IdSelector> | undefined;
   // The id readers asked about, per key, until a second one appears (`MANY_IDS`): a signal per id
   // re-runs nothing less while every reader asks about the same one, so the id selector is
   // created only once they ask about more than one.
-  const readIds = new Map<Function, unknown>();
+  let readIds: Map<Function, unknown> | undefined;
   // The key functions whose memberships are pushed by this store's writes (not projections).
-  const pushedKeys = new Set<Function>();
+  let pushedKeys: Set<Function> | undefined;
   const probe = storeDerivationProbes.get(state)!;
   storeCommitHooks.set(state, () => {
-    for (const [key, selector] of memberships) {
-      if (process.env.NODE_ENV !== 'production' && pushedKeys.has(key)) {
+    for (const [key, selector] of memberships ?? []) {
+      if (process.env.NODE_ENV !== 'production' && pushedKeys?.has(key)) {
         // A branch the key function did not take when its selector was created.
         const reads = probe.reads(key as (value: State) => unknown);
         const derivedKey = probe.derivedAmong(reads);
         if (derivedKey !== undefined) {
-          reportDerivedRead(derivedKey, String(key), 'is bound or a getter, read on a branch the selector did not take when it was created');
+          reportDerivedRead(
+            derivedKey,
+            String(key),
+            'is bound or a getter, read on a branch the selector did not take when it was created',
+          );
         }
         probe.watchPushed(reads, String(key));
       }
@@ -160,16 +164,16 @@ export function SolidStore<
     if (list && value === -1) {
       return false;
     }
-    let isCurrent = memberships.get(key);
+    let isCurrent = memberships?.get(key);
     if (isCurrent === undefined) {
       if (value !== undefined) {
-        if (!readIds.has(key)) {
-          readIds.set(key, value);
-        } else if (!Object.is(readIds.get(key), value)) {
-          readIds.set(key, MANY_IDS);
+        if (!readIds?.has(key)) {
+          (readIds ??= new Map()).set(key, value);
+        } else if (!Object.is(readIds?.get(key), value)) {
+          (readIds ??= new Map()).set(key, MANY_IDS);
         }
       }
-      if (!list && readIds.get(key) !== MANY_IDS) {
+      if (!list && readIds?.get(key) !== MANY_IDS) {
         // While every reader asks about one id: compared directly with the committed id, which
         // this read subscribes to, so its next change re-runs the reader. (A first untracked read
         // of the latest id cost every trigger of preview-card/roots-200 the store's latest-value
@@ -178,7 +182,7 @@ export function SolidStore<
         // `gate` read after the key matched: only the current id's readers subscribe to it.
         return value !== undefined && current === value && (gate === undefined || gate(state));
       }
-      readIds.delete(key);
+      readIds?.delete(key);
       // From the second id on, each reader sits on its id's signal (the keyed floor, D20): a
       // change re-runs the old and the new id's readers only, the first change included. The
       // readers that compared directly before move onto their signal when the change re-runs them.
@@ -190,12 +194,12 @@ export function SolidStore<
         isCurrent = createDerivedIdSelector(() => key(state), storeOwner);
       } else {
         isCurrent = createIdSelector(() => key(state), storeOwner);
-        pushedKeys.add(key);
+        (pushedKeys ??= new Set()).add(key);
         if (process.env.NODE_ENV !== 'production') {
           probe.watchPushed(reads, String(key));
         }
       }
-      memberships.set(key, isCurrent);
+      (memberships ??= new Map()).set(key, isCurrent);
     }
     return value !== undefined && isCurrent(value) && (gate === undefined || gate(state));
   }
@@ -554,23 +558,119 @@ function createInitialStore<State extends object>(
   return createStoreState(initialState);
 }
 
-const storeListeners = new WeakMap<object, Set<(state: any) => void>>();
+// Each store's listener set, created by its first subscriber.
+const storeListeners = new WeakMap<object, () => Set<(state: any) => void>>();
 
 /**
  * Subscribes to every write of a store created by `createStoreState`, as React's
  * `Store.subscribe`: listeners run synchronously after each change, with the latest state.
  */
 function subscribeToStore<State extends object>(state: State, listener: (state: State) => void) {
-  const listeners = storeListeners.get(state);
-  if (!listeners) {
+  const listenersOf = storeListeners.get(state);
+  if (!listenersOf) {
     return NOOP;
   }
+  const listeners = listenersOf();
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
   };
 }
-const BINDING = Symbol('binding');
+/** A synced value's source. It receives the key's previous value (or the value last `set`). */
+type BindingSource = (prev: unknown) => unknown;
+
+/**
+ * A key derived from a source accessor (`useSyncedValue`). One object per bound key with its methods
+ * on the prototype: a closed popup root binds about 14 keys, and a closure per method and the scope
+ * they shared cost each key about 200 bytes (D32's closed-root unit).
+ *
+ * The derived signal is created on first access, under the owner the key is bound under: a key
+ * nobody reads (most popup keys while the popup is closed) costs no computation. It is transparent,
+ * as a node created on first read would take the owner's next hydration id (see `runInLazyScope`).
+ * The server, which renders once and never writes signals, computes the value directly: its derived
+ * signals would take hydration ids (they ignore `transparent`).
+ */
+class Binding {
+  declare readonly key: PropertyKey;
+  declare readonly source: BindingSource;
+  /** The owner the key was bound under; its derived signal and notifier are created there. */
+  declare readonly owner: Owner | null;
+  /** Called when the derived signal recomputes: the store drops the key's pending write. */
+  declare readonly onDerive: (key: PropertyKey) => void;
+  /**
+   * Whether the first derivation is still to come; it sees the key's value from before binding
+   * (`initial`) as `prev`. Re-deriving from `source` drops an override written with `set` (React
+   * re-syncs on render).
+   */
+  declare pending: boolean;
+  declare initial: unknown;
+  declare derived: Signal<unknown> | undefined;
+  declare notifying: boolean;
+
+  constructor(
+    key: PropertyKey,
+    source: BindingSource,
+    initial: unknown,
+    owner: Owner | null,
+    onDerive: (key: PropertyKey) => void,
+  ) {
+    this.key = key;
+    this.source = source;
+    this.owner = owner;
+    this.onDerive = onDerive;
+    this.pending = true;
+    this.initial = initial;
+    this.derived = undefined;
+    this.notifying = false;
+  }
+
+  private signal() {
+    this.derived ??= runWithOwner(this.owner, () =>
+      createSignal<unknown>(
+        (prev: unknown) => {
+          const next = this.source(this.pending ? this.initial : prev);
+          this.pending = false;
+          this.initial = undefined;
+          this.onDerive(this.key);
+          return next;
+        },
+        { name: `store.${String(this.key)}`, transparent: true },
+      ),
+    ) as Signal<unknown>;
+    return this.derived;
+  }
+
+  /**
+   * Whether the owner disposed before the first read (another part's teardown reading the key
+   * before this binding's cleanup runs): the value is then computed directly, with nothing created
+   * under it.
+   */
+  private ownerGone() {
+    return this.owner !== null && isDisposed(this.owner);
+  }
+
+  value(): unknown {
+    return !isServer && (this.derived || !this.ownerGone()) ? this.signal()[0]() : this.peek();
+  }
+
+  setValue(next: unknown) {
+    if (this.derived || !this.ownerGone()) {
+      this.signal()[1](() => next);
+    }
+  }
+
+  /** The current value, untracked, without creating the derived signal. */
+  peek(): unknown {
+    const { derived } = this;
+    return derived
+      ? untrack(derived[0])
+      : untrack(() => this.source(this.pending ? this.initial : undefined));
+  }
+}
+
+function isBinding(value: unknown): value is Binding {
+  return value instanceof Binding;
+}
 
 /**
  * Creates the backing state of a Base UI store, with the semantics of React's Store:
@@ -590,43 +690,55 @@ const BINDING = Symbol('binding');
 export function createStoreState<State extends object>(
   initialState: State,
 ): [Store<State>, SetStoreFunction<State>] {
-  const computedGetters = new Map<PropertyKey, () => unknown>();
+  // Getter fields, if any: most stores have none, and an empty Map and Set cost a table each.
+  let computedGetters: Map<PropertyKey, () => unknown> | undefined;
   const descriptors = Object.getOwnPropertyDescriptors(initialState);
   for (const key of Reflect.ownKeys(descriptors)) {
     const getter = descriptors[key as keyof typeof descriptors]?.get;
     if (getter) {
-      computedGetters.set(key, getter);
+      (computedGetters ??= new Map()).set(key, getter);
     }
   }
-  const computedKeys = new Set(computedGetters.keys());
+  const computedKeys = computedGetters ? new Set(computedGetters.keys()) : undefined;
 
   // The committed value of each key, one signal per key created on first use. A box, so a function
   // value is held rather than called. Ownerless: the store outlives the owner that first reads it.
-  const slots = new Map<PropertyKey, Signal<{ value: unknown }>>();
-  // Plain keys (and their insertion order), and a signal for readers of the key set.
-  const committedKeys = new Set<PropertyKey>(
-    Reflect.ownKeys(initialState).filter((key) => !computedKeys.has(key)),
-  );
+  let slots: Map<PropertyKey, Signal<{ value: unknown }>> | undefined;
+  // Plain keys, in insertion order: the initial state's own keys, then the keys committed after it
+  // (`addedKeys`, created by the first: most stores never add one). A signal for readers of the key
+  // set follows.
+  const initialKeys = Reflect.ownKeys(initialState).filter((key) => !computedKeys?.has(key));
+  let addedKeys: Set<PropertyKey> | undefined;
+  const isCommittedKey = (key: PropertyKey) =>
+    (Object.hasOwn(initialState, key) && !computedKeys?.has(key)) || addedKeys?.has(key) === true;
+  /** Commits `key` to the key set; false when it already was. */
+  const commitKey = (key: PropertyKey) => {
+    if (isCommittedKey(key)) {
+      return false;
+    }
+    (addedKeys ??= new Set()).add(key);
+    return true;
+  };
   const [keySet, setKeySet] = runWithOwner(null, () =>
     createSignal(0, { ownedWrite: true }),
   ) as Signal<number>;
 
   // Keys derived from a source accessor (`useSyncedValue`): a writable memo per key.
-  const bindings = new Map<PropertyKey, Binding>();
+  let bindings: Map<PropertyKey, Binding> | undefined;
 
   // The last value of a key unbound before anything read it: kept here, not in a new slot, as the
   // keys a closed popup root binds and never reads are all unbound when it unmounts. At most one
   // entry a key, until the key's slot takes the value over; it lives as long as the store.
-  const unboundValues = new Map<PropertyKey, unknown>();
+  let unboundValues: Map<PropertyKey, unknown> | undefined;
 
   /** What a key's slot starts out holding: its binding if bound before its first read. */
   const unslotted = (key: PropertyKey) => {
-    const binding = bindings.get(key);
+    const binding = bindings?.get(key);
     if (binding) {
       return binding;
     }
-    if (unboundValues.has(key)) {
-      return unboundValues.get(key);
+    if (unboundValues?.has(key)) {
+      return unboundValues?.get(key);
     }
     return Object.hasOwn(initialState, key)
       ? (initialState as Record<PropertyKey, unknown>)[key]
@@ -634,7 +746,7 @@ export function createStoreState<State extends object>(
   };
 
   function slot(key: PropertyKey) {
-    let current = slots.get(key);
+    let current = slots?.get(key);
     if (!current) {
       const initial = unslotted(key);
       current = runWithOwner(null, () =>
@@ -643,9 +755,9 @@ export function createStoreState<State extends object>(
           { equals: false, ownedWrite: true, name: `store.${String(key)}` },
         ),
       ) as Signal<{ value: unknown }>;
-      slots.set(key, current);
+      (slots ??= new Map()).set(key, current);
       // The kept value moved into the signal.
-      unboundValues.delete(key);
+      unboundValues?.delete(key);
     }
     return current;
   }
@@ -656,21 +768,20 @@ export function createStoreState<State extends object>(
    * write, never for an untracked read (a closed popup root binds about 20 keys nothing reads).
    */
   const peekSlot = (key: PropertyKey) => {
-    const existing = slots.get(key);
+    const existing = slots?.get(key);
     return existing ? untrack(existing[0]).value : unslotted(key);
   };
 
   function writeSlot(key: PropertyKey, value: unknown) {
     if (isServer) {
       // Server state is the recorded latest values: signals are never written there.
-      committedKeys.add(key);
+      commitKey(key);
       return;
     }
     runWithOwner(null, () =>
       untrack(() => {
         slot(key)[1]({ value });
-        if (!committedKeys.has(key)) {
-          committedKeys.add(key);
+        if (commitKey(key)) {
           setKeySet((version) => version + 1);
         }
       }),
@@ -678,7 +789,7 @@ export function createStoreState<State extends object>(
   }
 
   // Latest value of every written key. Equal to the committed value once a flush applies it.
-  const written = new Map<PropertyKey, unknown>();
+  let written: Map<PropertyKey, unknown> | undefined;
 
   // Bound keys whose derived changes notify listeners; `true` once a listener reads every key.
   let watched: Set<PropertyKey> | true | undefined;
@@ -688,19 +799,19 @@ export function createStoreState<State extends object>(
   let latestKey: PropertyKey = '';
   const readLatest = () => {
     const key = latestKey;
-    const getter = computedGetters.get(key);
+    const getter = computedGetters?.get(key);
     if (getter) {
       // eslint-disable-next-line @typescript-eslint/no-use-before-define -- the state proxy reads through `latest`; both exist before any read
       return getter.call(state);
     }
-    const binding = bindings.get(key);
+    const binding = bindings?.get(key);
     const value = binding ? binding.value() : peekSlot(key);
     return isBinding(value) ? value.value() : value;
   };
 
   const latest = (key: PropertyKey) => {
-    if (written.has(key)) {
-      return written.get(key);
+    if (written?.has(key)) {
+      return written?.get(key);
     }
     const previousKey = latestKey;
     latestKey = key;
@@ -711,7 +822,7 @@ export function createStoreState<State extends object>(
     }
   };
 
-  const listeners = new Set<(state: State) => void>();
+  let listeners: Set<(state: State) => void> | undefined;
   // Internal state to handle recursive writes from listeners, as React's Store.
   let updateTick = 0;
 
@@ -729,7 +840,7 @@ export function createStoreState<State extends object>(
       probed?.add(key);
       // The server renders once: every read is the latest value, with nothing to subscribe to.
       if (getObserver() !== null && !isServer) {
-        const getter = computedGetters.get(key);
+        const getter = computedGetters?.get(key);
         if (getter) {
           return getter.call(state);
         }
@@ -738,7 +849,7 @@ export function createStoreState<State extends object>(
         // slot: a key bound in this pass has its slot write pending until the flush, and readers
         // in the same pass must already see the derived value (React syncs during render).
         const value = readSlot(key);
-        const binding = bindings.get(key);
+        const binding = bindings?.get(key);
         if (binding) {
           return binding.value();
         }
@@ -749,24 +860,24 @@ export function createStoreState<State extends object>(
     },
     // Enumeration (spreads, `Object.keys`) sees the same latest values as untracked reads.
     has(_, key) {
-      if (computedKeys.has(key)) {
+      if (computedKeys?.has(key)) {
         return true;
       }
       if (getObserver() === null || isServer) {
-        return written.has(key) || committedKeys.has(key);
+        return written?.has(key) || isCommittedKey(key);
       }
       keySet();
-      return committedKeys.has(key);
+      return isCommittedKey(key);
     },
     ownKeys() {
       const tracked = getObserver() !== null && !isServer;
       if (tracked) {
         keySet();
       }
-      const keys: PropertyKey[] = [...committedKeys, ...computedKeys];
+      const keys: PropertyKey[] = [...initialKeys, ...(addedKeys ?? []), ...(computedKeys ?? [])];
       if (!tracked) {
-        written.forEach((_, key) => {
-          if (!committedKeys.has(key)) {
+        written?.forEach((_, key) => {
+          if (!isCommittedKey(key)) {
             keys.push(key);
           }
         });
@@ -777,19 +888,19 @@ export function createStoreState<State extends object>(
       )[];
     },
     getOwnPropertyDescriptor(_, key) {
-      const getter = computedGetters.get(key);
+      const getter = computedGetters?.get(key);
       if (getter) {
         return { configurable: true, enumerable: true, get: () => getter.call(state) };
       }
       if (getObserver() !== null && !isServer) {
         keySet();
-        if (!committedKeys.has(key)) {
+        if (!isCommittedKey(key)) {
           return undefined;
         }
         const value = readSlot(key);
         return descriptorFor(isBinding(value) ? value.value() : value);
       }
-      if (!written.has(key) && !committedKeys.has(key)) {
+      if (!written?.has(key) && !isCommittedKey(key)) {
         return undefined;
       }
       return descriptorFor(latest(key));
@@ -797,8 +908,7 @@ export function createStoreState<State extends object>(
   });
 
   // Dev: the keys pushed keyed selectors read, and the first selector that read each.
-  const pushedReads =
-    process.env.NODE_ENV !== 'production' ? new Map<PropertyKey, string>() : undefined;
+  let pushedReads: Map<PropertyKey, string> | undefined;
   storeDerivationProbes.set(state, {
     reads(read) {
       const previous = probed;
@@ -813,7 +923,7 @@ export function createStoreState<State extends object>(
     },
     derivedAmong(keys) {
       for (const key of keys) {
-        if (computedKeys.has(key) || bindings.has(key)) {
+        if (computedKeys?.has(key) || bindings?.has(key)) {
           return key;
         }
       }
@@ -821,8 +931,9 @@ export function createStoreState<State extends object>(
     },
     watchPushed(keys, source) {
       for (const key of keys) {
-        if (!pushedReads!.has(key)) {
-          pushedReads!.set(key, source);
+        pushedReads ??= new Map();
+        if (!pushedReads.has(key)) {
+          pushedReads.set(key, source);
         }
       }
     },
@@ -832,23 +943,23 @@ export function createStoreState<State extends object>(
     const changes: Array<[PropertyKey, unknown]> = [];
     for (const key of Reflect.ownKeys(patch)) {
       const value = patch[key as keyof typeof patch];
-      if (computedKeys.has(key) || Object.is(latest(key), value)) {
+      if (computedKeys?.has(key) || Object.is(latest(key), value)) {
         continue;
       }
-      written.set(key, value);
+      (written ??= new Map()).set(key, value);
       changes.push([key, value]);
     }
     if (changes.length === 0) {
       return;
     }
-    const plainChanges = changes.filter(([key]) => !bindings.has(key));
+    const plainChanges = changes.filter(([key]) => !bindings?.has(key));
     // The write runs outside any owner (see above), and untracked.
     runWithOwner(null, () =>
       untrack(() => {
         // The server reads the recorded values (`written`); it never writes signals.
         if (!isServer) {
           for (const [key, value] of changes) {
-            bindings.get(key)?.setValue(value);
+            bindings?.get(key)?.setValue(value);
           }
         }
         for (const [key, value] of plainChanges) {
@@ -863,6 +974,9 @@ export function createStoreState<State extends object>(
   }
 
   function notify() {
+    if (!listeners) {
+      return;
+    }
     updateTick += 1;
     const currentTick = updateTick;
     for (const listener of Array.from(listeners)) {
@@ -900,8 +1014,13 @@ export function createStoreState<State extends object>(
     }
   }
 
+  /** A bound key's derivation supersedes its pending write. One function per store. */
+  const forgetWrite = (key: PropertyKey) => {
+    written?.delete(key);
+  };
+
   function bind(key: PropertyKey, source: BindingSource, clearOnCleanup: boolean) {
-    if (computedKeys.has(key)) {
+    if (computedKeys?.has(key)) {
       // A getter field is already live, and `set` ignores it.
       return;
     }
@@ -909,52 +1028,13 @@ export function createStoreState<State extends object>(
     if (pushedReader !== undefined) {
       reportDerivedRead(key, pushedReader, 'was bound after the selector first read it');
     }
-    // Re-deriving from `source` drops an override written with `set` (React re-syncs on render).
-    // The first derivation sees the key's value from before binding as `prev`.
-    let unbound: { value: unknown } | null = { value: latest(key) };
-    // The derived signal is created on first access, under the owner the key is bound under: a
-    // key nobody reads (most popup keys while the popup is closed) costs no computation. It is
-    // transparent, as a node created on first read would take the owner's next hydration id (see
-    // `runInLazyScope`). The server, which renders once and never writes signals, computes the
-    // value directly: its derived signals would take hydration ids (they ignore `transparent`).
-    const owner = getOwner();
-    let derived: Signal<unknown> | undefined;
-    const signal = () => {
-      derived ??= runWithOwner(owner, () =>
-        createSignal<unknown>(
-          (prev: unknown) => {
-            const next = source(unbound ? unbound.value : prev);
-            unbound = null;
-            written.delete(key);
-            return next;
-          },
-          { name: `store.${String(key)}`, transparent: true },
-        ),
-      ) as Signal<unknown>;
-      return derived;
-    };
-    const peek = () =>
-      derived ? untrack(derived[0]) : untrack(() => source(unbound ? unbound.value : undefined));
-    // Read for the first time after its owner disposed (another part's teardown reading the key
-    // before this binding's cleanup runs): computed directly, nothing is created under it.
-    const ownerGone = () => owner !== null && isDisposed(owner);
-    const binding: Binding = {
-      [BINDING]: true,
-      value: () => (!isServer && (derived || !ownerGone()) ? signal()[0]() : peek()),
-      setValue: (next: unknown) => {
-        if (derived || !ownerGone()) {
-          signal()[1](() => next);
-        }
-      },
-      peek,
-    };
-    bindings.set(key, binding);
-    written.delete(key);
-    if (slots.has(key)) {
+    const binding = new Binding(key, source, latest(key), getOwner(), forgetWrite);
+    (bindings ??= new Map()).set(key, binding);
+    written?.delete(key);
+    if (slots?.has(key)) {
       writeSlot(key, binding);
-    } else if (!committedKeys.has(key)) {
+    } else if (commitKey(key)) {
       // No reader yet: the slot is created holding the binding on first read.
-      committedKeys.add(key);
       if (!isServer) {
         runWithOwner(null, () => untrack(() => setKeySet((version) => version + 1)));
       }
@@ -963,28 +1043,27 @@ export function createStoreState<State extends object>(
     // Listeners (`observe`) see derived changes too, as they saw the synced writes. The notifier
     // is an effect per bound key, so it is created only once a listener reads the key (most
     // stores never have one).
-    binding.owner = getOwner();
     if (watched === true || watched?.has(key)) {
       startNotifier(binding);
     }
 
     void onCleanup(() => {
-      if (bindings.get(key) !== binding) {
+      if (bindings?.get(key) !== binding) {
         return;
       }
       // Unbinding keeps the latest value (or clears it), as React's store keeps the synced value.
       // A binding never read is computed directly: nothing is created while its owner disposes.
       let last: unknown;
       if (!clearOnCleanup) {
-        last = written.has(key) ? written.get(key) : binding.peek();
+        last = written?.has(key) ? written?.get(key) : binding.peek();
       }
-      bindings.delete(key);
-      written.set(key, last);
-      if (slots.has(key) || isServer) {
+      bindings?.delete(key);
+      (written ??= new Map()).set(key, last);
+      if (slots?.has(key) || isServer) {
         writeSlot(key, last);
       } else {
         // Nothing read the key: the value waits for its first reader without a signal.
-        unboundValues.set(key, last);
+        (unboundValues ??= new Map()).set(key, last);
       }
       if (clearOnCleanup) {
         notify();
@@ -1000,11 +1079,11 @@ export function createStoreState<State extends object>(
     binding.notifying = true;
     // The value at activation is the baseline, so a change before the effect's first run still
     // notifies.
-    const initial = untrack(binding.value);
-    runWithOwner(binding.owner ?? null, () => {
+    const initial = untrack(() => binding.value());
+    runWithOwner(binding.owner, () => {
       // Transparent: created when a listener first reads the key (see `runInLazyScope`).
       createEffect(
-        binding.value,
+        () => binding.value(),
         (next, prev) => {
           const before = prev === undefined ? initial : prev;
           if (!Object.is(next, before)) {
@@ -1021,44 +1100,29 @@ export function createStoreState<State extends object>(
       return;
     }
     // A getter field reads other keys through the store itself: watch every key.
-    if (keys === true || [...keys].some((key) => computedKeys.has(key))) {
+    if (keys === true || [...keys].some((key) => computedKeys?.has(key))) {
       watched = true;
-      bindings.forEach(startNotifier);
+      bindings?.forEach(startNotifier);
       return;
     }
     watched ??= new Set();
     for (const key of keys) {
       if (!watched.has(key)) {
         watched.add(key);
-        const binding = bindings.get(key);
+        const binding = bindings?.get(key);
         if (binding) {
           startNotifier(binding);
         }
       }
     }
   });
-  storeListeners.set(state, listeners);
+  storeListeners.set(state, () => {
+    listeners ??= new Set();
+    return listeners;
+  });
   storeNotifiers.set(state, notify);
   storeBinders.set(state, bind);
   return [state as Store<State>, setState as unknown as SetStoreFunction<State>];
-}
-
-/** A synced value's source. It receives the key's previous value (or the value last `set`). */
-type BindingSource = (prev: unknown) => unknown;
-
-interface Binding {
-  [BINDING]: true;
-  value: Accessor<unknown>;
-  setValue: (value: unknown) => void;
-  /** The current value, untracked, without creating the derived signal. */
-  peek: () => unknown;
-  /** The owner the key was bound under; its notifier is created there on demand. */
-  owner?: ReturnType<typeof getOwner> | undefined;
-  notifying?: boolean | undefined;
-}
-
-function isBinding(value: unknown): value is Binding {
-  return typeof value === 'object' && value !== null && BINDING in value;
 }
 
 /**
