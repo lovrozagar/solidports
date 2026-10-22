@@ -10,7 +10,6 @@ import {
   isStatic,
   omit,
   runWithOwner,
-  Show,
   untrack,
 } from 'solid-js';
 import type { Accessor, Context, Owner } from 'solid-js';
@@ -282,29 +281,26 @@ export function ComponentWithPayload<Payload>(props: {
   children: JSX.Element | PayloadChildRenderFunction<Payload>;
   payload: Accessor<Payload | undefined>;
 }) {
-  const cachedChildren = children(() => {
-    const child = props.children;
-    // A zero-arity function child is called in its own memo: resolved by `children()` itself, it
-    // would be called again (re-creating its components) each time an accessor it returned updates.
-    return (
-      typeof child === 'function' && child.length === 0 ? createMemo(child as () => unknown) : child
-    ) as any;
-  });
-  const childrenFn = createMemo(() => {
-    const child = cachedChildren();
-    return typeof child === 'function' ? (child as PayloadChildRenderFunction<Payload>) : null;
-  });
   const payloadContext = {
     get payload() {
       return props.payload();
     },
   };
-
-  return (
-    <Show when={childrenFn()} fallback={cachedChildren()}>
-      {(fn) => <>{fn()(payloadContext)}</>}
-    </Show>
-  );
+  // One memo for a closed popup root's children, where `children()`, a `Show` and its branches took
+  // nine nodes per root (D32's closed-root unit). A render function gets a memo of its own, created
+  // under this one when the function changes: a payload function is called with the payload context,
+  // and a zero-arity function in its own memo, since resolved in place it would be called again
+  // (re-creating its components) each time an accessor it returned updates.
+  return createMemo(() => {
+    const child = props.children;
+    if (typeof child !== 'function') {
+      return child;
+    }
+    if (child.length === 0) {
+      return createMemo(child as () => JSX.Element);
+    }
+    return createMemo(() => (child as PayloadChildRenderFunction<Payload>)(payloadContext));
+  }) as unknown as JSX.Element;
 }
 const TRANSPARENT = { transparent: true };
 

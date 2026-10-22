@@ -38,7 +38,8 @@ All under `packages/base-ui/packages/solid/src/popover/`.
 | :--- | ---: |
 | Closed root (dev probe 2026-10-14, rc.13) | 91 |
 | Open root (dev probe 2026-10-14, rc.13) | 365 |
-| Closed-root budget, `closedRoot.cost.test.tsx:110` | 66 (before: 113, then 80) |
+| Closed-root budget, `closedRoot.cost.test.tsx:110` | 55 (before: 113, then 80, 66) |
+| Closed `Popover.Root` alone, `closedRoot.cost.test.tsx` (floor root: 9) | 27 (before: 38) |
 | Closed `Popover.Trigger`, `popover.cost.test.tsx` (floor `test/floor/popover.tsx`: 6) | 24 (slow path: 38) |
 
 There is no open-root budget.
@@ -58,7 +59,7 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync time in ms.
 
 Heap after mount: roots-500 uses 26322 KB versus React's 11294 KB.
 
-D32's native trigger, local Chromium heap diff (`popover/roots-500` mount, objects kept, 2026-10-22): React 12,930 KB, Solid before 26,729 KB, after 20,033 KB (774k to 581k objects).
+D32's native trigger, local Chromium heap diff (`popover/roots-500` mount, objects kept, 2026-10-22): React 12,930 KB, Solid before 26,729 KB, after 20,033 KB (774k to 581k objects). D32's closed-root unit, step 1: 18,783 KB (547k objects).
 
 ## Hot spots
 

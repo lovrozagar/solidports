@@ -48,6 +48,8 @@ Until every family is on the native kit, the sweep takes precedence over the exi
 
 ## Pitfalls
 
+- A branch that renders nothing (a popup root's interactions) replaced a `Show` only through `createConditionalBranch` (`utils/native/conditional.ts`), created inside the root's provider. `createNativeConditional` builds its branch in the parent's insert, in the render-effect phase, and the interactions' effects and listeners then missed the opening flush. Created before `provideContext`, a branch mounted open (`defaultOpen`) also lost the root's context. Either failed the popover backdrop and detached-trigger hydration tests while every count test passed.
+
 - In a real browser `toHaveStyle` compares computed values (a `40%` width reads in pixels): assert the inline `element.style` instead, and type query helpers as `HTMLElement`.
 - The server prints numbers as written (`inset-inline-start:0`) where the CSSOM reports `0px`: compare hydrated styles through the CSSOM.
 - `typecheck` (pre-commit and verify) covers the whole working tree, so uncommitted work can fail an unrelated commit and a rebuilt tree can fail verify: typecheck before rebuilding a commit.

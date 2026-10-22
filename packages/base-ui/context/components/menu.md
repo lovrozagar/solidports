@@ -41,8 +41,8 @@ Dev probe 2026-10-14, rc.13: closed root with one item 136 nodes, open 490, each
 
 Current closed-root budgets in `packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx`:
 
-- Menu (Trigger + unopened popup + one item): ≤ 142, down from 189 (`:78`).
-- ContextMenu (Trigger area + unopened popup + one item): ≤ 103, down from 153 (`:94`).
+- Menu (Trigger + unopened popup + one item): ≤ 114, down from 189, then 120 (`:78`).
+- ContextMenu (Trigger area + unopened popup + one item): ≤ 74, down from 153, then 80 (`:94`).
 - Open `Menu.Item`: at most the hand-written floor item plus 25% (`menu.cost.test.tsx`, floor `test/floor/menu.tsx`): within 6 nodes against the floor's 5 (24 on the slow path).
 - No open-root budget exists.
 - Fan-out (`menuItem.fanout.test.tsx`, 30 and 300 items): a highlight move leaves the active index with 6 subscribers at both sizes (`isActive` is keyed). A radio choice leaves the group value with 1 subscriber: `Menu.RadioItem` reads the group's keyed `isChecked` membership (created on the first read), where each item compared against the value, at 60 for 30 items and 600 for 300.

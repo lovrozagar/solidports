@@ -1,6 +1,7 @@
-import { onSettled, Show, untrack } from 'solid-js';
+import { getOwner, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { createConditionalBranch } from '../../utils/native/conditional';
 import { EMPTY_OBJECT } from '../../utils/empty';
 import { useClientPoint, useDismiss } from '../../floating-ui-solid';
 import {
@@ -167,18 +168,24 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
     createHandleAttachment(() => props.handle, store);
   }
 
-  return provideContext(TooltipRootContext, { store } as TooltipRootContext, () => (
-    <>
-      <Show when={shouldRenderInteractions()}>
-        <TooltipInteractions
-          store={store}
-          disabled={disabled()}
-          trackCursorAxis={trackCursorAxis()}
-        />
-      </Show>
-      <ComponentWithPayload payload={payload} children={props.children} />
-    </>
-  ));
+  return provideContext(TooltipRootContext, { store } as TooltipRootContext, () => {
+    // The interactions render nothing: one memo creates them while they are needed, where a
+    // `Show` took four nodes per closed root (D32's closed-root unit). It is created under the
+    // root's context, as the `Show`'s branch was.
+    const interactions = createConditionalBranch(getOwner(), shouldRenderInteractions, () => (
+      <TooltipInteractions
+        store={store}
+        disabled={disabled()}
+        trackCursorAxis={trackCursorAxis()}
+      />
+    ));
+    return (
+      <>
+        {interactions}
+        <ComponentWithPayload payload={payload} children={props.children} />
+      </>
+    );
+  });
 }
 
 export interface TooltipRootState {}
