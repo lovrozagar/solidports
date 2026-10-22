@@ -6,10 +6,14 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { MenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
 import { splitProps } from '../../solid-1-compat';
 
+// Solid: the group's context also carries its keyed `isChecked` membership.
 const testRadioGroupContext = {
   disabled: () => false,
   setValue: () => {},
   value: () => '0',
+  isChecked: Object.assign((value: unknown) => value === '0', {
+    forKey: (value: unknown) => () => value === '0',
+  }),
 };
 
 describe('<Menu.RadioItem />', () => {

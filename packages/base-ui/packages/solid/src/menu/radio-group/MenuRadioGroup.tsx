@@ -1,5 +1,7 @@
-import { createSignal } from 'solid-js';
+import { createSignal, getOwner, runWithOwner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { createKeyedSelector } from '../../utils/createKeyedSelector';
+import type { KeyedSelector } from '../../utils/createKeyedSelector';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
@@ -51,10 +53,16 @@ export function MenuRadioGroupPlain(componentProps: MenuRadioGroup.Props) {
     },
   };
 
+  const groupOwner = getOwner();
+  let isChecked: KeyedSelector | undefined;
   const context: MenuRadioGroupContext = {
     disabled,
     setValue,
     value,
+    get isChecked() {
+      isChecked ??= runWithOwner(groupOwner, () => createKeyedSelector(() => [value()]));
+      return isChecked;
+    },
   };
 
   const element = useRenderElement('div', componentProps, {

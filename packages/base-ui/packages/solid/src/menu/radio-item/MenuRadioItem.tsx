@@ -44,13 +44,14 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
   const itemProps = store.useState('itemProps');
 
   const {
-    value: selectedValue,
+    isChecked,
     setValue: setSelectedValue,
     disabled: groupDisabled,
   } = useMenuRadioGroupContext();
 
   const disabled = () => disabledProp() || groupDisabled() || rootDisabled();
-  const checked = () => selectedValue() === local.value;
+  // Keyed: a value change re-runs only the items that became or stopped being checked.
+  const checked = () => isChecked(local.value);
 
   const { itemSources, setItemRef } = useMenuItem({
     closeOnClick,
