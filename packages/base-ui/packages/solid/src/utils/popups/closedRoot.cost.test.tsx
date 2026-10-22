@@ -208,11 +208,12 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      // Not deferred: its trigger's hover and click hooks cost one node each. Its list's
-      // CompositeList keeps a JSX provider, two nodes more, for its items' effect order
+      // The trigger's hover and click are created on its first intent (D32); its floating root
+      // context stays, since the root derives its context from the triggers' registered ones. Its
+      // list's CompositeList keeps a JSX provider, two nodes more, for its items' effect order
       // (GOTCHA-019).
-      'NavigationMenu',
-      187,
+      'NavigationMenu', // before: 187
+      182,
       () => (
         <NavigationMenu.Root>
           <NavigationMenu.List>

@@ -1,12 +1,12 @@
 ---
 tags: [navigation-menu, popup, floating, perf]
 sources: [packages/base-ui/packages/solid/src/navigation-menu, packages/base-ui/packages/solid/src/navigation-menu/trigger/NavigationMenuTrigger.tsx, packages/base-ui/packages/solid/src/navigation-menu/root/NavigationMenuRoot.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-18
+verified: 2026-10-22
 ---
 
 # Navigation menu
 
-NavigationMenu is fully ported and is the costliest closed popup root (187-node budget) because its triggers are not deferred to the first intent. It has no native fast path.
+NavigationMenu is fully ported and is the costliest closed popup root (182-node budget); its triggers create their hover and click interactions on the first intent (D32), but each still builds a floating root context up front. It has no native fast path.
 
 ## Status
 
@@ -34,9 +34,9 @@ No. No NavigationMenu file imports `utils/native`.
 | Measure | Nodes |
 | :--- | ---: |
 | Closed root, one item (dev probe 2026-10-14, rc.13) | 227 |
-| Closed-root budget, `closedRoot.cost.test.tsx:211` | 230 |
+| Closed-root budget, `closedRoot.cost.test.tsx` | 182 (before: 230, then 187) |
 
-The budget comment says it is not deferred: the trigger's hover and click hooks cost one node each. There is no open-root budget.
+There is no open-root budget.
 
 ## Benchmarks
 
@@ -54,9 +54,12 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync time in ms, `navigation-m
 
 Heap after mount: 472 KB versus React's 392 KB.
 
+D32's deferred trigger interactions, local Chromium heap diff (`navigation-menu/8x100` mount, objects kept, 2026-10-22): React 1,185 KB; Solid before 1,365 KB, after 1,194 KB (53k to 49k objects).
+
 ## Hot spots
 
-- Eager trigger hooks: `trigger/NavigationMenuTrigger.tsx:496` creates a floating root context per trigger, and `:550` (`useHoverReferenceInteraction`) and `:578` (`useClick`) run for every closed trigger. Deferring them with `utils/popups/useInteractionIntent.ts` would lower mount cost.
+- Hover, click and their merged reference props are created by `useTriggerInteractions` on the trigger's first intent or once its item is active (`trigger/NavigationMenuTrigger.tsx`); until then `getReferenceProps` passes the props through.
+- Each trigger still creates a floating root context up front: the root derives the active trigger's context from the triggers' registered ones, so deferring it needs the root to build it on activation. That and a native trigger (it renders through `CompositeItem`) are the remaining leaves after the sweep.
 - Floating store reads: `floating-ui-solid` hooks each wrap `store().select(...)` in their own memo (`open` 6 times).
 
 See [floating](../architecture/floating.md) and the [optimization map](../perf/optimization-map.md).
