@@ -94,6 +94,9 @@ export const suites = [
     cwd: baseUi,
     generated: ['packages/base-ui/docs/solid'],
     run: ['bun run docs:generate'],
+    // Run by `--changed` too: the verify stamp never regenerates the docs, and an edit to their
+    // generated output failed CI (fadd8eb5).
+    changed: true,
   },
   {
     job: 'Generated files',
