@@ -17,7 +17,10 @@
 // one test (passed, failed or skipped). A run that never started, or a file that failed to load,
 // fails the check on its own, so it can neither pass nor pass for Solid-only failures.
 //
-// Usage: node scripts/browser-parity.mjs <react-report.json> <solid-report.json> [--confirm <browser>]
+// With `--files <list>` (a scoped run, `test:base-ui:all --changed`), each report must cover only the
+// listed test files, one repo-relative path per line.
+//
+// Usage: node scripts/browser-parity.mjs <react-report.json> <solid-report.json> [--confirm <browser>] [--files <list>]
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -111,8 +114,11 @@ function results(reportPath, sourceRoot) {
   return tests;
 }
 
-/** The test files on disk under `dir` (relative to it) that `reportPath` ran no test in. */
-function unrunFiles(reportPath, dir) {
+/**
+ * The test files under `dir` (relative to it) that `reportPath` ran no test in: every one on disk,
+ * or with `listed` (a scoped run's repo-relative paths) the listed ones under `dir`.
+ */
+function unrunFiles(reportPath, dir, listed) {
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   const ran = new Set();
   for (const file of report.testResults) {
@@ -121,21 +127,34 @@ function unrunFiles(reportPath, dir) {
       ran.add(file.name.slice(index + dir.length + 1));
     }
   }
-  const onDisk = fs
-    .readdirSync(dir, { recursive: true })
-    .map(String)
-    .filter((file) => /\.test\.tsx?$/.test(file));
+  const onDisk = listed
+    ? listed
+        .filter((file) => file.startsWith(`${dir}/`))
+        .map((file) => file.slice(dir.length + 1))
+    : fs
+        .readdirSync(dir, { recursive: true })
+        .map(String)
+        .filter((file) => /\.test\.tsx?$/.test(file));
   return { total: onDisk.length, missing: onDisk.filter((file) => !ran.has(file)).sort() };
 }
 
-/** Runs one suite's test files again with a JSON report; returns the parsed results. */
+/**
+ * Runs one suite's test files again with a JSON report; returns the parsed results. With
+ * `PARITY_RUNNER` (WebKit in Playwright's Docker image, `scripts/webkit-docker.sh`), the rerun goes
+ * through that script: `<runner> <script> <report.json> [files...]`.
+ */
 function rerun(script, files, sourceRoot) {
   const outputFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'parity-')), 'report.json');
-  spawnSync(
-    'bun',
-    ['run', script, '--run', '--reporter=json', `--outputFile=${outputFile}`, ...files],
-    { stdio: 'ignore' },
-  );
+  const runner = process.env.PARITY_RUNNER;
+  if (runner) {
+    spawnSync('bash', [runner, script, outputFile, ...files], { stdio: 'ignore' });
+  } else {
+    spawnSync(
+      'bun',
+      ['run', script, '--run', '--reporter=json', `--outputFile=${outputFile}`, ...files],
+      { stdio: 'ignore' },
+    );
+  }
   return fs.existsSync(outputFile) ? results(outputFile, sourceRoot) : new Map();
 }
 
@@ -153,6 +172,19 @@ export function describeCounts(entry) {
 
 function main() {
   const args = process.argv.slice(2);
+  // `--files <list>`: a scoped run's test files, one repo-relative path per line.
+  const filesIndex = args.indexOf('--files');
+  const listed =
+    filesIndex === -1
+      ? undefined
+      : fs
+          .readFileSync(args[filesIndex + 1], 'utf8')
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+  if (filesIndex !== -1) {
+    args.splice(filesIndex, 2);
+  }
   const confirmIndex = args.indexOf('--confirm');
   const browser = confirmIndex === -1 ? null : args[confirmIndex + 1];
   const [reactPath, solidPath] =
@@ -161,7 +193,7 @@ function main() {
       : args.filter((_, index) => index !== confirmIndex && index !== confirmIndex + 1);
   if (!reactPath || !solidPath || (confirmIndex !== -1 && !browser)) {
     console.error(
-      'Usage: node scripts/browser-parity.mjs <react-report.json> <solid-report.json> [--confirm <browser>]',
+      'Usage: node scripts/browser-parity.mjs <react-report.json> <solid-report.json> [--confirm <browser>] [--files <list>]',
     );
     return 2;
   }
@@ -170,7 +202,7 @@ function main() {
     ['upstream', reactPath, 'packages/react/src'],
     ['Solid', solidPath, 'packages/solid/src'],
   ]) {
-    const { total, missing } = unrunFiles(reportPath, dir);
+    const { total, missing } = unrunFiles(reportPath, dir, listed);
     if (missing.length > 0) {
       console.error(
         `${suite} ran tests in ${total - missing.length} of ${total} test files under ${dir}; the run is incomplete, so the comparison would be meaningless. Files without a test result:\n${missing
