@@ -67,7 +67,9 @@ describe('Menu: an interaction re-runs only the items whose state changed', () =
     flush();
     const activeSubscribers = subscribers(() => root.store.state.activeIndex);
     const hover = (index: number) => {
-      fireEvent.mouseMove(screen.getAllByRole('menuitem')[index]);
+      // A real move: WebKit ignores a zero-movement `mousemove` (`isStationaryWebKitPointer` in
+      // `useListNavigation`, upstream mui/base-ui#4002), which `fireEvent` sends by default.
+      fireEvent.mouseMove(screen.getAllByRole('menuitem')[index], { movementX: 1, movementY: 1 });
       flush();
     };
     const highlighted = () =>
