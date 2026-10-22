@@ -258,7 +258,9 @@ const CASES: Case[] = [
   },
   {
     name: 'NavigationMenu open',
-    maxExtra: 5,
+    // 6 since aa0a4d73: an item opened by its `value` creates its trigger's deferred hover and click
+    // interactions in that flush (D32), and the trigger's reference props re-run once to take them.
+    maxExtra: 6,
     ui: (open) => (
       <NavigationMenu.Root value={open() ? 'one' : null}>
         <NavigationMenu.List>
