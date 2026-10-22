@@ -223,6 +223,18 @@ export function compileStateAttributes<State extends object>(
   state: State,
   mapping: StateAttributesMapping<State> | undefined,
 ): StateWriter {
+  // A class instance's own fields are not its state (its accessors live on the prototype): mapped
+  // as state, they render as stray `data-*` attributes. Checked once per call; the writer is cached
+  // per shape below.
+  const prototype = Object.getPrototypeOf(state);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new Error(
+      'Base UI: A native part passed a class instance as its state without a `stateWriter`. ' +
+        "The default writer maps the state's own keys to `data-*` attributes, which for a class " +
+        "instance are its fields, not its state. Pass the part's `compileStateWriter(keys)` as " +
+        '`stateWriter` with the instance as `stateView`.',
+    );
+  }
   const keys = Object.keys(state);
   const signature = keys.join('\0');
   let byShape = compiledWriters.get(mapping ?? DEFAULT_MAPPING);

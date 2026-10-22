@@ -57,3 +57,28 @@ describe('compileStateAttributes', () => {
     });
   });
 });
+
+// The default writer maps every own key of the state, as the slow path's `getStateAttributesProps`
+// does for a state object. A class instance's own fields are not its state: a native Tooltip
+// trigger whose model was passed as state without a writer rendered `data-isopen`, `data-sources`
+// and its other fields (D32). The kit refuses that shape instead of writing it.
+describe('compileStateAttributes on a class instance', () => {
+  it('throws, naming the explicit state writer to pass', () => {
+    class Model {
+      declare readonly isOpen: () => boolean;
+      constructor() {
+        this.isOpen = () => true;
+      }
+
+      get open() {
+        return this.isOpen();
+      }
+    }
+    expect(() => compileStateAttributes(new Model(), undefined)).toThrow(/stateWriter/);
+  });
+
+  it('still compiles a plain state object and an object without a prototype', () => {
+    expect(() => compileStateAttributes({ open: true }, undefined)).not.toThrow();
+    expect(() => compileStateAttributes(Object.create(null), undefined)).not.toThrow();
+  });
+});
