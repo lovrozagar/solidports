@@ -18,6 +18,12 @@
       "reason": "The SSR menu page (menu/500 server-rendered): Solid renders Menu.Trigger's inert trailing focus guard on the server and keeps it after hydration (utils/popups/TriggerFocusGuards.tsx; see menu/500); React renders the trigger alone."
     }
   },
+  "popover/page": {
+    "hydrate": {
+      "nodesDelta": 500,
+      "reason": "The SSR popover page (popover/roots-500 server-rendered): Solid renders each closed Popover.Trigger's inert trailing focus guard on the server and keeps it after hydration (utils/popups/TriggerFocusGuards.tsx; see popover/roots-500); React renders the triggers alone."
+    }
+  },
   "combobox/1000": {
     "mount": {
       "nodesDelta": 1,
