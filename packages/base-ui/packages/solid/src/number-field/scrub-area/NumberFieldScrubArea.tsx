@@ -348,6 +348,11 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
           // "The root document of this element is not valid for pointer lock."
           await ownerDocument(scrubAreaRef.current).body.requestPointerLock();
           setIsPointerLockDenied(false);
+          // Solid: the browser can grant the lock after pointerup already ended the scrub (a
+          // quick click). Nothing would release it then, and it would swallow later pointer input.
+          if (!isScrubbingRef) {
+            ownerDocument(scrubAreaRef.current).exitPointerLock();
+          }
         } catch {
           setIsPointerLockDenied(true);
         } finally {

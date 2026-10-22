@@ -354,6 +354,47 @@ describe('<NumberField.ScrubArea />', () => {
     }
   });
 
+  // Solid: the lock request is asynchronous, so a click can release the pointer before the
+  // browser grants the lock. A lock granted after the scrub ended must be released, or it stays
+  // on the page and swallows the next real pointer input.
+  it.skipIf(isWebKit)('releases a pointer lock granted after the scrub ended', async () => {
+    let grant!: () => void;
+    const pointerLock = vi.spyOn(document.body, 'requestPointerLock').mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          grant = resolve;
+        }),
+    );
+    const exitPointerLock = vi.spyOn(document, 'exitPointerLock').mockImplementation(() => {});
+
+    try {
+      render(() => (
+        <NumberField.Root defaultValue={0}>
+          <NumberField.Input />
+          <NumberField.ScrubArea data-testid="scrub-area" />
+        </NumberField.Root>
+      ));
+      const scrubArea = screen.getByTestId('scrub-area');
+
+      await act(async () => {
+        scrubArea.dispatchEvent(createPointerDownEvent(scrubArea));
+      });
+      await act(async () => {
+        window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      });
+      const exitsBeforeGrant = exitPointerLock.mock.calls.length;
+
+      await act(async () => {
+        grant();
+      });
+
+      expect(exitPointerLock.mock.calls.length).toBe(exitsBeforeGrant + 1);
+    } finally {
+      pointerLock.mockRestore();
+      exitPointerLock.mockRestore();
+    }
+  });
+
   it('clears the root scrubbing state when the scrub area unmounts mid-scrub', async () => {
     // Solid: props change through a signal instead of `setProps`.
     const [scrubAreaMounted, setScrubAreaMounted] = createSignal(true);

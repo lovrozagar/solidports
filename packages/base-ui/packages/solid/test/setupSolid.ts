@@ -241,6 +241,39 @@ if (!navigator.userAgent.includes('jsdom')) {
   // before each file.
   beforeAll(resetBrowserPointer);
 
+  // Within a file too: a test that drove the real pointer parks it again, and a pointer lock it
+  // left (a scrub area requests one on pointerdown) is released, so the next test's real input
+  // reaches the page. Only trusted events come from the real pointer.
+  let drovePointer = false;
+  window.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (event.isTrusted) {
+        drovePointer = true;
+      }
+    },
+    true,
+  );
+  window.addEventListener(
+    'pointermove',
+    (event) => {
+      if (event.isTrusted) {
+        drovePointer = true;
+      }
+    },
+    true,
+  );
+  afterEach(async () => {
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+    if (drovePointer) {
+      await resetBrowserPointer();
+      // Parking moves the real pointer too.
+      drovePointer = false;
+    }
+  });
+
   afterEach(
     () =>
       new Promise<void>((resolve) => {
