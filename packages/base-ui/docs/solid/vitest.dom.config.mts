@@ -1,7 +1,12 @@
-import { resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
 import solidPlugin from '@solidjs/vite-plugin';
 import { configDefaults, defineProject } from 'vitest/config';
 import { docsAliases } from './vitest.config.mts';
+
+const JEST_DOM_DIR = dirname(
+  createRequire(import.meta.url).resolve('@testing-library/jest-dom/package.json'),
+);
 
 // The docs' component tests (`*.test.tsx`), in jsdom with Solid's client output: the files
 // upstream's `docs` project runs with `@vitest-environment jsdom`.
@@ -10,8 +15,9 @@ export default defineProject({
   plugins: [solidPlugin({ solid: { hydratable: true } }) as any],
   resolve: { alias: docsAliases },
   server: {
-    // Test packages (jest-dom, which Solid's plugin adds) resolve into the monorepo's install.
-    fs: { allow: [resolve(import.meta.dirname, '../../../..')] },
+    // Test packages (jest-dom, which Solid's plugin adds) resolve into the monorepo's install, which
+    // in a git worktree under the checkout is the checkout's, outside the worktree's root.
+    fs: { allow: [resolve(import.meta.dirname, '../../../..'), JEST_DOM_DIR] },
   },
   test: {
     name: '@solidports/docs:dom',
