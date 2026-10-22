@@ -48,6 +48,8 @@ Until every family is on the native kit, the sweep takes precedence over the exi
 
 ## Pitfalls
 
+- A memo made lazy (created on its first read, `transparent: true`, computed directly on the server) can still shift a hydration: making `useSyncedValues`' snapshot memo lazy left a hydrated submenu's server nodes unclaimed (`FocusGuard.hydration.test.tsx`, `submenuTrigger`), while every popup suite passed. Run the hydration fixture sweep on any change to when a node is created, and leave lazy creation to `runInLazyScope` or a node that is already transparent on both sides.
+
 - A branch that renders nothing (a popup root's interactions) replaced a `Show` only through `createConditionalBranch` (`utils/native/conditional.ts`), created inside the root's provider. `createNativeConditional` builds its branch in the parent's insert, in the render-effect phase, and the interactions' effects and listeners then missed the opening flush. Created before `provideContext`, a branch mounted open (`defaultOpen`) also lost the root's context. Either failed the popover backdrop and detached-trigger hydration tests while every count test passed.
 
 - In a real browser `toHaveStyle` compares computed values (a `40%` width reads in pixels): assert the inline `element.style` instead, and type query helpers as `HTMLElement`.
