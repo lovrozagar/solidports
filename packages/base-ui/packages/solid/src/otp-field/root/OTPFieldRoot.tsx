@@ -12,6 +12,9 @@ import { useLabelableContext } from '../../internals/labelable-provider/Labelabl
 import { useAriaLabelledBy } from '../../internals/labelable-provider/useAriaLabelledBy';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { useControlled } from '../../utils/useControlled';
 import { createDepsEffect, provideContext, splitComponentProps, useRef } from '../../solid-helpers';
 import {
@@ -32,6 +35,43 @@ import type { OTPValidationType } from '../utils/otp';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import { releaseServerFormState } from '../../utils/releaseServerFormState';
 
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+const ROOT_OWN_KEY_LIST = [
+  'aria-describedby',
+  'aria-labelledby',
+  'id',
+  'autoComplete',
+  'defaultValue',
+  'value',
+  'onValueChange',
+  'onValueComplete',
+  'form',
+  'length',
+  'autoSubmit',
+  'mask',
+  'inputMode',
+  'validationType',
+  'normalizeValue',
+  'disabled',
+  'readOnly',
+  'required',
+  'name',
+  'onValueInvalid',
+] as const;
+const ROOT_OWN_KEYS: ReadonlySet<string> = new Set(ROOT_OWN_KEY_LIST);
+const ROOT_LITERAL = { role: 'group' };
+
+/** What the native root's attributes read: one object per root. */
+interface OTPFieldRootModel {
+  ariaDescribedBy: () => string | undefined;
+  ariaLabelledBy: () => string | undefined;
+}
+
+function writeRootAttributes(w: SetAttribute, model: OTPFieldRootModel) {
+  w.set('aria-describedby', model.ariaDescribedBy());
+  w.set('aria-labelledby', model.ariaLabelledBy());
+}
+
 /**
  * Groups all OTP field parts and manages their state.
  * Renders a `<div>` element.
@@ -39,28 +79,12 @@ import { releaseServerFormState } from '../../utils/releaseServerFormState';
  * Documentation: [Base UI OTP Field](https://base-ui.com/react/components/otp-field)
  */
 export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'aria-describedby',
-    'aria-labelledby',
-    'id',
-    'autoComplete',
-    'defaultValue',
-    'value',
-    'onValueChange',
-    'onValueComplete',
-    'form',
-    'length',
-    'autoSubmit',
-    'mask',
-    'inputMode',
-    'validationType',
-    'normalizeValue',
-    'disabled',
-    'readOnly',
-    'required',
-    'name',
-    'onValueInvalid',
-  ]);
+  // The native path reads the props as they are; only the slow path splits them into views.
+  // Client renders only: the server's hidden input keeps its form state through the slow path.
+  const native = canRenderNative(componentProps);
+  const split = native ? undefined : splitComponentProps(componentProps, ROOT_OWN_KEY_LIST);
+  const local = split ? split[1] : componentProps;
+  const elementProps = split?.[2];
 
   const ariaDescribedByProp = () => local['aria-describedby'];
   const ariaLabelledByProp = () => local['aria-labelledby'];
@@ -419,25 +443,47 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     value,
   };
 
-  const element = useRenderElement('div', componentProps, {
-    props: [
-      {
-        role: 'group',
-        get 'aria-describedby'() {
-          return ariaDescribedBy();
+  let nativeElement: JSX.Element | undefined;
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div role="group">`, no
+  // props view (D32). Built where the slow path's element resolves, inside the provider, and once
+  // (GOTCHA-020).
+  const element = native
+    ? () => {
+        nativeElement ??= renderNativeElement(DIV, componentProps, {
+          own: ROOT_OWN_KEYS,
+          state,
+          mapping: rootStateAttributesMapping,
+          literal: ROOT_LITERAL,
+          attributes: writeRootAttributes,
+          handlerTarget: { ariaDescribedBy, ariaLabelledBy } satisfies OTPFieldRootModel,
+          reactive: true,
+          refs: [
+            (el: HTMLDivElement | null) => {
+              rootRef = el;
+            },
+          ],
+        }) as unknown as JSX.Element;
+        return nativeElement;
+      }
+    : useRenderElement('div', componentProps, {
+        props: [
+          {
+            role: 'group',
+            get 'aria-describedby'() {
+              return ariaDescribedBy();
+            },
+            get 'aria-labelledby'() {
+              return ariaLabelledBy();
+            },
+          },
+          elementProps!,
+        ],
+        ref: (el: HTMLDivElement | null | undefined) => {
+          rootRef = el ?? null;
         },
-        get 'aria-labelledby'() {
-          return ariaLabelledBy();
-        },
-      },
-      elementProps,
-    ],
-    ref: (el: HTMLDivElement | null | undefined) => {
-      rootRef = el ?? null;
-    },
-    state,
-    stateAttributesMapping: rootStateAttributesMapping,
-  });
+        state,
+        stateAttributesMapping: rootStateAttributesMapping,
+      });
 
   const hiddenInputProps = () => {
     const validationProps = validation.getValidationProps(disabled(), {

@@ -10,6 +10,9 @@ import {
 } from '../../internals/composite/list/useCompositeListItem';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import {
   createChangeEventDetails,
   createGenericEventDetails,
@@ -23,6 +26,49 @@ import type { OTPFieldRootState } from '../root/OTPFieldRoot';
 import { inputStateAttributesMapping } from '../utils/stateAttributesMapping';
 import { normalizeOTPValueWithDetails, removeOTPCharacter, replaceOTPValue } from '../utils/otp';
 
+const INPUT = { tag: 'input', create: () => (<input />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set(['aria-label', 'aria-labelledby']);
+const INPUT_LITERAL = { autocorrect: 'off', spellcheck: 'false' };
+/** The slot's reactive attributes, written from its props getters as its slow path merges them. */
+const INPUT_ATTRIBUTE_KEYS = [
+  'id',
+  'type',
+  'inputmode',
+  'autocomplete',
+  'enterkeyhint',
+  'maxlength',
+  'tabindex',
+  'disabled',
+  'form',
+  'pattern',
+  'readonly',
+  'required',
+  'aria-labelledby',
+  'aria-invalid',
+  'aria-label',
+] as const;
+
+function writeInputAttributes(w: SetAttribute, props: Record<string, unknown>) {
+  for (const key of INPUT_ATTRIBUTE_KEYS) {
+    w.set(key, props[key]);
+  }
+}
+
+type SlotHandler = (event: Event) => void;
+const forward = (key: string) =>
+  partHandler<Record<string, unknown>>(key, (props, event) => (props[key] as SlotHandler)(event));
+
+const INPUT_HANDLERS = {
+  onMouseDown: forward('onMouseDown'),
+  onFocus: forward('onFocus'),
+  onBlur: forward('onBlur'),
+  onCompositionStart: forward('onCompositionStart'),
+  onCompositionEnd: forward('onCompositionEnd'),
+  onInput: forward('onInput'),
+  onKeyDown: forward('onKeyDown'),
+  onPaste: forward('onPaste'),
+};
+
 /**
  * An individual OTP character input.
  * Renders an `<input>` element.
@@ -30,10 +76,7 @@ import { normalizeOTPValueWithDetails, removeOTPCharacter, replaceOTPValue } fro
  * Documentation: [Base UI OTP Field](https://base-ui.com/react/components/otp-field)
  */
 export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'aria-label',
-    'aria-labelledby',
-  ]);
+  const local = componentProps;
 
   const externalAriaLabel = () => local['aria-label'];
   const externalAriaLabelledBy = () => local['aria-labelledby'];
@@ -465,9 +508,37 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       }
     : {};
 
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<input>` with the slot's
+  // attributes and handlers, no props view (D32). Client renders only: the server prints the slot's
+  // character as its `value`, which the slow path renders.
+  if (canRenderNative(componentProps)) {
+    return renderNativeElement(INPUT, componentProps, {
+      own: OWN_KEYS,
+      state: liveState,
+      mapping: inputStateAttributesMapping,
+      literal: INPUT_LITERAL,
+      attributes: writeInputAttributes,
+      handlers: INPUT_HANDLERS,
+      handlerTarget: inputProps,
+      reactive: true,
+      refs: [
+        (el: HTMLInputElement | null) => {
+          inputRef.current = el;
+          setRef(el);
+          setInputElement(el);
+        },
+      ],
+      consumerChildren: false,
+    }) as unknown as JSX.Element;
+  }
+
   const element = useRenderElement('input', componentProps, {
     // Omitted on the client: an empty source still sits in the props graph.
-    props: [inputProps as any, ...(isServer ? [serverValueProps] : []), elementProps],
+    props: [
+      inputProps as any,
+      ...(isServer ? [serverValueProps] : []),
+      splitComponentProps(componentProps, ['aria-label', 'aria-labelledby'])[2],
+    ],
     ref: (el: HTMLInputElement | null | undefined) => {
       inputRef.current = el ?? null;
       setRef(el ?? null);
