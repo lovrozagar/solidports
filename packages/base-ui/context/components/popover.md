@@ -1,12 +1,12 @@
 ---
 tags: [popover, popup, floating, perf]
 sources: [packages/base-ui/packages/solid/src/popover, packages/base-ui/packages/solid/src/utils/popups, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useFloatingRootContext.ts, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-16
+verified: 2026-10-22
 ---
 
 # Popover
 
-Popover is fully ported; a closed root still builds its trigger's hover and click hooks up front, so many roots mount 4.6x slower than React. It has no native fast path.
+Popover is fully ported; a plain `Popover.Trigger` renders natively and builds its hover and click interactions on the first intent (D32), so a closed trigger costs 24 dev nodes against the slow trigger's 38 and a closed root's budget drops from 80 to 66.
 
 ## Status
 
@@ -26,7 +26,11 @@ All under `packages/base-ui/packages/solid/src/popover/`.
 
 ## Native fast path
 
-No. No Popover file imports `utils/native`; every part renders through `useRenderElement` (see [render pipeline](../architecture/render-pipeline.md)).
+`Popover.Trigger` with plain props renders through `renderNativeElement` (`trigger/PopoverTrigger.tsx`, `NativePopoverTriggerModel`); every other part renders through `useRenderElement` (see [render pipeline](../architecture/render-pipeline.md)).
+
+- The element is created once; its attributes (id, `aria-expanded`, `aria-controls`, `disabled`, `data-popup-open`, `data-pressed`) are one grouped binding.
+- Handlers are module-level `partHandler`s: `useButton`'s disabled gates, then the consumer's handler, then the trigger's sources in `mergeProps` order (interaction type, trigger props, hover, click), dispatched through `dispatch`.
+- Hover and click interactions are created by `useTriggerInteractions` on the trigger's first intent (a pointer, mouse, key or focus event on it, from one capture listener per event type, `utils/popups/useInteractionIntent.ts`) or while the popup is open or mounted by this trigger. `PopoverTrigger.test.tsx` "two popovers on one page" guards both a click and a hover as the first intent on a second root.
 
 ## Reactive cost
 
@@ -34,7 +38,8 @@ No. No Popover file imports `utils/native`; every part renders through `useRende
 | :--- | ---: |
 | Closed root (dev probe 2026-10-14, rc.13) | 91 |
 | Open root (dev probe 2026-10-14, rc.13) | 365 |
-| Closed-root budget, `closedRoot.cost.test.tsx:110` | 80 (before: 113) |
+| Closed-root budget, `closedRoot.cost.test.tsx:110` | 66 (before: 113, then 80) |
+| Closed `Popover.Trigger`, `popover.cost.test.tsx` (floor `test/floor/popover.tsx`: 6) | 24 (slow path: 38) |
 
 There is no open-root budget.
 
@@ -53,9 +58,11 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync time in ms.
 
 Heap after mount: roots-500 uses 26322 KB versus React's 11294 KB.
 
+D32's native trigger, local Chromium heap diff (`popover/roots-500` mount, objects kept, 2026-10-22): React 12,930 KB, Solid before 26,729 KB, after 20,033 KB (774k to 581k objects).
+
 ## Hot spots
 
-- Eager trigger hooks: `trigger/PopoverTrigger.tsx:98` (`useHoverReferenceInteraction`) and `:125` (`useClick`) run for every closed root. Tooltip, PreviewCard, Select, Combobox and Menu already defer theirs to the first intent via `utils/popups/useInteractionIntent.ts`; Popover does not.
+- The closed trigger is 24 nodes against the floor's 6: the shared popup machinery (data forwarding, focus guards, the deferred-interaction listener) and the root's store remain. That gap is the exit bar's target after the sweep (D32).
 - Floating store reads: `floating-ui-solid` hooks each wrap `store().select(...)` in their own memo (`open` 6 times, for example `hooks/useDismiss.ts:190`).
 - `floating-ui-solid/hooks/useFloatingRootContext.ts:73` syncs element props into the store through an effect that re-runs on every `open` change.
 

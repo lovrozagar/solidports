@@ -90,7 +90,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | components/combobox.md | Combobox | `combobox`, `native`, `floating`, `composite`, `perf` | Combobox is fully ported; its listed items render natively (D32), so opening combobox/1000 keeps 5.7 MB against React's… |
 | components/menu.md | Menu | `menu`, `native`, `floating`, `composite`, `perf` | Menu (with ContextMenu and Menubar) is fully ported; a plain menu's `Menu.Item` renders natively (D32), so opening menu… |
 | components/navigation-menu.md | Navigation menu | `navigation-menu`, `popup`, `floating`, `perf` | NavigationMenu is fully ported and is the costliest closed popup root (187-node budget) because its triggers are not de… |
-| components/popover.md | Popover | `popover`, `popup`, `floating`, `perf` | Popover is fully ported; a closed root still builds its trigger's hover and click hooks up front, so many roots mount 4… |
+| components/popover.md | Popover | `popover`, `popup`, `floating`, `perf` | Popover is fully ported; a plain `Popover.Trigger` renders natively and builds its hover and click interactions on the… |
 | components/radio.md | Radio and RadioGroup | `radio`, `native`, `composite`, `perf` | Radio.Root, Radio.Indicator and RadioGroup render natively, registering with the group's composite list; interactions b… |
 | components/select.md | Select | `select`, `native`, `floating`, `composite`, `perf` | Select is fully ported; its open items render natively (D32), so opening a 1000-item list keeps 9.3 MB against React's… |
 | components/static-parts.md | Static parts | `separator`, `progress`, `meter`, `native`, `perf` | Separator and the Progress and Meter Tracks and Indicators render natively on the client, the server and while hydratin… |

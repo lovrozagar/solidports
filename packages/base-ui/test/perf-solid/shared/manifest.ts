@@ -230,7 +230,12 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     staticPart('a Meter.Indicator costs at most 2 nodes'),
   ],
   'navigation-menu': [closedRoot('NavigationMenu')],
-  popover: [closedRoot('Popover')],
+  popover: [
+    closedRoot('Popover'),
+    'popover cost against the hand-written floor > the floor renders the same DOM as a closed Popover.Trigger',
+    'popover cost against the hand-written floor > a closed Popover.Trigger renders on the native path',
+    'popover cost against the hand-written floor > a closed Popover.Trigger costs at most the native trigger budget',
+  ],
   'preview-card': [
     closedRoot('PreviewCard'),
     '<PreviewCard.Trigger /> cost > builds its inline-rect props once, whatever its card and the active trigger do',
