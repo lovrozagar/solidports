@@ -33,7 +33,13 @@ import {
   useRef,
 } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
-import { EMPTY_ARRAY, ownerVisuallyHidden, PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
+import {
+  EMPTY_ARRAY,
+  EMPTY_OBJECT,
+  ownerVisuallyHidden,
+  PATIENT_CLICK_THRESHOLD,
+} from '../../utils/constants';
+import { useTriggerInteractions } from '../../utils/popups/useInteractionIntent';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { FocusGuard } from '../../utils/FocusGuard';
 import { getCssDimensions } from '../../utils/getCssDimensions';
@@ -547,54 +553,69 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     return closest(triggerElementRef.current, 'ul');
   }
 
-  const hoverProps = useHoverReferenceInteraction({
-    context,
-    props: {
-      get enabled() {
-        return hoverInteractionsEnabled();
-      },
-      move: false,
-      handleClose: safePolygon({
-        get blockPointerEvents() {
-          return shouldBlockSafePolygonPointerEvents();
-        },
-        getScope,
-      }),
-      restMs: () => (mounted() && positionerElement() ? 0 : delay()),
-      delay: () => ({ close: closeDelay() }),
-      // The signal, not `triggerElementRef.current`: the hover hook attaches its listeners
-      // in an effect that must re-run once the element exists.
-      get triggerElementRef() {
-        return triggerElement();
-      },
-      getHandleCloseContext: getInlineHandleCloseContext,
-    },
-  });
-
   // Solid: React's click handler closes over the render-time `toggle`, while `useClick` reads it
   // live; keep the value from before this event's activation flush for the rest of the event.
   let toggleDuringActivation: boolean | undefined;
 
-  const click = useClick({
-    context,
-    props: {
-      get enabled() {
-        return interactionsEnabled();
-      },
-      get stickIfOpen() {
-        return stickIfOpen();
-      },
-      get toggle() {
-        return toggleDuringActivation ?? isActiveItem();
-      },
+  // A closed trigger renders handlers only: hover and click (and their merged reference props) are
+  // created on the trigger's first intent, in the capture phase before its own listeners, or once
+  // its item is active, and are kept afterwards (D32, as Popover and Tooltip do). React mounts them
+  // up front; the floating root context above stays eager, since the root derives its context from
+  // the triggers' registered ones.
+  const interactions = useTriggerInteractions(
+    () => {
+      const hoverProps = useHoverReferenceInteraction({
+        context,
+        props: {
+          get enabled() {
+            return hoverInteractionsEnabled();
+          },
+          move: false,
+          handleClose: safePolygon({
+            get blockPointerEvents() {
+              return shouldBlockSafePolygonPointerEvents();
+            },
+            getScope,
+          }),
+          restMs: () => (mounted() && positionerElement() ? 0 : delay()),
+          delay: () => ({ close: closeDelay() }),
+          // The signal, not `triggerElementRef.current`: the hover hook attaches its listeners
+          // in an effect that must re-run once the element exists.
+          get triggerElementRef() {
+            return triggerElement();
+          },
+          getHandleCloseContext: getInlineHandleCloseContext,
+        },
+      });
+
+      const click = useClick({
+        context,
+        props: {
+          get enabled() {
+            return interactionsEnabled();
+          },
+          get stickIfOpen() {
+            return stickIfOpen();
+          },
+          get toggle() {
+            return toggleDuringActivation ?? isActiveItem();
+          },
+        },
+      });
+      // Solid: `useInteractions` merges the interaction props, as React's `mergeProps` call.
+      return useInteractions(
+        [
+          hoverProps ? { reference: hoverProps as JSX.HTMLAttributes<Element> } : null,
+          click,
+        ].filter(Boolean) as ElementProps[],
+      );
     },
-  });
-  // Solid: `useInteractions` merges the interaction props, as React's `mergeProps` call.
-  const { getReferenceProps } = useInteractions(
-    [hoverProps ? { reference: hoverProps as JSX.HTMLAttributes<Element> } : null, click].filter(
-      Boolean,
-    ) as ElementProps[],
+    triggerElement,
+    isActiveItem,
   );
+  // The merged reference props once the interactions exist; until then the props pass through.
+  const getReferenceProps = (userProps?: JSX.HTMLAttributes<Element>) =>
+    interactions()?.getReferenceProps(userProps) ?? userProps ?? EMPTY_OBJECT;
 
   // The root derives its floating context from the active trigger; this remembers the element.
   registerTriggerFloatingContext({ active: isActiveItem, context });
