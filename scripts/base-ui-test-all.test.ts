@@ -179,3 +179,55 @@ describe("test:base-ui:all vitest completeness", () => {
 		expect(suites.filter((suite) => suite.vitest).map((suite) => suite.name)).toEqual(["jsdom", "chromium"])
 	})
 })
+
+// A CI step no suite runs falls outside the local gate without a sound: four pushes failed CI that
+// way (eslint, docs-generate, vale, error codes). Every command of the "Base UI tests" workflow is a
+// suite's command in the step's directory, and `--changed` runs that suite or names why it leaves
+// it to a full run.
+describe("test:base-ui:all covers CI's Base UI workflows", () => {
+	type Step = { run?: string; "working-directory"?: string }
+	type Workflow = { jobs: Record<string, { steps: Step[] }> }
+	const read = (name: string) =>
+		Bun.YAML.parse(readFileSync(resolve(import.meta.dir, `../.github/workflows/${name}`), "utf8")) as Workflow
+	// The runner's setup and the workflow's own tree checks (`generated` covers the latter).
+	const SETUP = [
+		/^bun install --frozen-lockfile$/,
+		/^bunx playwright install --with-deps /,
+		/^npm install --global pnpm@/,
+		/^git checkout -- \.$/,
+		/^git diff --exit-code( -- .+)?$/,
+	]
+	const planned = planSuites({ changed: "main" })
+
+	test("every workflow command is a suite's command, run or named by --changed", () => {
+		const uncovered: string[] = []
+		const unscoped: string[] = []
+		for (const [job, { steps }] of Object.entries(read("base-ui-tests.yml").jobs)) {
+			for (const step of steps) {
+				const cwd = step["working-directory"] ?? "."
+				const lines = (step.run ?? "").split("\n").map((line) => line.trim())
+				for (const line of lines.filter((l) => l !== "" && !SETUP.some((setup) => setup.test(l)))) {
+					const suite = planned.find(
+						(candidate) => candidate.cwd === cwd && suites.find((s) => s.name === candidate.name)?.run.includes(line),
+					)
+					if (!suite) {
+						uncovered.push(`${job}: ${cwd}$ ${line}`)
+					} else if (!suite.selected && typeof suite.fullOnly !== "string") {
+						unscoped.push(`${job}: ${suite.name}`)
+					}
+				}
+			}
+		}
+		expect(uncovered).toEqual([])
+		expect(unscoped).toEqual([])
+	})
+
+	test("the parity suites are the browsers the parity workflow runs on a push", () => {
+		const workflow = readFileSync(resolve(import.meta.dir, "../.github/workflows/base-ui-browser-parity.yml"), "utf8")
+		expect(workflow).toContain(`github.event_name == 'push' && '["firefox","webkit"]'`)
+		expect(suites.filter((s) => s.job === "Browser parity").map((s) => s.name)).toEqual([
+			"parity-firefox",
+			"parity-webkit",
+		])
+	})
+})

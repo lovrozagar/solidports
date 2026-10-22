@@ -17,8 +17,9 @@
 //
 // Usage (from the monorepo root):
 //   bun run test:base-ui:all [--only <suite>,<suite>] [--list] [--full-bench]
-//   bun run test:base-ui:all --changed [ref]   jsdom and chromium on vitest's module-graph diff
-//                                              against HEAD (uncommitted changes) or the ref
+//   bun run test:base-ui:all --changed [ref]   every light suite whole, and jsdom and chromium
+//                                              on vitest's module-graph diff against HEAD
+//                                              (uncommitted changes) or the ref
 import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -53,7 +54,12 @@ export const LOCK_TIMEOUT_SECONDS = Number(process.env.GATES_TIMEOUT ?? 1200);
 // One entry per workflow step, grouped by job. `generated` lists the paths the step may rewrite;
 // it fails when it changes any of them (the workflow's `git diff --exit-code`, scoped so suites
 // running beside it cannot be blamed on it, and without discarding local changes first).
-// `heavy` suites count against GATES_HEAVY; `after` names the suite this one waits for.
+// `heavy` suites count against GATES_HEAVY; `after` names the suite this one waits for. Under
+// `--changed` every light suite runs whole, whatever the range (about 50 s together): selecting
+// them by the files a range changes let four CI-only failures through, one suite at a time (eslint
+// 4ada29ab, docs-generate fadd8eb5, vale 2c766d1e, error-codes 9a9f246b). The vitest suites run on
+// the module-graph diff, and every other heavy suite names in `fullOnly` why only a full run or CI
+// runs it.
 export const suites = [
   { job: 'Linting', name: 'format', cwd: '.', run: ['bun run fmt:check'] },
   { job: 'Linting', name: 'oxlint', cwd: '.', run: ['bun run lint'] },
@@ -64,8 +70,6 @@ export const suites = [
     run: [
       'bunx eslint packages/solid/src packages/solid/test docs/solid/src test/perf-solid --report-unused-disable-directives --max-warnings 0',
     ],
-    // Run whole by `--changed` too: the verify stamp runs the repository's lint, not this one.
-    changed: true,
   },
   { job: 'Linting', name: 'eslint-rule-tests', cwd: baseUi, run: ['bun run test:lint-rules'] },
   {
@@ -81,9 +85,6 @@ export const suites = [
     name: 'vale',
     cwd: baseUi,
     run: ['bun run valelint'],
-    // Run by `--changed` when the range changes Base UI's Markdown: the verify stamp lints no prose,
-    // and an edited note failed CI's vale step (2c766d1e).
-    changedFiles: /^packages\/base-ui\/.*\.mdx?$/,
     // `.vale.ini` reads its MUI styles from the repository's install (`../../` from Base UI): a
     // worktree without an install of its own has none there.
     unavailable: fs.existsSync(path.join(root, 'node_modules/@mui/internal-code-infra/vale'))
@@ -96,9 +97,6 @@ export const suites = [
     cwd: baseUi,
     generated: ['packages/base-ui/docs/react/src/error-codes.json'],
     run: ['bun run extract-error-codes'],
-    // Run by `--changed` too: the verify stamp never extracts the codes, and a new `Error` pushed
-    // without its code failed CI (9a9f246b).
-    changed: true,
     // code-infra's extractor lists the workspace with `pnpm ls`.
     unavailable: hasCommand('pnpm') ? null : 'needs pnpm (code-infra lists the workspace with it)',
   },
@@ -110,9 +108,6 @@ export const suites = [
     cwd: baseUi,
     generated: ['packages/base-ui/docs/solid'],
     run: ['bun run docs:generate'],
-    // Run by `--changed` too: the verify stamp never regenerates the docs, and an edit to their
-    // generated output failed CI (fadd8eb5).
-    changed: true,
   },
   {
     job: 'Generated files',
@@ -197,6 +192,7 @@ export const suites = [
     cwd: baseUi,
     heavy: true,
     exclusive: true,
+    fullOnly: 'runs both suites whole in the browser',
     run: [
       `bun run test:${browser} --run --maxWorkers=2 --reporter=json --outputFile="$TEST_ALL_RUN_DIR/react-${browser}.json" || true`,
       `bun run test:solid:${browser} --run --maxWorkers=2 --reporter=json --outputFile="$TEST_ALL_RUN_DIR/solid-${browser}.json" || true`,
@@ -209,6 +205,7 @@ export const suites = [
     cwd: baseUi,
     heavy: true,
     exclusive: true,
+    fullOnly: 'builds and serves the e2e app',
     run: ['bun run test:e2e:solid'],
   },
   {
@@ -217,6 +214,7 @@ export const suites = [
     cwd: baseUi,
     heavy: true,
     exclusive: true,
+    fullOnly: 'builds the regression app and screenshots every fixture',
     run: ['bun run test:regressions:solid:build', 'bun run test:regressions:solid'],
   },
   {
@@ -225,6 +223,7 @@ export const suites = [
     cwd: baseUi,
     heavy: true,
     exclusive: true,
+    fullOnly: 'drives NVDA on Windows',
     // NVDA, which the suite drives, runs only on Windows; CI runs it on windows-2025.
     unavailable: process.platform === 'win32' ? null : 'needs Windows and NVDA; CI runs it',
     run: [
@@ -237,6 +236,7 @@ export const suites = [
     name: 'docs-validate',
     cwd: baseUi,
     heavy: true,
+    fullOnly: "regenerates docs-infra's API tables, about 11 minutes",
     generated: ['packages/base-ui/docs'],
     run: ['bun run docs:validate'],
   },
@@ -245,6 +245,7 @@ export const suites = [
     name: 'docs-build',
     cwd: baseUi,
     heavy: true,
+    fullOnly: 'the production docs build, about 15 minutes',
     after: 'docs-validate',
     run: ['bun run docs:build'],
   },
@@ -253,6 +254,7 @@ export const suites = [
     name: 'docs-hydration',
     cwd: baseUi,
     heavy: true,
+    fullOnly: 'crawls the docs build',
     exclusive: true,
     after: 'docs-build',
     run: ['bun run docs:check-hydration --serve'],
@@ -262,6 +264,7 @@ export const suites = [
     name: 'benchmark',
     cwd: baseUi,
     heavy: true,
+    fullOnly: 'builds the bench apps and runs every scenario',
     exclusive: true,
     // The measured run (`--full-bench`) takes about half an hour.
     timeoutSeconds: 3600,
@@ -297,13 +300,8 @@ export function planSuites(options) {
     let selected = true;
     let detail;
     if (options.changed != null) {
-      selected = Boolean(
-        suite.vitest ||
-          suite.changed ||
-          (suite.changedFiles &&
-            (options.changedFiles ?? []).some((file) => suite.changedFiles.test(file))),
-      );
-      detail = selected ? undefined : 'not selected (--changed)';
+      selected = !suite.heavy || Boolean(suite.vitest);
+      detail = selected ? undefined : `not selected (--changed: ${suite.fullOnly})`;
       if (suite.vitest) {
         const since = options.changed ? ` ${options.changed}` : '';
         // Only the vitest commands: a quick diff run skips the preparation steps (`types`).
@@ -600,14 +598,6 @@ async function main() {
     light: Number(process.env.GATES_LIGHT ?? 4),
   };
   const started = Date.now();
-  if (options.changed != null) {
-    // The files the range changes, committed or not: suites that run only for some files read them.
-    const diff = spawnSync('git', ['diff', '--name-only', options.changed || 'HEAD'], {
-      cwd: root,
-      encoding: 'utf8',
-    });
-    options.changedFiles = diff.status === 0 ? diff.stdout.split('\n').filter(Boolean) : [];
-  }
   const results = await runAll(
     planSuites(options),
     async (suite) => {

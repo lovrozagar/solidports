@@ -1,7 +1,16 @@
 import { describe, expect, test } from "bun:test"
 import { exitCodeFor, parseArgs, planSuites, runAll } from "../packages/base-ui/scripts/test-all.mjs"
 
-type Suite = { name: string; heavy?: boolean; exclusive?: boolean; after?: string; run: string[]; generated?: string[] }
+type Suite = {
+	name: string
+	heavy?: boolean
+	vitest?: boolean
+	fullOnly?: string
+	exclusive?: boolean
+	after?: string
+	run: string[]
+	generated?: string[]
+}
 type Planned = Suite & { selected: boolean; detail?: string }
 
 const byName = (suites: Planned[], name: string) => suites.find((s) => s.name === name) as Planned
@@ -61,40 +70,36 @@ describe("test:base-ui:all plan", () => {
 		])
 	})
 
-	// eslint and the generated docs too: the verify stamp runs neither, and CI runs both. A push gated
-	// on jsdom and Chromium alone carried a mui/no-floating-cleanup error (4ada29ab), and fadd8eb5
-	// failed CI's generated-docs check on an edit to generated output.
-	// vale too when the range changes Base UI's Markdown: neither the stamp nor CI's other steps lint
-	// prose, and 307fa1c8 failed CI's vale step on a note it edited (2c766d1e).
-	test("--changed selects vale when the range changes a Markdown file under packages/base-ui", () => {
-		const prose = planSuites({ changed: "main~3", changedFiles: ["packages/base-ui/context/testing/suites.md"] })
-		expect(byName(prose, "vale")).toMatchObject({ selected: true })
-		expect(byName(prose, "vale").run).toEqual(byName(planSuites({}), "vale").run)
-		const code = planSuites({ changed: "main~3", changedFiles: ["packages/base-ui/packages/solid/src/x.ts"] })
-		expect(byName(code, "vale")).toMatchObject({ selected: false, detail: "not selected (--changed)" })
-		const elsewhere = planSuites({ changed: "main~3", changedFiles: ["packages/recharts/README.md"] })
-		expect(byName(elsewhere, "vale")).toMatchObject({ selected: false })
-	})
-
-	test("--changed selects eslint, error-codes, docs-generate, jsdom and chromium, running vitest on the module-graph diff", () => {
+	// Every light suite, whatever the range: selecting them by the files a range changes let four
+	// CI-only failures through, one suite at a time (eslint 4ada29ab, docs-generate fadd8eb5, vale
+	// 2c766d1e, error-codes 9a9f246b). The light suites take about 50 s together.
+	test("--changed runs every light suite whole and jsdom and chromium on the module-graph diff", () => {
 		const suites = planSuites({ changed: "main~3" })
-		expect(suites.filter((s) => s.selected).map((s) => s.name)).toEqual([
-			"eslint",
-			"error-codes",
-			"docs-generate",
-			"jsdom",
-			"chromium",
-		])
-		expect(byName(suites, "eslint").run).toEqual(byName(planSuites({}), "eslint").run)
-		expect(byName(suites, "error-codes").run).toEqual(byName(planSuites({}), "error-codes").run)
-		expect(byName(suites, "docs-generate").run).toEqual(byName(planSuites({}), "docs-generate").run)
+		const full = planSuites({})
+		const light = full.filter((s) => !s.heavy).map((s) => s.name)
+		expect(light).toContain("vale")
+		expect(light).toContain("error-codes")
+		expect(suites.filter((s) => s.selected).map((s) => s.name)).toEqual([...light, "jsdom", "chromium"])
+		for (const name of light) {
+			expect(byName(suites, name).run).toEqual(byName(full, name).run)
+		}
 		expect(byName(suites, "jsdom").run).toEqual([
 			"bun run test:solid:jsdom --run --maxWorkers=2 --changed main~3 --passWithNoTests",
 		])
 		expect(byName(planSuites({ changed: "" }), "chromium").run).toEqual([
 			"bun run test:solid:chromium --run --maxWorkers=2 --changed --passWithNoTests",
 		])
-		expect(byName(suites, "stylelint")).toMatchObject({ selected: false, detail: "not selected (--changed)" })
+	})
+
+	test("--changed leaves out only heavy suites that name why a full run or CI runs them", () => {
+		const left = planSuites({ changed: "main~3" }).filter((s) => !s.selected)
+		expect(left.length).toBeGreaterThan(0)
+		for (const suite of left) {
+			expect(suite.heavy).toBe(true)
+			expect(suite.vitest).toBeFalsy()
+			expect(typeof suite.fullOnly).toBe("string")
+			expect(suite.detail).toBe(`not selected (--changed: ${suite.fullOnly})`)
+		}
 	})
 })
 
