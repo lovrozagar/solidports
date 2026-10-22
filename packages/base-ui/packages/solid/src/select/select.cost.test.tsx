@@ -11,6 +11,7 @@ import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 import { renderPathOf } from '../utils/renderPath';
 import { normalizeTree } from '../../test/parityHarness';
+import { useSelectRootContext } from './root/SelectRootContext';
 import { FloorSelectItem, FloorSelectItemText, FloorSelectList } from '../../test/floor/select';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
@@ -111,5 +112,53 @@ describe('select cost against the hand-written floor', () => {
     expect(cost, `open Select.Item ${cost} nodes, floor ${budget}`).toBeLessThanOrEqual(
       Math.floor(budget * 1.25),
     );
+  });
+  // Multiple selection reads no keyed selector: each item's selection is its own memo, so a toggle
+  // re-runs only the items whose selection changed (regate b1: select/multiple-1000 toggle 50 by
+  // click took 188 ms against 86 when every item's bindings re-ran on each toggle).
+  it('a multiple Select toggle re-runs only the toggled item', () => {
+    let activeReads = 0;
+    function CountActiveReads() {
+      const { store } = useSelectRootContext();
+      const select = store.select.bind(store);
+      (store as { select: typeof store.select }).select = ((key: string, ...args: unknown[]) => {
+        if (key === 'isActive') {
+          activeReads += 1;
+        }
+        return (select as (...a: unknown[]) => unknown)(key, ...args);
+      }) as typeof store.select;
+      return null;
+    }
+    const [value, setValue] = createSignal<string[]>([]);
+    const view = render(() => (
+      <Select.Root multiple open value={value()}>
+        <CountActiveReads />
+        <Select.Trigger>
+          <Select.Value placeholder="Pick" />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner>
+            <Select.Popup>
+              <Select.List>
+                {/* eslint-disable-next-line solid/prefer-for -- the list never changes: written as the bench's select/1000 fixture writes it */}
+                {values(20).map((item) => (
+                  <Select.Item value={item}>
+                    <Select.ItemText>{item}</Select.ItemText>
+                  </Select.Item>
+                ))}
+              </Select.List>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    ));
+    flush();
+    activeReads = 0;
+    setValue(['v3']);
+    flush();
+    expect(activeReads, `items re-read their highlight ${activeReads} times`).toBeLessThanOrEqual(
+      2,
+    );
+    view.unmount();
   });
 });
