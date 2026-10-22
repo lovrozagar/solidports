@@ -30,6 +30,29 @@ describe('<Field.Error />', () => {
     );
   });
 
+  // Solid: the part's own props (`render`, `class`, `style`) stay off the element, as the other
+  // parts' `splitComponentProps` keeps them; a plain props split passed `render` to the element.
+  it('writes no attribute for its render, class or style props', async () => {
+    render(() => (
+      <Field.Root invalid>
+        <Field.Error
+          match
+          data-testid="error"
+          class={() => 'error'}
+          style={() => ({ color: 'red' })}
+          render={(props) => <div {...(props as object)} />}
+        >
+          Message
+        </Field.Error>
+      </Field.Root>
+    ));
+
+    const error = screen.getByTestId('error');
+    expect(error).not.toHaveAttribute('render');
+    expect(error).toHaveAttribute('class', 'error');
+    expect(error.style.color).toBe('red');
+  });
+
   it('should show error messages by default', async () => {
     render(() => (
       <Form>
