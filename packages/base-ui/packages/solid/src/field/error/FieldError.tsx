@@ -13,7 +13,8 @@ import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import type { FieldRoot } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
 import { fieldValidityMapping } from '../utils/constants';
-import { mergeProps as solidMergeProps, splitProps } from '../../solid-1-compat';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
+import { splitComponentProps } from '../../solid-helpers';
 
 const stateAttributesMapping: StateAttributesMapping<FieldError.State> = {
   ...fieldValidityMapping,
@@ -27,7 +28,7 @@ const stateAttributesMapping: StateAttributesMapping<FieldError.State> = {
  * Documentation: [Base UI Field](https://base-ui.com/react/components/field)
  */
 export function FieldError(componentProps: FieldError.Props) {
-  const [local, elementProps] = splitProps(componentProps, ['id', 'match']);
+  const [, local, elementProps] = splitComponentProps(componentProps, ['id', 'match']);
   const idProp = () => local.id;
 
   const id = useBaseUiId(idProp);
