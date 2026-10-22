@@ -136,8 +136,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Dialog', // before: 94, then 63, 54 (D32's closed-root unit)
-      53,
+      'Dialog', // before: 94, then 63, 54, 53 (D32's closed-root unit and native trigger)
+      40,
       () => (
         <Dialog.Root>
           <Dialog.Trigger>Trigger</Dialog.Trigger>
@@ -148,8 +148,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'AlertDialog', // before: 94, then 63, 54 (D32's closed-root unit)
-      53,
+      'AlertDialog', // before: 94, then 63, 54, 53 (D32's closed-root unit and native trigger)
+      40,
       () => (
         <AlertDialog.Root>
           <AlertDialog.Trigger>Trigger</AlertDialog.Trigger>
@@ -160,8 +160,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Drawer', // before: 125, then 88, 73 (D32's closed-root unit)
-      72,
+      'Drawer', // before: 125, then 88, 73, 72 (D32's closed-root unit and native trigger)
+      59,
       () => (
         <Drawer.Root>
           <Drawer.Trigger>Trigger</Drawer.Trigger>
