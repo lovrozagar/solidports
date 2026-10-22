@@ -28,6 +28,9 @@ export const ALLOWANCES = [
   // D24 trades: the bound is the largest upper end of the shift's 95% CI from 3eef0aca over the Mac
   // sessions of 2026-10-21 (chain-mac42 to macfx).
   // d4e50c03's keyed popup trigger selectors: tooltip/handle-500 hover across 50 -49.6 ms.
+  // Against a baseline built from 3eef0aca's whole package (D30; Mac, 27a94232, 2026-10-22, 12 runs)
+  // the row reads "same": sync +1.6 [-2.2, 2.1], script +0.41 [-0.31, 1.26]. The loss this entry
+  // allows came from the src-only baseline; if the next regate also reads "same", remove it.
   ...['sync', 'script'].map((metric) => ({
     key: 'preview-card/roots-200 › move across 20',
     metric,
