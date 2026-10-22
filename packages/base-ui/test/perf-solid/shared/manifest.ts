@@ -162,6 +162,12 @@ const renderFormCosts = (family: 'accordion' | 'collapsible') =>
  */
 export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   avatar: ['render core cost > an Avatar (Root, Image, Fallback) costs at most 49 reactive nodes'],
+  'otp-field': [
+    'OTP field cost against the hand-written floor > the floor renders the same DOM as an OTP field',
+    "OTP field cost against the hand-written floor > an OTP field's parts render on the native path",
+    'OTP field cost against the hand-written floor > root costs at most its native budget',
+    'OTP field cost against the hand-written floor > input costs at most its native budget',
+  ],
   slider: [
     'slider cost against the hand-written floor > the floor renders the same DOM as a slider',
     "slider cost against the hand-written floor > a slider's parts render on the native path",
@@ -347,7 +353,6 @@ export const PENDING_COST: Partial<Record<ComponentName, string>> = {
   'direction-provider': '4.1 static parts family',
   input: '4.1 static parts family',
   menubar: '8.1 composite lists family',
-  'otp-field': '6.1 forms family',
   'scroll-area': '7.1 Tabs and ScrollArea family',
   toolbar: '5.1 toggles family',
   'unstable-use-media-query': '4.1 static parts family',
