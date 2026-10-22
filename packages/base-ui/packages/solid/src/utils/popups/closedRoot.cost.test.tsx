@@ -107,8 +107,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Popover', // before: 113
-      80,
+      'Popover', // before: 113, then 80 with the slow trigger (D32's native trigger)
+      66,
       () => (
         <Popover.Root>
           <Popover.Trigger>Trigger</Popover.Trigger>

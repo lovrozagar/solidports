@@ -1,6 +1,7 @@
 import { createRenderer, describeConformance, flushMicrotasks, isJSDOM, act } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { cleanup, fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { For } from 'solid-js';
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 
@@ -42,6 +43,70 @@ describe('<Popover.Trigger />', () => {
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  // Solid: D32's class guard. Each trigger builds its hover and click interactions on its first
+  // intent, so two roots on one page must each open from their own first pointer contact.
+  describe('two popovers on one page', () => {
+    it('opens the second by click after the first opened and closed', async () => {
+      const { user } = render(() => (
+        <div>
+          <For each={['first', 'second']}>
+            {(name) => (
+              <Popover.Root>
+                <Popover.Trigger data-testid={`${name}-trigger`}>{name}</Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Positioner>
+                    <Popover.Popup data-testid={`${name}-popup`}>{`${name} content`}</Popover.Popup>
+                  </Popover.Positioner>
+                </Popover.Portal>
+              </Popover.Root>
+            )}
+          </For>
+        </div>
+      ));
+
+      await user.click(screen.getByTestId('first-trigger'));
+      expect(await screen.findByTestId('first-popup')).toBeVisible();
+      await user.keyboard('[Escape]');
+      await waitFor(() => {
+        expect(screen.getByTestId('first-trigger')).toHaveAttribute('aria-expanded', 'false');
+      });
+
+      await user.click(screen.getByTestId('second-trigger'));
+      await waitFor(() => {
+        expect(screen.getByTestId('second-trigger')).toHaveAttribute('aria-expanded', 'true');
+      });
+      expect(await screen.findByTestId('second-popup')).toBeVisible();
+    });
+
+    it('opens the second on hover when its first intent is the pointer entering', async () => {
+      render(() => (
+        <div>
+          <For each={['first', 'second']}>
+            {(name) => (
+              <Popover.Root>
+                <Popover.Trigger data-testid={`${name}-trigger`} openOnHover delay={0}>
+                  {name}
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Positioner>
+                    <Popover.Popup data-testid={`${name}-popup`}>{`${name} content`}</Popover.Popup>
+                  </Popover.Positioner>
+                </Popover.Portal>
+              </Popover.Root>
+            )}
+          </For>
+        </div>
+      ));
+
+      enterWithMouse(screen.getByTestId('second-trigger'));
+      await flushMicrotasks();
+      await waitFor(() => {
+        expect(screen.getByTestId('second-trigger')).toHaveAttribute('aria-expanded', 'true');
+      });
+      expect(screen.getByTestId('first-trigger')).toHaveAttribute('aria-expanded', 'false');
+    });
   });
 
   describe('prop: disabled', () => {
