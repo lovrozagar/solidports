@@ -4,7 +4,7 @@
  * as normalized DOM (attributes sorted, generated `base-ui-*` ids renumbered by first appearance,
  * hydration keys ignored) after mount and after each interaction.
  */
-import { flush } from 'solid-js';
+import { createSignal, flush, Show } from 'solid-js';
 import { createComponent } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { expect } from 'vitest';
@@ -138,4 +138,49 @@ export function part<P extends object>(
     });
   }
   return createComponent(Component, merged);
+}
+
+/** The sibling `expectKeptBesideToggle` toggles: an `<i data-sibling>` behind a `Show`. */
+export type ToggledSibling = () => JSX.Element;
+
+/**
+ * GOTCHA-020's guard: renders `ui` with a sibling that turns on and off, which `ui` places among a
+ * part's siblings (inside the same parent's children), and checks that every other element in the
+ * document keeps its identity through both toggles. A native branch built inside a `Show`'s
+ * function child is rebuilt when a sibling toggles; a part that builds its element once is not.
+ */
+export function expectKeptBesideToggle(
+  render: (ui: () => JSX.Element) => { unmount(): void },
+  ui: (Sibling: ToggledSibling) => JSX.Element,
+  afterMount?: () => void,
+) {
+  const [on, setOn] = createSignal(false);
+  const Sibling: ToggledSibling = () =>
+    createComponent(Show, {
+      get when() {
+        return on();
+      },
+      children: () => <i data-sibling="" />,
+    });
+  const view = render(() => ui(Sibling));
+  flush();
+  afterMount?.();
+  flush();
+  const elements = () =>
+    [...document.body.querySelectorAll('*')].filter((el) => !el.hasAttribute('data-sibling'));
+  const before = elements();
+  expect(before.length).toBeGreaterThan(0);
+  for (const next of [true, false]) {
+    setOn(next);
+    flush();
+    expect(document.body.querySelectorAll('[data-sibling]').length > 0).toBe(next);
+    const after = elements();
+    expect(after.length).toBe(before.length);
+    after.forEach((el, index) => {
+      expect(el, `<${el.tagName.toLowerCase()}> #${index} after the sibling turned ${next ? 'on' : 'off'}`).toBe(
+        before[index],
+      );
+    });
+  }
+  view.unmount();
 }
