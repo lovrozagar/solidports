@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/no-container -- compares the rendered documents directly */
 /*
- * Parity for the parts D32's sweep put on the native path: the Popover trigger and the
+ * Parity for the parts D32's sweep put on the native path: the Popover and Tooltip triggers and the
  * Select, Menu and Combobox items (with Select's item text and indicator). Each tree renders through
  * the native paths, then, alone, with every swept part forced onto the slow path (`part`), and the
  * two must produce the same normalized document, closed and after the steps that change the parts'
@@ -20,6 +20,7 @@ import { Combobox } from '@solidports/base-ui/combobox';
 import { Menu } from '@solidports/base-ui/menu';
 import { Popover } from '@solidports/base-ui/popover';
 import { Select } from '@solidports/base-ui/select';
+import { Tooltip } from '@solidports/base-ui/tooltip';
 import { createRenderer } from '#test-utils';
 import { normalizeTree, part } from '../../../test/parityHarness';
 import { renderPathOf } from '../renderPath';
@@ -84,6 +85,22 @@ describe('native parity: popup parts', () => {
       ),
       [(body) => fireEvent.click(trigger(body)), (body) => fireEvent.click(trigger(body))],
     );
+  });
+
+  it('Tooltip.Trigger renders the same DOM closed, disabled and open', () => {
+    expectParity((slow) => (
+      <Tooltip.Root>{part(Tooltip.Trigger, slow, 'button', { children: 'Tip' })}</Tooltip.Root>
+    ));
+    expectParity((slow) => (
+      <Tooltip.Root>
+        {part(Tooltip.Trigger, slow, 'button', { children: 'Tip', disabled: true })}
+      </Tooltip.Root>
+    ));
+    expectParity((slow) => (
+      <Tooltip.Root defaultOpen>
+        {part(Tooltip.Trigger, slow, 'button', { children: 'Tip' })}
+      </Tooltip.Root>
+    ));
   });
 
   it('Select.Item, ItemText and ItemIndicator render the same DOM open and after a selection', () => {

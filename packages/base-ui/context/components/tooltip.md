@@ -6,7 +6,7 @@ verified: 2026-10-22
 
 # Tooltip
 
-Tooltip is fully ported and defers its trigger interactions to the first intent, yet many closed roots still mount about 4x slower than React. It has no native fast path.
+Tooltip is fully ported; a plain `Tooltip.Trigger` renders natively (D32) and builds its hover and focus interactions on the first intent, so a closed trigger costs 14 dev nodes against the slow trigger's 28 and a closed root's budget drops to 49.
 
 ## Status
 
@@ -27,7 +27,11 @@ All under `packages/base-ui/packages/solid/src/tooltip/`.
 
 ## Native fast path
 
-No. No Tooltip file imports `utils/native`; every part renders through `useRenderElement` (see [render pipeline](../architecture/render-pipeline.md)).
+`Tooltip.Trigger` without a detached `handle` renders through `renderNativeElement` (`trigger/TooltipTrigger.tsx`, `NativeTooltipTriggerModel`); every other part renders through `useRenderElement` (see [render pipeline](../architecture/render-pipeline.md)).
+
+- The `<button type="button">` is created once; `id`, `data-trigger-disabled`, `data-base-ui-tooltip-trigger` and `data-popup-open` are one grouped binding, and the state writer writes no attribute of its own.
+- Handlers are module-level `partHandler`s for every key a source can carry (the trigger's own, hover, focus, client point, dismissal): the consumer's handler, then the sources in `mergeProps` order, the trigger's own handlers first, then the root's applied trigger props, focus and hover.
+- `TooltipTrigger.test.tsx` "two tooltips on one page" guards a hover and a focus as the first intent on a second root.
 
 ## Reactive cost
 
@@ -35,8 +39,9 @@ No. No Tooltip file imports `utils/native`; every part renders through `useRende
 | :--- | ---: |
 | Closed root (dev probe 2026-10-14, rc.13) | 81 |
 | Open root (dev probe 2026-10-14, rc.13) | 256 |
-| Closed-root budget, `closedRoot.cost.test.tsx:64` | 64 (before deferral: 110, then 73) |
-| Closed `Tooltip.Root` alone, `closedRoot.cost.test.tsx` (floor root: 9) | 31 (before: 40) |
+| Closed-root budget, `closedRoot.cost.test.tsx:64` | 49 (before deferral: 110, then 73, 64, 63) |
+| Closed `Tooltip.Trigger`, `tooltip.cost.test.tsx` (floor `test/floor/tooltip.tsx`: 5) | 14 (slow path: 28) |
+| Closed `Tooltip.Root` alone, `closedRoot.cost.test.tsx` (floor root: 9) | 30 (before: 40, then 31) |
 
 There is no open-root budget.
 
@@ -56,7 +61,7 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync time in ms.
 Heap after mount: roots-500 uses 23993 KB versus React's 11218 KB; handle-500 uses 1781 KB versus 9910 KB.
 
 
-D32's closed-root unit, step 1, local Chromium heap diff (`tooltip/roots-500` mount, objects kept, 2026-10-22): React 13,126 KB, Solid before 23,855 KB, after 22,698 KB. Step 2 (store collections on first use, one object per bound key): 20,762 KB.
+D32's closed-root unit, step 1, local Chromium heap diff (`tooltip/roots-500` mount, objects kept, 2026-10-22): React 13,126 KB, Solid before 23,855 KB, after 22,698 KB. Step 2 (store collections on first use, one object per bound key): 20,762 KB. The native trigger (D32): 17,132 KB (522k objects, from 610k).
 
 ## Hot spots
 

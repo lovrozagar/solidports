@@ -275,7 +275,14 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     GROUPED_TOGGLE,
   ],
   'toggle-group': [GROUPED_TOGGLE],
-  tooltip: [closedRoot('Tooltip'), bareRoot('Tooltip'), rootCollections('Tooltip')],
+  tooltip: [
+    closedRoot('Tooltip'),
+    bareRoot('Tooltip'),
+    rootCollections('Tooltip'),
+    'tooltip cost against the hand-written floor > the floor renders the same DOM as a closed Tooltip.Trigger',
+    'tooltip cost against the hand-written floor > a closed Tooltip.Trigger renders on the native path',
+    'tooltip cost against the hand-written floor > a closed Tooltip.Trigger costs at most the native trigger budget',
+  ],
 };
 
 /** Components with no cost test yet, each naming the plan 3 leaf that adds its budget. */

@@ -98,7 +98,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | components/tabs.md | Tabs | `tabs`, `native`, `composite`, `perf` | Tabs renders every part natively when props are plain; a native tab costs 3 dev nodes versus 27 on the slow path, but e… |
 | components/toast.md | Toast | `toast`, `store`, `perf` | Toast is fully ported and beats React on add, update and dismiss, but every height write rebuilds the whole metadata Ma… |
 | components/toggle.md | Toggle and ToggleGroup | `toggle`, `native`, `composite`, `perf` | Toggle renders a native `<button>` alone, in a ToggleGroup or in a Toolbar at 6 dev nodes against 27 on the slow path;… |
-| components/tooltip.md | Tooltip | `tooltip`, `popup`, `floating`, `perf` | Tooltip is fully ported and defers its trigger interactions to the first intent, yet many closed roots still mount abou… |
+| components/tooltip.md | Tooltip | `tooltip`, `popup`, `floating`, `perf` | Tooltip is fully ported; a plain `Tooltip.Trigger` renders natively (D32) and builds its hover and focus interactions o… |
 
 ## decisions
 
