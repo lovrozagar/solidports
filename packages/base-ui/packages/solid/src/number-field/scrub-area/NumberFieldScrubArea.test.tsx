@@ -382,6 +382,8 @@ describe('<NumberField.ScrubArea />', () => {
       await act(async () => {
         window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
       });
+      // The scrub ends on pointerup, 20ms later in Firefox.
+      await wait(50);
       const exitsBeforeGrant = exitPointerLock.mock.calls.length;
 
       await act(async () => {
