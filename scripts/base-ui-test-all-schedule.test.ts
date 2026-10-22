@@ -76,15 +76,17 @@ describe("test:base-ui:all plan", () => {
 		expect(byName(elsewhere, "vale")).toMatchObject({ selected: false })
 	})
 
-	test("--changed selects eslint, docs-generate, jsdom and chromium, running vitest on the module-graph diff", () => {
+	test("--changed selects eslint, error-codes, docs-generate, jsdom and chromium, running vitest on the module-graph diff", () => {
 		const suites = planSuites({ changed: "main~3" })
 		expect(suites.filter((s) => s.selected).map((s) => s.name)).toEqual([
 			"eslint",
+			"error-codes",
 			"docs-generate",
 			"jsdom",
 			"chromium",
 		])
 		expect(byName(suites, "eslint").run).toEqual(byName(planSuites({}), "eslint").run)
+		expect(byName(suites, "error-codes").run).toEqual(byName(planSuites({}), "error-codes").run)
 		expect(byName(suites, "docs-generate").run).toEqual(byName(planSuites({}), "docs-generate").run)
 		expect(byName(suites, "jsdom").run).toEqual([
 			"bun run test:solid:jsdom --run --maxWorkers=2 --changed main~3 --passWithNoTests",
