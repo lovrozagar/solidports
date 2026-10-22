@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { parseArgs, planSuites, runAll } from "../packages/base-ui/scripts/test-all.mjs"
+import { exitCodeFor, parseArgs, planSuites, runAll } from "../packages/base-ui/scripts/test-all.mjs"
 
 type Suite = { name: string; heavy?: boolean; exclusive?: boolean; after?: string; run: string[]; generated?: string[] }
 type Planned = Suite & { selected: boolean; detail?: string }
@@ -173,5 +173,29 @@ describe("test:base-ui:all scheduler", () => {
 		const { results, order } = await simulate(suites, { heavy: 2, light: 4 })
 		expect(order).toEqual(["start jsdom", "end jsdom"])
 		expect(results[1]).toMatchObject({ status: "not run", detail: "not selected (--changed)", seconds: 0 })
+	})
+})
+
+// A suite that did not run is not a pass: under --changed, a suite the range selected that reports
+// "not run" (vale in a tree without its install) fails the gate. A full run keeps reporting a suite
+// the machine cannot run (error-codes without pnpm) without failing on it.
+describe("test:base-ui:all exit code", () => {
+	const result = (status: string, selected: boolean) => ({ status, suite: { name: "vale", selected } })
+
+	test("a failed suite fails every run", () => {
+		expect(exitCodeFor([result("fail", true)], { changed: null })).toBe(1)
+		expect(exitCodeFor([result("fail", true)], { changed: "" })).toBe(1)
+	})
+
+	test("--changed fails when a selected suite did not run", () => {
+		expect(exitCodeFor([result("pass", true), result("not run", true)], { changed: "main~3" })).toBe(1)
+	})
+
+	test("--changed passes over suites the range did not select", () => {
+		expect(exitCodeFor([result("pass", true), result("not run", false)], { changed: "main~3" })).toBe(0)
+	})
+
+	test("a full run passes over a suite the machine cannot run", () => {
+		expect(exitCodeFor([result("pass", true), result("not run", true)], { changed: null })).toBe(0)
 	})
 })

@@ -318,6 +318,24 @@ export function planSuites(options) {
 }
 
 /**
+ * The run's exit code: 1 when a suite failed, and under `--changed` also when a suite the range
+ * selected did not run (a suite that did not run is not a pass). A full run reports a suite the
+ * machine cannot run (error-codes without pnpm) as not run without failing on it.
+ */
+export function exitCodeFor(results, options) {
+  if (results.some((result) => result.status === 'fail')) {
+    return 1;
+  }
+  if (
+    options.changed != null &&
+    results.some((result) => result.status === 'not run' && result.suite.selected)
+  ) {
+    return 1;
+  }
+  return 0;
+}
+
+/**
  * Runs the selected suites with `run(suite)` under the concurrency rules and resolves to one result
  * per suite, in declaration order.
  */
@@ -604,7 +622,7 @@ async function main() {
     );
   }
   await runLock.release();
-  process.exit(count('fail') > 0 ? 1 : 0);
+  process.exit(exitCodeFor(results, options));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
