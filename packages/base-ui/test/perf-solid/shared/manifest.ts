@@ -221,7 +221,14 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'combobox cost against the hand-written floor > an open Combobox.Item costs at most the floor item plus 25%',
   ],
   'context-menu': [closedRoot('ContextMenu')],
-  dialog: [closedRoot('Dialog'), bareRoot('Dialog'), rootCollections('Dialog')],
+  dialog: [
+    closedRoot('Dialog'),
+    bareRoot('Dialog'),
+    rootCollections('Dialog'),
+    'dialog cost against the hand-written floor > the floor renders the same DOM as a closed Dialog.Trigger',
+    'dialog cost against the hand-written floor > a closed Dialog.Trigger renders on the native path',
+    'dialog cost against the hand-written floor > a closed Dialog.Trigger costs at most the native trigger budget',
+  ],
   drawer: [closedRoot('Drawer'), bareRoot('Drawer')],
   menu: [
     closedRoot('Menu'),

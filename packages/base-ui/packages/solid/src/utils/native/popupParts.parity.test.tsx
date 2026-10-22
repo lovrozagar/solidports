@@ -1,7 +1,7 @@
 /* eslint-disable testing-library/no-container -- compares the rendered documents directly */
 /*
- * Parity for the parts D32's sweep put on the native path: the Popover, Tooltip and PreviewCard
- * triggers and the
+ * Parity for the parts D32's sweep put on the native path: the Popover, Tooltip, PreviewCard and
+ * Dialog triggers and the
  * Select, Menu and Combobox items (with Select's item text and indicator). Each tree renders through
  * the native paths, then, alone, with every swept part forced onto the slow path (`part`), and the
  * two must produce the same normalized document, closed and after the steps that change the parts'
@@ -18,6 +18,7 @@ import type { JSX } from '@solidjs/web';
 import { fireEvent } from '@solidjs/testing-library';
 import { describe, expect, it } from 'vitest';
 import { Combobox } from '@solidports/base-ui/combobox';
+import { Dialog } from '@solidports/base-ui/dialog';
 import { Menu } from '@solidports/base-ui/menu';
 import { Popover } from '@solidports/base-ui/popover';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
@@ -115,6 +116,22 @@ describe('native parity: popup parts', () => {
       <PreviewCard.Root defaultOpen>
         {part(PreviewCard.Trigger, slow, 'a', { href: '#card', children: 'Card' })}
       </PreviewCard.Root>
+    ));
+  });
+
+  it('Dialog.Trigger renders the same DOM closed, disabled and open', () => {
+    expectParity((slow) => (
+      <Dialog.Root>{part(Dialog.Trigger, slow, 'button', { children: 'Open' })}</Dialog.Root>
+    ));
+    expectParity((slow) => (
+      <Dialog.Root>
+        {part(Dialog.Trigger, slow, 'button', { children: 'Open', disabled: true })}
+      </Dialog.Root>
+    ));
+    expectParity((slow) => (
+      <Dialog.Root defaultOpen>
+        {part(Dialog.Trigger, slow, 'button', { children: 'Open' })}
+      </Dialog.Root>
     ));
   });
 
