@@ -98,7 +98,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | components/static-parts.md | Static parts | `separator`, `progress`, `meter`, `native`, `perf` | Separator and the Progress and Meter Tracks and Indicators render natively on the client, the server and while hydratin… |
 | components/switch.md | Switch | `switch`, `native`, `perf`, `forms` | Switch.Root and Switch.Thumb render natively by default at 13 dev nodes against 57 on the slow path, and every interact… |
 | components/tabs.md | Tabs | `tabs`, `native`, `composite`, `perf` | Tabs renders every part natively when props are plain; a native tab costs 3 dev nodes versus 27 on the slow path, but e… |
-| components/toast.md | Toast | `toast`, `store`, `perf` | Toast is fully ported and beats React on add, update and dismiss, but every height write rebuilds the whole metadata Ma… |
+| components/toast.md | Toast | `toast`, `store`, `perf` | Toast is fully ported and beats React on add, update and dismiss. Each toast's record carries its own index and offset,… |
 | components/toggle.md | Toggle and ToggleGroup | `toggle`, `native`, `composite`, `perf` | Toggle renders a native `<button>` alone, in a ToggleGroup or in a Toolbar at 6 dev nodes against 27 on the slow path;… |
 | components/tooltip.md | Tooltip | `tooltip`, `popup`, `floating`, `perf` | Tooltip is fully ported; a plain `Tooltip.Trigger` renders natively (D32) and builds its hover and focus interactions o… |
 

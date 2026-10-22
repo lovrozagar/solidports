@@ -1,5 +1,5 @@
 import { createSignal, getObserver, runWithOwner, untrack } from 'solid-js';
-import type { Accessor } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import { activeElement, contains, getTarget } from '../floating-ui-solid/utils';
 import { generateId } from '../utils/generateId';
 import { ownerDocument } from '../utils/owner';
@@ -27,7 +27,6 @@ export type StoredToast<Data extends object = any> = ToastObject<Data> & { updat
 
 export type State = {
   toasts: StoredToast[];
-  toastMetadata: Map<string, ToastMetadata>;
   hovering: boolean;
   focused: boolean;
   timeout: number;
@@ -44,29 +43,20 @@ type ToastMetadata = {
   offsetY: number;
 };
 
-type InitialState = Omit<State, 'toastMetadata'>;
+/**
+ * Solid: React keeps the metadata in a `toastMetadata` Map rebuilt on every write, so each toast's
+ * selectors re-run on any toast's height write. Here each toast's record carries its own metadata
+ * (`ToastRecord`), written only when it changes, and the selectors find the records through
+ * the store's state: a height write re-runs the readers of the toasts whose offset moved.
+ */
+const toastRecordsByState = new WeakMap<State, Map<string, ToastRecord>>();
 
-function createToastMetadata(toasts: StoredToast[]) {
-  const metadata = new Map<string, ToastMetadata>();
-  let visibleIndex = 0;
-  let offsetY = 0;
-
-  toasts.forEach((toast, toastIndex) => {
-    const isEnding = toast.transitionStatus === 'ending';
-    metadata.set(toast.id, {
-      value: toast,
-      domIndex: toastIndex,
-      visibleIndex: isEnding ? -1 : visibleIndex,
-      offsetY,
-    });
-
-    offsetY += toast.height || 0;
-
-    if (!isEnding) {
-      visibleIndex += 1;
-    }
-  });
-
+function metadataOf(state: State, id: Accessor<string>) {
+  const metadata = toastRecordsByState.get(state)?.get(id())?.metadata();
+  if (metadata === undefined && getObserver() !== null) {
+    // Not in the list: re-run when the list changes, as a reader of React's rebuilt Map would.
+    void state.toasts;
+  }
   return metadata;
 }
 
@@ -90,11 +80,11 @@ function applyLimited(toasts: StoredToast[], limit: number): StoredToast[] {
 export const selectors = {
   toasts: (state: State) => state.toasts,
   isEmpty: (state: State) => state.toasts.length === 0,
-  toast: (state: State, id: Accessor<string>) => state.toastMetadata.get(id())?.value,
-  toastIndex: (state: State, id: Accessor<string>) => state.toastMetadata.get(id())?.domIndex ?? -1,
-  toastOffsetY: (state: State, id: Accessor<string>) => state.toastMetadata.get(id())?.offsetY ?? 0,
+  toast: (state: State, id: Accessor<string>) => metadataOf(state, id)?.value,
+  toastIndex: (state: State, id: Accessor<string>) => metadataOf(state, id)?.domIndex ?? -1,
+  toastOffsetY: (state: State, id: Accessor<string>) => metadataOf(state, id)?.offsetY ?? 0,
   toastVisibleIndex: (state: State, id: Accessor<string>) =>
-    state.toastMetadata.get(id())?.visibleIndex ?? -1,
+    metadataOf(state, id)?.visibleIndex ?? -1,
   focused: (state: State) => state.focused,
   expanded: (state: State) => state.hovering || state.focused,
   expandedOrOutOfFocus: (state: State) => state.hovering || state.focused || !state.isWindowFocused,
@@ -102,31 +92,98 @@ export const selectors = {
 };
 
 /**
- * Solid: a toast with a stable identity, so lists keyed by reference keep their item when the
- * toast updates. Like the store, tracked reads see the committed toast and untracked reads (store
- * methods, handlers) see the latest one, including key enumeration for spreads.
+ * The records' one proxy handler: a record proxies its `ToastRecord`, and every read goes to the
+ * toast the record currently holds (`current`).
  */
-function createToastRecord(initialToast: StoredToast) {
-  let latest = initialToast;
-  const [committed, setCommitted] = createSignal(initialToast);
-  const current = () => (getObserver() === null ? latest : committed());
+const RECORD_HANDLER: ProxyHandler<ToastRecord> = {
+  get: (entry, key) => Reflect.get(entry.current(), key),
+  has: (entry, key) => Reflect.has(entry.current(), key),
+  ownKeys: (entry) => Reflect.ownKeys(entry.current()),
+  getOwnPropertyDescriptor: (entry, key) => {
+    const descriptor = Reflect.getOwnPropertyDescriptor(entry.current(), key);
+    return descriptor && { ...descriptor, configurable: true };
+  },
+};
 
-  const record = new Proxy({} as StoredToast, {
-    get: (_, key) => Reflect.get(current(), key),
-    has: (_, key) => Reflect.has(current(), key),
-    ownKeys: () => Reflect.ownKeys(current()),
-    getOwnPropertyDescriptor: (_, key) => {
-      const descriptor = Reflect.getOwnPropertyDescriptor(current(), key);
-      return descriptor && { ...descriptor, configurable: true };
-    },
-  });
+/**
+ * Solid: a toast with a stable identity (`record`), so lists keyed by reference keep their item
+ * when the toast updates, and its metadata (`undefined` once it leaves the list). Like the store,
+ * tracked reads see the committed values and untracked reads (store methods, handlers) see the
+ * latest ones, including key enumeration for spreads. One object per toast, with its methods on
+ * the prototype and the module's proxy handler, so a record allocates no closures.
+ */
+class ToastRecord {
+  declare readonly record: StoredToast;
+  declare latest: StoredToast;
+  declare readonly committed: Accessor<StoredToast>;
+  declare readonly setCommitted: Setter<StoredToast>;
+  declare latestMetadata: ToastMetadata | undefined;
+  declare readonly committedMetadata: Accessor<ToastMetadata | undefined>;
+  declare readonly setCommittedMetadata: Setter<ToastMetadata | undefined>;
 
-  function write(nextToast: StoredToast) {
-    latest = nextToast;
-    runWithOwner(null, () => untrack(() => setCommitted(() => nextToast)));
+  constructor(initialToast: StoredToast) {
+    this.latest = initialToast;
+    [this.committed, this.setCommitted] = createSignal(initialToast);
+    this.latestMetadata = undefined;
+    [this.committedMetadata, this.setCommittedMetadata] = createSignal<ToastMetadata | undefined>(
+      undefined,
+    );
+    this.record = new Proxy(this, RECORD_HANDLER) as unknown as StoredToast;
   }
 
-  return { record, write };
+  current() {
+    return getObserver() === null ? this.latest : this.committed();
+  }
+
+  write(nextToast: StoredToast) {
+    this.latest = nextToast;
+    runWithOwner(null, () => untrack(() => this.setCommitted(() => nextToast)));
+  }
+
+  metadata() {
+    return getObserver() === null ? this.latestMetadata : this.committedMetadata();
+  }
+
+  /** Writes the toast's place in the list; a place equal to the current one writes nothing. */
+  place(domIndex: number, visibleIndex: number, offsetY: number) {
+    const latest = this.latestMetadata;
+    if (
+      latest !== undefined &&
+      latest.domIndex === domIndex &&
+      latest.visibleIndex === visibleIndex &&
+      latest.offsetY === offsetY
+    ) {
+      return;
+    }
+    this.writeMetadata({ value: this.record, domIndex, visibleIndex, offsetY });
+  }
+
+  unplace() {
+    if (this.latestMetadata !== undefined) {
+      this.writeMetadata(undefined);
+    }
+  }
+
+  writeMetadata(next: ToastMetadata | undefined) {
+    this.latestMetadata = next;
+    runWithOwner(null, () => untrack(() => this.setCommittedMetadata(() => next)));
+  }
+}
+
+/** Writes each listed toast's index, visible index and offset into its record. */
+function placeToasts(toasts: StoredToast[], records: Map<string, ToastRecord>) {
+  untrack(() => {
+    let visibleIndex = 0;
+    let offsetY = 0;
+    toasts.forEach((toast, domIndex) => {
+      const isEnding = toast.transitionStatus === 'ending';
+      records.get(toast.id)!.place(domIndex, isEnding ? -1 : visibleIndex, offsetY);
+      offsetY += toast.height || 0;
+      if (!isEnding) {
+        visibleIndex += 1;
+      }
+    });
+  });
 }
 
 function shallowEqualToast(a: StoredToast, b: StoredToast) {
@@ -147,11 +204,11 @@ function createTimeout(): Timeout {
  * Solid: React's `ToastStore extends ReactStore`. The base store already has React's synchronous
  * semantics (untracked reads see the latest write), so the methods port one to one.
  */
-export function ToastStore(initialState: InitialState) {
+export function ToastStore(initialState: State) {
   // Solid: lists key by reference (`<For>`), while React keys toasts by `id`. Each toast keeps one
   // record per id; updates are written into it, so a list keeps its item and only the changed
   // fields update. The records read synchronously like the store itself.
-  const toastRecords = new Map<string, ReturnType<typeof createToastRecord>>();
+  const toastRecords = new Map<string, ToastRecord>();
 
   function reconcileToasts(nextToasts: StoredToast[]) {
     let changed = false;
@@ -160,7 +217,7 @@ export function ToastStore(initialState: InitialState) {
       nextIds.add(toast.id);
       const existing = toastRecords.get(toast.id);
       if (!existing) {
-        const created = createToastRecord({ ...toast });
+        const created = new ToastRecord({ ...toast });
         toastRecords.set(toast.id, created);
         changed = true;
         return created.record;
@@ -171,8 +228,9 @@ export function ToastStore(initialState: InitialState) {
       }
       return existing.record;
     });
-    toastRecords.forEach((_, id) => {
+    toastRecords.forEach((entry, id) => {
       if (!nextIds.has(id)) {
+        entry.unplace();
         scheduleRecordRemoval(id);
       }
     });
@@ -185,16 +243,14 @@ export function ToastStore(initialState: InitialState) {
   const pendingRecordRemovals = new Set<string>();
 
   const initialToasts = reconcileToasts(initialState.toasts).toasts;
+  placeToasts(initialToasts, toastRecords);
   const base = SolidStore<State, {}, typeof selectors>(
-    {
-      ...initialState,
-      toasts: initialToasts,
-      toastMetadata: createToastMetadata(initialToasts),
-    },
+    { ...initialState, toasts: initialToasts },
     {},
     selectors,
   );
   const { state } = base;
+  toastRecordsByState.set(state, toastRecords);
 
   function scheduleRecordRemoval(id: string) {
     if (pendingRecordRemovals.has(id)) {
@@ -224,16 +280,13 @@ export function ToastStore(initialState: InitialState) {
       return;
     }
 
-    const updates = { timeout, limit } as Pick<
-      State,
-      'timeout' | 'limit' | 'toasts' | 'toastMetadata'
-    >;
+    const updates = { timeout, limit } as Pick<State, 'timeout' | 'limit' | 'toasts'>;
 
     if (limitChanged) {
       // Solid: reconcile into the per-id records, so rendered toasts see the new `limited` flag.
       const newToasts = reconcileToasts(applyLimited(state.toasts, limit)).toasts;
       updates.toasts = newToasts;
-      updates.toastMetadata = createToastMetadata(newToasts);
+      placeToasts(newToasts, toastRecords);
     }
 
     base.update(updates);
@@ -586,14 +639,14 @@ export function ToastStore(initialState: InitialState) {
       return;
     }
 
+    placeToasts(reconciledToasts, toastRecords);
+
     // The records update in place, so the list itself changes only when its items or their order
     // do; lists that recreate their items (`toasts().map(...)`) keep them on a field update.
     const sameItems =
       reconciledToasts.length === currentToasts.length &&
       reconciledToasts.every((toast, index) => toast === currentToasts[index]);
-    const updates = {
-      toastMetadata: createToastMetadata(reconciledToasts),
-    } as Pick<State, 'toasts' | 'toastMetadata' | 'hovering' | 'focused'>;
+    const updates = {} as Pick<State, 'toasts' | 'hovering' | 'focused'>;
     if (!sameItems) {
       updates.toasts = reconciledToasts;
     }
@@ -603,7 +656,9 @@ export function ToastStore(initialState: InitialState) {
       updates.focused = false;
     }
 
-    base.update(updates);
+    if (!sameItems || clearInteraction) {
+      base.update(updates);
+    }
   }
 
   function handleFocusManagement(toastId: string | undefined) {
