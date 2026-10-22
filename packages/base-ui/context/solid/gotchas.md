@@ -1,7 +1,7 @@
 ---
 tags: [solid, gotchas, registry]
-sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/number-field/root/NumberFieldRoot.tsx, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/combobox/positioner/ComboboxPositioner.tsx, packages/base-ui/packages/solid/src/utils/providerEffectOrder.test.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts]
-verified: 2026-10-18
+sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/number-field/root/NumberFieldRoot.tsx, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/combobox/positioner/ComboboxPositioner.tsx, packages/base-ui/packages/solid/src/utils/providerEffectOrder.test.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/native/showBranch.test.tsx, packages/base-ui/packages/solid/src/toast/utils/useToastLabelPart.ts]
+verified: 2026-10-22
 ---
 
 # Solid gotchas
@@ -101,6 +101,13 @@ Rules for editing: never renumber. Add new entries at the end. When an entry sto
   - `CompositeList`: the list's effect assigns its items' indexes, and the items' attribute effects must apply after it. Converted (b75c8bd5), each item applied twice, first with no index: a 500-item Menu open ran 17,316 computations against 13,008.
   - `ComboboxPositioner`: converted, every item's props view rebuilt its key list once more on open; Chromium measured a 1,000-item open 5.8 ms slower in script, with fewer computations in all.
 - **Guard:** `utils/providerEffectOrder.test.tsx` opens or mounts each family whose providers b75c8bd5 converted, with 20 children, and pins how many more times the library's effects and memos run than they are created. A provider that loses the order adds at least one run per child. Restoring each of the other converted sites to JSX one at a time lowered no case by more than 3 runs. Before converting another provider, add its family there if it is missing. The count goes through `vi.mock('solid-js')`, so it runs in jsdom only.
+
+## GOTCHA-020: a sibling re-runs a `Show`'s function child
+
+- **Symptom:** a `Show` whose condition never changed calls its child again, and the element it built is replaced: its refs see the new element before the old one's `null`. A native Field.Error stuck in its ending style, its close-complete ref cleared, when a second error appeared; a native Toast.Title was rebuilt when the toast's description appeared.
+- **Cause:** a `Show` hands a function child that takes no parameter (`children: () => ...`) to whoever reads it, unresolved. Sibling `Show`s passed together as a component's children are read by the one computation that inserts that children array, so a sibling that changes (a `Show` that toggles) re-runs it and it calls every such child again. A JSX child, and a callback child that takes the condition, are resolved inside the `Show` and kept. `Show`s in separate JSX expressions are separate inserts and are unaffected.
+- **Fix:** a branch that builds an element builds it once and returns the cached element: under the part's owner when it renders at creation (the server may have rendered it, so hydration claims it), otherwise in `runInLazyScope` of the part's owner (`renderNativeToastLabel`).
+- **Guard:** `src/utils/native/showBranch.test.tsx` pins the condition (function child re-run; JSX child, callback child and separate expressions kept; a cached element kept). `useToastLabelPart.test.tsx` covers the toast labels.
 
 ## Retired
 
