@@ -61,6 +61,21 @@ describe('createKeyedSelector', () => {
     dispose();
   });
 
+  // Slots are tagged by type: the string "o0" is not the first object's slot, and 1 is not "1".
+  it('keeps strings, numbers and objects that print alike apart', () => {
+    const object = { id: 'first' };
+    const [values, setValues] = createSignal<readonly unknown[]>([]);
+    const keys: unknown[] = ['o0', 'o1', object, 1, '1', 'n1', 's1'];
+    const { runs, seen, dispose } = track(values, keys);
+    runs.forEach((_, key) => runs.set(key, 0));
+
+    setValues([object, 1]);
+    flush();
+    expect(keys.map((key) => seen.get(key))).toEqual([false, false, true, true, false, false, false]);
+    expect(keys.map((key) => runs.get(key))).toEqual([0, 0, 1, 1, 0, 0, 0]);
+    dispose();
+  });
+
   // A selector rewrite must stay pulled: a writer that applies membership in an effect leaves a
   // reader that re-runs for another source in the same batch seeing the old membership with the
   // new value of that source for one pass (measured 2026-10-17: `second:open` before

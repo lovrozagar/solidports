@@ -1,5 +1,13 @@
-import { createMemo, createRenderEffect, createSignal, onCleanup, untrack } from 'solid-js';
-import type { Accessor } from 'solid-js';
+import {
+  createMemo,
+  createRenderEffect,
+  createSignal,
+  getOwner,
+  onCleanup,
+  runWithOwner,
+  untrack,
+} from 'solid-js';
+import type { Accessor, Owner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   IndexGuessBehavior,
@@ -118,6 +126,8 @@ class NativeComboboxItemModel implements ComboboxItemContext {
   /** The `valuesRef` slot this item last wrote, so a move or an unmount clears only its own. */
   declare registeredIndex: number;
   declare registeredValue: unknown;
+  declare private readonly owner: Owner | null;
+  declare private compared: Accessor<boolean> | undefined;
 
   constructor(
     props: ComboboxItem.Props,
@@ -133,6 +143,8 @@ class NativeComboboxItemModel implements ComboboxItemContext {
     this.state = new NativeComboboxItemState(this);
     this.registeredIndex = -1;
     this.registeredValue = undefined;
+    this.owner = getOwner();
+    this.compared = undefined;
   }
 
   value() {
@@ -147,9 +159,25 @@ class NativeComboboxItemModel implements ComboboxItemContext {
     return this.store.select('isActive', this.index);
   }
 
-  readonly selected = () =>
-    this.store.state.selectionMode !== 'none' &&
-    this.store.select('isSelected', () => this.value());
+  /**
+   * The item's selection: its value's entry in the root's keyed membership, so a selection change
+   * re-runs only the items that joined or left it (D32's batch 1 regate: every item re-reading the
+   * whole value took combobox/multiple-1000's remove 10 chips from 10.7 to 30.6 ms). A custom
+   * `isItemEqualToValue` cannot be keyed: the item then compares in a memo of its own.
+   */
+  readonly selected = (): boolean => {
+    const { store } = this;
+    if (store.state.selectionMode === 'none') {
+      return false;
+    }
+    if (!store.context.customItemEquality()) {
+      return store.context.selectedMembership(this.value());
+    }
+    this.compared ??= runWithOwner(this.owner, () =>
+      createMemo(() => store.select('isSelected', () => this.value())),
+    );
+    return this.compared();
+  };
 
   id() {
     const rootId = this.store.state.id;
@@ -481,7 +509,19 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
   const rootId = store.useState('id');
   // Solid: memos keep a highlight or selection change from re-running every item's bindings.
   const highlighted = createMemo(() => store.select('isActive', index));
-  const matchesSelectedValue = createMemo(() => store.select('isSelected', itemValue));
+  // Keyed for the default equality (`NativeComboboxItemModel.selected`); a custom comparer compares
+  // in a memo of the item's own, created on its first read.
+  const itemOwner = getOwner();
+  let compared: Accessor<boolean> | undefined;
+  const matchesSelectedValue = () => {
+    if (!store.context.customItemEquality()) {
+      return store.context.selectedMembership(itemValue());
+    }
+    compared ??= runWithOwner(itemOwner, () =>
+      createMemo(() => store.select('isSelected', itemValue)),
+    );
+    return compared();
+  };
   const itemProps = store.useState('itemProps');
 
   // Solid: refs are applied after this component's effects are created, so the element is a

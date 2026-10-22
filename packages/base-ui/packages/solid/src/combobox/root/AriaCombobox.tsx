@@ -1,4 +1,12 @@
-import { createEffect, createMemo, createSignal, onSettled, untrack } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  getOwner,
+  onSettled,
+  runWithOwner,
+  untrack,
+} from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { closest } from '../../utils/shadowDom';
@@ -22,6 +30,8 @@ import { mergeProps } from '../../merge-props';
 import { shallowEqual, useRef, createLayoutEffect } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
+import { createKeyedSelector } from '../../utils/createKeyedSelector';
+import type { KeyedSelector } from '../../utils/createKeyedSelector';
 import {
   createChangeEventDetails,
   createGenericEventDetails,
@@ -534,6 +544,10 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   // the initial `selectionMode === 'none'` and the hidden input has no form name until mount.
   const isHydrating = useIsHydrating();
 
+  // The selected-value membership items read (`selectedMembership`), created under the root on the
+  // first item's read.
+  const rootOwner = getOwner();
+  let selectedMembership: KeyedSelector | undefined;
   const store = SolidStore<StoreState, ComboboxStoreContext, typeof selectors>(
     {
       get id() {
@@ -654,6 +668,16 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
       chipsContainerRef,
       clearRef,
       valuesRef,
+      get selectedMembership() {
+        selectedMembership ??= runWithOwner(rootOwner, () =>
+          createKeyedSelector(() => {
+            const value = selectedValue();
+            return Array.isArray(value) ? value : [value];
+          }),
+        );
+        return selectedMembership;
+      },
+      customItemEquality: () => props.isItemEqualToValue != null,
       pointerDownItemRef,
       selectionEventRef,
     },
