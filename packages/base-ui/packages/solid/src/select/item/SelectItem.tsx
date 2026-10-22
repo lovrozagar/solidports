@@ -1,4 +1,4 @@
-import { createEffect, createRenderEffect, onCleanup, untrack } from 'solid-js';
+import { createEffect, createMemo, createRenderEffect, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
@@ -119,6 +119,7 @@ class NativeSelectItemModel implements SelectItemContext {
     this.registeredIndex = -1;
     this.registeredValue = undefined;
     this.state = new NativeSelectItemState(this);
+    this.selected = createMemo(() => root.store.select('isSelected', () => this.value()));
   }
 
   value() {
@@ -131,7 +132,11 @@ class NativeSelectItemModel implements SelectItemContext {
 
   readonly hasRegistered = () => this.index() !== -1;
 
-  readonly selected = () => this.root.store.select('isSelected', () => this.value());
+  /**
+   * The item's selection, as its own memo: `isSelected` is not keyed (multiple selection compares
+   * against an array), so without it every value change re-ran every item's bindings.
+   */
+  declare readonly selected: Accessor<boolean>;
 
   readonly selectedByFocus = () => this.root.store.select('isSelectedByFocus', this.index);
 

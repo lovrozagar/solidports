@@ -248,6 +248,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'select cost against the hand-written floor > the floor renders the same option DOM as an open Select.Item',
     'select cost against the hand-written floor > an open Select.Item renders on the native path',
     'select cost against the hand-written floor > an open Select.Item costs at most the floor item plus 25%',
+    'select cost against the hand-written floor > a multiple Select toggle re-runs only the toggled item',
   ],
   separator: [
     staticPart('a Separator with a literal orientation costs at most 1 node'),
