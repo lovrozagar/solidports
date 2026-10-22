@@ -1,12 +1,12 @@
 ---
-tags: [menu, floating, composite, perf]
-sources: [packages/base-ui/packages/solid/src/menu, packages/base-ui/packages/solid/src/menu/root/MenuRoot.tsx, packages/base-ui/packages/solid/src/menu/item/MenuItem.tsx, packages/base-ui/packages/solid/src/context-menu, packages/base-ui/packages/solid/src/menubar, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-17
+tags: [menu, native, floating, composite, perf]
+sources: [packages/base-ui/packages/solid/src/menu, packages/base-ui/packages/solid/src/menu/root/MenuRoot.tsx, packages/base-ui/packages/solid/src/menu/item/MenuItem.tsx, packages/base-ui/packages/solid/src/context-menu, packages/base-ui/packages/solid/src/menubar, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/menu/menu.cost.test.tsx, packages/base-ui/packages/solid/test/floor/menu.tsx]
+verified: 2026-10-22
 ---
 
 # Menu
 
-Menu (with ContextMenu and Menubar) is fully ported on the slow `useRenderElement` path; mounting many roots and opening cost 2–3x React, while item actions and Escape are several times faster.
+Menu (with ContextMenu and Menubar) is fully ported; a plain menu's `Menu.Item` renders natively (D32), so opening menu/500 keeps 3.6 MB against React's 6.7 MB, while the other parts are still on the slow `useRenderElement` path.
 
 ## Status
 
@@ -30,7 +30,10 @@ ContextMenu lives in `context-menu/` (Root, Trigger, Positioner; the rest re-exp
 
 ## Native fast path
 
-No. No Menu, ContextMenu or Menubar file imports `utils/native`; every part renders through `useRenderElement`. See [render pipeline](../architecture/render-pipeline.md).
+`Menu.Item` in a plain menu (the D32 sweep, after Select), in Menu, ContextMenu and Menubar alike. The other parts still render through `useRenderElement`. See [render pipeline](../architecture/render-pipeline.md).
+
+- The item renders its `<div role="menuitem">` through the kit when its props are plain, `nativeButton` is not `true` and the menu has no filter (`isUnfilteredItem`). One `NativeMenuItemModel` per item is the target of the module-level handler tables and of the attribute write; `useMenuItem`, `useMenuItemCommonProps` and `useButton`'s composite gates are inlined in the slow path's `mergeProps` order (button gate, consumer, the root's list navigation, the item).
+- Follow-up leaf: an item of a filtered menu (inside `Menu.FilterProvider`) keeps the slow path, with its visibility branch and filter children; the next Menu unit ports it, then CheckboxItem, RadioItem, LinkItem and SubmenuTrigger.
 
 ## Reactive cost
 
@@ -40,9 +43,12 @@ Current closed-root budgets in `packages/base-ui/packages/solid/src/utils/popups
 
 - Menu (Trigger + unopened popup + one item): ≤ 142, down from 189 (`:78`).
 - ContextMenu (Trigger area + unopened popup + one item): ≤ 103, down from 153 (`:94`).
-- No open-root or per-item budget exists.
+- Open `Menu.Item`: at most the hand-written floor item plus 25% (`menu.cost.test.tsx`, floor `test/floor/menu.tsx`): within 6 nodes against the floor's 5 (24 on the slow path).
+- No open-root budget exists.
 
 ## Benchmarks
+
+Heap kept by menu/500's first open (local Chromium, production bundles, two full collections around the step, `zz-heapdiff`, 2026-10-22): React 6.7 MB and 233k objects; Solid 10.3 MB and 301k on the slow item path, 3.6 MB and 111k on the native one.
 
 CI run 38882393542, commit b9b813c9, Solid rc.15. Sync ms.
 

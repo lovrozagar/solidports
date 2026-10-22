@@ -48,6 +48,8 @@ Current budgets:
 
 ## Benchmarks
 
+Open latency: the press opens the popup synchronously in the trigger's own `mousedown` handler (reason `trigger-press`), with nothing scheduled in between. With the native items a Playwright click can resolve before Chromium dispatches that mousedown (the open landed 8 ms after the click resolved, 11 ms sooner from the same mark than the slow path), so a test waits for the open content, not for the click.
+
 Heap kept by select/1000's first open (local Chromium, production bundles, two full collections around the step, `zz-heapdiff`, 2026-10-22): React 12.6 MB and 405k objects; Solid 28.1 MB and 773k on the slow item path, 9.3 MB and 253k on the native one.
 
 CI run 38882393542, commit b9b813c9, Solid rc.15. Sync ms.
