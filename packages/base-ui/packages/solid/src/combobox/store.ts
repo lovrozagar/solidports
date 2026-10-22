@@ -1,4 +1,5 @@
 import type { Accessor } from 'solid-js';
+import type { KeyedSelector } from '../utils/createKeyedSelector';
 import type { InteractionType } from '../utils/useEnhancedClickHandler';
 import type { TransitionStatus } from '../utils/useTransitionStatus';
 import type { HTMLProps } from '../utils/types';
@@ -96,6 +97,14 @@ export type ComboboxStoreContext = {
   readonly clearRef: ReactLikeRef<HTMLButtonElement | null | undefined>;
   /** Item values in list order. */
   readonly valuesRef: ReactLikeRef<Array<any>>;
+  /**
+   * Whether an item value is in the selected value (tracked): one keyed membership the root creates
+   * on the first read, so a selection change re-runs only the items that joined or left it. Keyed
+   * by identity, so it answers for the default equality only (`customItemEquality`).
+   */
+  readonly selectedMembership: KeyedSelector;
+  /** Whether `isItemEqualToValue` is the consumer's, which a keyed membership cannot answer. */
+  readonly customItemEquality: () => boolean;
   /** Item element that received the last pointerdown, to pair it with a mouseup. */
   readonly pointerDownItemRef: ReactLikeRef<Element | null>;
   /** Native event that triggered the in-flight selection. */
