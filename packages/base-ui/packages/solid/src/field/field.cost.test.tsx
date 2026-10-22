@@ -9,6 +9,7 @@ import { DEV, flush } from 'solid-js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Field } from '@solidports/base-ui/field';
 import { Fieldset } from '@solidports/base-ui/fieldset';
+import { Form } from '@solidports/base-ui/form';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 import { renderPathOf } from '../utils/renderPath';
@@ -21,6 +22,7 @@ import {
   FloorFieldRoot,
   FloorFieldsetLegend,
   FloorFieldsetRoot,
+  FloorForm,
 } from '../../test/floor/field';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
@@ -37,6 +39,7 @@ afterEach(() => {
 
 /** Each part's count at D32's port; the slow path's in the comment. */
 const BUDGET = {
+  form: 5, // slow 14, floor 3
   fieldsetRoot: 3, // slow 13, floor 10
   legend: 4, // slow 11, floor 3
   fieldRoot: 16, // slow 26, floor 9
@@ -67,6 +70,7 @@ describe('field cost against the hand-written floor', () => {
     nodes(() => Array.from({ length: 5 }, shape)) - nodes(() => Array.from({ length: 4 }, shape));
 
   const library: Record<Part, [() => JSX.Element, () => JSX.Element]> = {
+    form: [() => <Form />, () => null],
     fieldsetRoot: [() => <Fieldset.Root />, () => null],
     legend: [
       () => (
@@ -111,6 +115,7 @@ describe('field cost against the hand-written floor', () => {
     ],
   };
   const floor: Record<Part, [() => JSX.Element, () => JSX.Element]> = {
+    form: [() => <FloorForm />, () => null],
     fieldsetRoot: [() => <FloorFieldsetRoot />, () => null],
     legend: [
       () => (
@@ -157,7 +162,7 @@ describe('field cost against the hand-written floor', () => {
   const cost = (shapes: Record<Part, [() => JSX.Element, () => JSX.Element]>, part: Part) =>
     perCopy(shapes[part][0]) - perCopy(shapes[part][1]);
 
-  it('the floor renders the same DOM as a field in a fieldset', () => {
+  it('the floor renders the same DOM as a field in a fieldset in a form', () => {
     const html = (ui: () => JSX.Element) => {
       const view = render(ui);
       flush();
@@ -167,44 +172,58 @@ describe('field cost against the hand-written floor', () => {
     };
     expect(
       html(() => (
-        <FloorFieldsetRoot>
-          <FloorFieldsetLegend>Legend</FloorFieldsetLegend>
-          <FloorFieldRoot>
-            <FloorFieldLabel>Name</FloorFieldLabel>
-            <FloorFieldControl />
-            <FloorFieldDescription>Help</FloorFieldDescription>
-            <FloorFieldError />
-          </FloorFieldRoot>
-        </FloorFieldsetRoot>
+        <FloorForm>
+          <FloorFieldsetRoot>
+            <FloorFieldsetLegend>Legend</FloorFieldsetLegend>
+            <FloorFieldRoot>
+              <FloorFieldLabel>Name</FloorFieldLabel>
+              <FloorFieldControl />
+              <FloorFieldDescription>Help</FloorFieldDescription>
+              <FloorFieldError />
+            </FloorFieldRoot>
+          </FloorFieldsetRoot>
+        </FloorForm>
       )),
     ).toBe(
       html(() => (
-        <Fieldset.Root>
-          <Fieldset.Legend>Legend</Fieldset.Legend>
-          <Field.Root>
-            <Field.Label>Name</Field.Label>
-            <Field.Control />
-            <Field.Description>Help</Field.Description>
-            <Field.Error />
-          </Field.Root>
-        </Fieldset.Root>
+        <Form>
+          <Fieldset.Root>
+            <Fieldset.Legend>Legend</Fieldset.Legend>
+            <Field.Root>
+              <Field.Label>Name</Field.Label>
+              <Field.Control />
+              <Field.Description>Help</Field.Description>
+              <Field.Error />
+            </Field.Root>
+          </Fieldset.Root>
+        </Form>
       )),
     );
   });
 
   it("a field's parts render on the native path", () => {
     const view = render(() => (
-      <Fieldset.Root data-testid="fieldsetRoot">
-        <Fieldset.Legend data-testid="legend">Legend</Fieldset.Legend>
-        <Field.Root data-testid="fieldRoot">
-          <Field.Label data-testid="label">Name</Field.Label>
-          <Field.Control data-testid="control" />
-          <Field.Description data-testid="description">Help</Field.Description>
-        </Field.Root>
-      </Fieldset.Root>
+      <Form data-testid="form">
+        <Fieldset.Root data-testid="fieldsetRoot">
+          <Fieldset.Legend data-testid="legend">Legend</Fieldset.Legend>
+          <Field.Root data-testid="fieldRoot">
+            <Field.Label data-testid="label">Name</Field.Label>
+            <Field.Control data-testid="control" />
+            <Field.Description data-testid="description">Help</Field.Description>
+          </Field.Root>
+        </Fieldset.Root>
+      </Form>
     ));
     flush();
-    const names = ['fieldsetRoot', 'legend', 'fieldRoot', 'label', 'control', 'description'];
+    const names = [
+      'form',
+      'fieldsetRoot',
+      'legend',
+      'fieldRoot',
+      'label',
+      'control',
+      'description',
+    ];
     const paths = Object.fromEntries(
       names.map((name) => [
         name,

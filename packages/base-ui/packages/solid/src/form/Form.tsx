@@ -9,8 +9,31 @@ import type { BaseUIGenericEventDetails } from '../utils/createBaseUIEventDetail
 import { REASONS } from '../utils/reasons';
 import type { BaseUIComponentProps } from '../utils/types';
 import { useRenderElement } from '../utils/useRenderElement';
+import { canRenderNative } from '../utils/native';
+import { provideNativeContext } from '../utils/native/context';
+import { renderNativeElement } from '../utils/native/element';
+import type { HandlerRecord } from '../utils/native/consumer';
 import { FormContext } from './FormContext';
 import type { Errors } from './FormContext';
+
+const FORM = { tag: 'form', create: () => (<form />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'onSubmit',
+  'validationMode',
+  'errors',
+  'onFormSubmit',
+  'actionsRef',
+]);
+const FORM_LITERAL = { novalidate: true };
+
+/**
+ * The form's submit handler: the form calls the consumer's `onSubmit` itself, once its fields are
+ * valid, so the handler dispatches to the form alone.
+ */
+const FORM_HANDLERS = {
+  onSubmit: (record: HandlerRecord<{ onSubmit: (event: SubmitEvent) => void }>, event: Event) =>
+    record.target.onSubmit(event as SubmitEvent),
+};
 
 /**
  * A native form element with consolidated error handling.
@@ -21,14 +44,7 @@ import type { Errors } from './FormContext';
 export function Form<FormValues extends Record<string, any> = Record<string, any>>(
   componentProps: Form.Props<FormValues>,
 ) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'onSubmit',
-    'validationMode',
-    'errors',
-    'onSubmit',
-    'onFormSubmit',
-    'actionsRef',
-  ]);
+  const local = componentProps;
   const validationMode = () => local.validationMode ?? 'onSubmit';
 
   const externalErrors = () => local.errors;
@@ -103,44 +119,35 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
     }
   });
 
-  const element = useRenderElement('form', componentProps, {
-    ref: elementRef,
-    props: [
-      {
-        novalidate: true,
-        onSubmit(event: SubmitEvent) {
-          submitCountRef.current += 1;
+  function handleSubmit(event: SubmitEvent) {
+    submitCountRef.current += 1;
 
-          // Async validation isn't supported to stop the submit event.
-          formRef.fields.forEach((field) => {
-            field.validate();
-          });
+    // Async validation isn't supported to stop the submit event.
+    formRef.fields.forEach((field) => {
+      field.validate();
+    });
 
-          if (focusFirstInvalid()) {
-            event.preventDefault();
-            return;
-          }
+    if (focusFirstInvalid()) {
+      event.preventDefault();
+      return;
+    }
 
-          submittedRef = true;
-          callEventHandler(local.onSubmit, event as any);
+    submittedRef = true;
+    callEventHandler(local.onSubmit, event as any);
 
-          if (local.onFormSubmit) {
-            event.preventDefault();
+    if (local.onFormSubmit) {
+      event.preventDefault();
 
-            const formValues = {} as FormValues;
-            formRef.fields.forEach((field) => {
-              if (field.name) {
-                (formValues as Record<string, any>)[field.name] = field.getValue();
-              }
-            });
+      const formValues = {} as FormValues;
+      formRef.fields.forEach((field) => {
+        if (field.name) {
+          (formValues as Record<string, any>)[field.name] = field.getValue();
+        }
+      });
 
-            local.onFormSubmit(formValues, createGenericEventDetails(REASONS.none, event));
-          }
-        },
-      },
-      elementProps,
-    ],
-  });
+      local.onFormSubmit(formValues, createGenericEventDetails(REASONS.none, event));
+    }
+  }
 
   const clearErrors = (name: string | undefined) => {
     if (!name) {
@@ -164,6 +171,46 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
     submitCountRef,
     validationMode,
   };
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<form>` with its submit
+  // handler, no props view (D32).
+  if (canRenderNative(componentProps, undefined, true)) {
+    return provideNativeContext(FormContext, contextValue, () =>
+      renderNativeElement(FORM, componentProps, {
+        own: OWN_KEYS,
+        state: EMPTY_OBJECT,
+        stateAttributes: false,
+        literal: FORM_LITERAL,
+        handlers: FORM_HANDLERS,
+        handlerTarget: { onSubmit: handleSubmit },
+        reactive: false,
+        refs: [
+          (el: HTMLFormElement | null) => {
+            elementRef.current = el;
+          },
+        ],
+      }),
+    ) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, [
+    'onSubmit',
+    'validationMode',
+    'errors',
+    'onFormSubmit',
+    'actionsRef',
+  ]);
+
+  const element = useRenderElement('form', componentProps, {
+    ref: elementRef,
+    props: [
+      {
+        novalidate: true,
+        onSubmit: handleSubmit,
+      },
+      elementProps,
+    ],
+  });
 
   return provideContext(FormContext, contextValue, element);
 }

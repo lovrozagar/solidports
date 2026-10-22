@@ -1,6 +1,6 @@
 /*
  * The hand-written Solid floor for a field in a fieldset (D32's sweep): the fewest reactive nodes
- * plain Solid 2 needs for the DOM `Fieldset.Root`, `Fieldset.Legend`, `Field.Root`, `Field.Label`,
+ * plain Solid 2 needs for the DOM `Form`, `Fieldset.Root`, `Fieldset.Legend`, `Field.Root`, `Field.Label`,
  * `Field.Control`, `Field.Description` and a valid `Field.Error` render. Ids register with their
  * group through signals; each element that follows them writes from one render effect; the error
  * renders nothing until the field is invalid.
@@ -136,4 +136,9 @@ export function FloorFieldError(props: { children?: JSX.Element }) {
       <div>{props.children}</div>
     </Show>
   );
+}
+
+/** The form: a `<form>` that skips the browser's validation UI. */
+export function FloorForm(props: { children?: JSX.Element }) {
+  return <form novalidate>{props.children}</form>;
 }

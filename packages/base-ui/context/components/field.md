@@ -1,17 +1,18 @@
 ---
-tags: [field, fieldset, native, forms, perf]
-sources: [packages/base-ui/packages/solid/src/field, packages/base-ui/packages/solid/src/fieldset, packages/base-ui/packages/solid/src/field/root/FieldRoot.tsx, packages/base-ui/packages/solid/src/field/control/FieldControl.tsx, packages/base-ui/packages/solid/src/field/error/FieldError.tsx, packages/base-ui/packages/solid/test/floor/field.tsx]
+tags: [field, fieldset, form, native, forms, perf]
+sources: [packages/base-ui/packages/solid/src/field, packages/base-ui/packages/solid/src/fieldset, packages/base-ui/packages/solid/src/form/Form.tsx, packages/base-ui/packages/solid/src/field/root/FieldRoot.tsx, packages/base-ui/packages/solid/src/field/control/FieldControl.tsx, packages/base-ui/packages/solid/src/field/error/FieldError.tsx, packages/base-ui/packages/solid/test/floor/field.tsx]
 verified: 2026-10-22
 ---
 
-# Field and Fieldset
+# Field, Fieldset and Form
 
-Field and Fieldset are fully ported. With plain props, Fieldset.Root and Legend and Field.Root, Label, Control, Description and Error render natively (D32): a field in a fieldset costs 57 dev nodes against 123 on the slow path, and mounting fieldset/300 keeps 2.6 MB against React's 3.2 MB.
+Field, Fieldset and Form are fully ported. With plain props, Form, Fieldset.Root and Legend and Field.Root, Label, Control, Description and Error render natively (D32): a field in a fieldset in a form costs 62 dev nodes against 137 on the slow path, and mounting fieldset/300 keeps 2.6 MB against React's 3.2 MB.
 
 ## Native fast path
 
 `canRenderNative` picks the path once per part. The parts' logic (validation, labelable ids, the field's state) stays shared with the slow path; the native path renders through the kit.
 
+- Form (`form/Form.tsx`): a `<form novalidate>` with its submit handler. The form calls the consumer's `onSubmit` itself once its fields are valid, so its handler is a plain dispatcher rather than a `partHandler` (which would call the consumer's handler first).
 - Fieldset.Root (`fieldset/root/FieldsetRoot.tsx`): a `<fieldset>` with its legend's id and `disabled`.
 - Fieldset.Legend (`fieldset/legend/FieldsetLegend.tsx`): a `<div>` with its registered id; a static `id` needs no memo.
 - Field.Root (`field/root/FieldRoot.tsx`): a `<div>` with the field's state attributes. `FieldRoot` passes its props to the inner part with `createComponent`, since a JSX spread would make them a proxy and take the slow path.
@@ -28,6 +29,7 @@ Field.Item and Field.Validity stay on the slow path.
 
 | Part | Slow path | Native | Floor |
 | :--- | ---: | ---: | ---: |
+| Form | 14 | 5 | 3 |
 | Fieldset.Root | 13 | 3 | 10 |
 | Fieldset.Legend | 11 | 4 | 3 |
 | Field.Root | 26 | 16 | 9 |
@@ -38,19 +40,20 @@ Field.Item and Field.Validity stay on the slow path.
 
 The floor's Fieldset.Root counts its JSX context provider, which the native part replaces with `provideNativeContext`.
 
-`field.parity.test.tsx` renders a fieldset with a field through both paths and compares the documents after focusing, typing, blurring, a required value cleared, a custom error, and disabling the fieldset.
+`field.parity.test.tsx` renders a form with a fieldset and a field through both paths and compares the documents after focusing, typing, blurring, a required value cleared, a custom error, submitting, and disabling the fieldset.
 
 Chromium heap the bench step keeps (production builds, a heap snapshot after a full collection):
 
 | Scenario | React | Solid before D32 | Solid, native parts |
 | :--- | ---: | ---: | ---: |
 | fieldset/300 mount | 3,210 KB | 6,309 KB | 2,629 KB |
+| form/50-fields mount | 2,393 KB | 3,790 KB | 1,979 KB |
 | field/uncontrolled-typing mount | 475 KB | 423 KB | 302 KB |
 
 ## Post-sweep leaves
 
 - Field.Control renders on the slow path on the server and while hydrating. The server prints the value as the `value` attribute, and hydration keeps a control's form-state attributes (`value`, `checked`), which `useRenderElement` reconciles and the native kit does not: the kit's hydration check flagged `value` against the client's `defaultValue`. Teaching the kit those attributes would make a hydrated control native too.
-- Field.Item, Field.Validity and Form are still on the slow path.
+- Field.Item and Field.Validity are still on the slow path.
 
 ## Known issues and divergences
 
