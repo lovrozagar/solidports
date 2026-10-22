@@ -1,7 +1,15 @@
-import { children as resolveChildren, createComponent, createEffect, Show, untrack } from 'solid-js';
+import {
+  children as resolveChildren,
+  createComponent,
+  createEffect,
+  getOwner,
+  Show,
+  untrack,
+} from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useId } from '../../utils/useId';
+import { runInLazyScope } from '../../utils/runInLazyScope';
 import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
 import type { NativeElementTemplate, SetAttribute } from '../../utils/native/element';
 import { useToastRootContext } from '../root/ToastRootContext';
@@ -115,21 +123,36 @@ export function renderNativeToastLabel(
   registerLabelId(shouldRender, id, setId);
   const model = new ToastLabelModel(root, id, children);
 
+  const build = () =>
+    untrack(
+      () =>
+        renderNativeElement(template, props, {
+          own: LABEL_OWN_KEYS,
+          state: labelStateOf,
+          stateView: model,
+          stateWriter: writeLabelState,
+          attributes: writeLabelAttributes,
+          handlerTarget: model,
+          reactive: true,
+          children: () => labelContentOf(model),
+        }) as unknown as JSX.Element,
+    );
+
+  // Built once, as the slow path's element (GOTCHA-020): Title and Description are sibling `Show`s,
+  // and the other one appearing re-reads this branch. A label rendered at creation (which the
+  // server may have rendered) builds under this part, so hydration claims it; one that appears
+  // later builds in a lazy scope of this part.
+  const owner = getOwner();
+  let element: JSX.Element | undefined = untrack(shouldRender) ? build() : undefined;
+
   return createComponent(Show, {
     get when() {
       return shouldRender();
     },
-    children: () =>
-      renderNativeElement(template, props, {
-        own: LABEL_OWN_KEYS,
-        state: labelStateOf,
-        stateView: model,
-        stateWriter: writeLabelState,
-        attributes: writeLabelAttributes,
-        handlerTarget: model,
-        reactive: true,
-        children: () => labelContentOf(model),
-      }) as unknown as JSX.Element,
+    children: () => {
+      element ??= runInLazyScope(owner, build);
+      return element;
+    },
   });
 }
 
