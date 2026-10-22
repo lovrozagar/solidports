@@ -1,5 +1,5 @@
 import { expect, vi, describe, it } from 'vitest';
-import { createSignal, Show } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { Dynamic } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { Toast } from '@solidports/base-ui/toast';
@@ -52,6 +52,45 @@ describe('useToastLabelPart', () => {
 
       await user.click(screen.getByRole('button', { name: 'add' }));
     }
+
+    // Solid: Title and Description are sibling `Show`s in their parent's children (GOTCHA-020);
+    // the other one appearing must not rebuild this one's element.
+    it('keeps its element when the other label appears', async () => {
+      const manager = Toast.createToastManager();
+      const other = field === 'title' ? 'description' : 'title';
+      function Toasts() {
+        const { toasts } = Toast.useToastManager();
+        return (
+          <For each={toasts()}>
+            {(toast) => (
+              <Toast.Root toast={toast}>
+                <Toast.Title data-testid="title" />
+                <Toast.Description data-testid="description" />
+              </Toast.Root>
+            )}
+          </For>
+        );
+      }
+      await render(() => (
+        <Toast.Provider toastManager={manager} timeout={0}>
+          <Toast.Viewport>
+            <Toasts />
+          </Toast.Viewport>
+        </Toast.Provider>
+      ));
+      await act(() => {
+        manager.add({ id: 'a', [field]: 'Shown' });
+      });
+      const label = screen.getByTestId(field);
+      expect(screen.queryByTestId(other)).toBe(null);
+
+      await act(() => {
+        manager.update('a', { [other]: 'Added' });
+      });
+
+      expect(screen.getByTestId(other)).toHaveTextContent('Added');
+      expect(screen.getByTestId(field)).toBe(label);
+    });
 
     it('throws a descriptive error when rendered outside <Toast.Root>', async () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
