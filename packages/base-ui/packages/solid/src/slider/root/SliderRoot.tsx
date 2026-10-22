@@ -1,3 +1,4 @@
+import type { JSX } from '@solidjs/web';
 import { createMemo, createSignal, untrack } from 'solid-js';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
@@ -33,13 +34,60 @@ import type { BaseUIComponentProps, HTMLProps, Orientation } from '../../utils/t
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { warn } from '../../utils/warn';
 import type { ThumbMetadata } from '../thumb/SliderThumb';
 import { asc } from '../utils/asc';
 import { getSliderValue } from '../utils/getSliderValue';
 import { validateMinimumDistance } from '../utils/validateMinimumDistance';
 import { SliderRootContext } from './SliderRootContext';
-import { sliderStateAttributesMapping } from './stateAttributesMapping';
+import { sliderStateAttributesMapping, writeSliderState } from './stateAttributesMapping';
+
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+const ROOT_OWN_KEY_LIST = [
+  'aria-labelledby',
+  'defaultValue',
+  'disabled',
+  'id',
+  'format',
+  'largeStep',
+  'locale',
+  'max',
+  'min',
+  'minStepsBetweenValues',
+  'form',
+  'name',
+  'onValueChange',
+  'onValueCommitted',
+  'orientation',
+  'step',
+  'thumbCollisionBehavior',
+  'thumbAlignment',
+  'value',
+] as const;
+const NATIVE_ROOT_OWN_KEYS: ReadonlySet<string> = new Set([
+  ...ROOT_OWN_KEY_LIST,
+  // Merged with the field's own: the description ids and the invalid state.
+  'aria-describedby',
+  'aria-invalid',
+]);
+const ROOT_LITERAL = { role: 'group' };
+
+/** What the native root's attributes read: one object per root. */
+interface SliderRootModel {
+  ariaLabelledby: () => string | undefined;
+  id: () => string | undefined;
+  validation: { readonly 'aria-describedby'?: unknown; readonly 'aria-invalid'?: unknown };
+}
+
+function writeRootAttributes(w: SetAttribute, model: SliderRootModel) {
+  w.set('aria-labelledby', model.ariaLabelledby());
+  w.set('id', model.id());
+  w.set('aria-describedby', model.validation['aria-describedby']);
+  w.set('aria-invalid', model.validation['aria-invalid']);
+}
 
 function areValuesEqual(
   newValue: number | readonly number[],
@@ -60,27 +108,12 @@ function areValuesEqual(
 export function SliderRoot<Value extends number | readonly number[]>(
   componentProps: SliderRoot.Props<Value>,
 ) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'aria-labelledby',
-    'defaultValue',
-    'disabled',
-    'id',
-    'format',
-    'largeStep',
-    'locale',
-    'max',
-    'min',
-    'minStepsBetweenValues',
-    'form',
-    'name',
-    'onValueChange',
-    'onValueCommitted',
-    'orientation',
-    'step',
-    'thumbCollisionBehavior',
-    'thumbAlignment',
-    'value',
-  ]);
+  // The native path reads the props as they are; only the slow path splits them into views.
+  // Client renders only, as the slider's other native parts.
+  const native = canRenderNative(componentProps);
+  const split = native ? undefined : splitComponentProps(componentProps, ROOT_OWN_KEY_LIST);
+  const local = split ? split[1] : componentProps;
+  const elementProps = split?.[2];
   const disabledProp = () => local.disabled ?? false;
   const largeStep = () => local.largeStep ?? 10;
   const max = () => local.max ?? 100;
@@ -407,27 +440,68 @@ export function SliderRoot<Value extends number | readonly number[]>(
     values,
   };
 
-  const element = useRenderElement('div', componentProps, {
-    state,
-    ref: sliderRef,
-    props: [
-      {
-        get 'aria-labelledby'() {
-          return ariaLabelledby();
+  const inField = fieldRootContext !== DEFAULT_FIELD_ROOT_CONTEXT;
+  const consumer = componentProps as Record<string, unknown>;
+  let nativeElement: JSX.Element | undefined;
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div role="group">`,
+  // no props view (D32). Built where the slow path's element resolves, inside the composite list,
+  // and once (GOTCHA-020).
+  const nativeRoot = () => {
+    nativeElement ??= renderNativeElement(DIV, componentProps, {
+      own: NATIVE_ROOT_OWN_KEYS,
+      state,
+      stateWriter: writeSliderState,
+      mapping: sliderStateAttributesMapping,
+      literal: ROOT_LITERAL,
+      attributes: writeRootAttributes,
+      handlerTarget: {
+        ariaLabelledby,
+        id,
+        // Outside a Field the consumer's own values; inside, the field's validation over them.
+        validation: inField
+          ? validation.getValidationSource(disabled, consumer)
+          : {
+              get 'aria-describedby'() {
+                return consumer['aria-describedby'];
+              },
+              get 'aria-invalid'() {
+                return consumer['aria-invalid'];
+              },
+            },
+      } satisfies SliderRootModel,
+      reactive: true,
+      refs: [
+        (el: HTMLDivElement | null) => {
+          sliderRef.current = el;
         },
-        get id() {
-          return id();
-        },
-        role: 'group',
-      },
-      elementProps,
-      // Outside a Field the validation props only return their input.
-      ...(fieldRootContext === DEFAULT_FIELD_ROOT_CONTEXT
-        ? []
-        : [(props: HTMLProps) => validation.getValidationProps(disabled(), props)]),
-    ],
-    stateAttributesMapping: sliderStateAttributesMapping,
-  });
+      ],
+    }) as unknown as JSX.Element;
+    return nativeElement;
+  };
+
+  const element = native
+    ? nativeRoot
+    : useRenderElement('div', componentProps, {
+        state,
+        ref: sliderRef,
+        props: [
+          {
+            get 'aria-labelledby'() {
+              return ariaLabelledby();
+            },
+            get id() {
+              return id();
+            },
+            role: 'group',
+          },
+          elementProps!,
+          // Outside a Field the validation props only return their input.
+          ...(fieldRootContext === DEFAULT_FIELD_ROOT_CONTEXT
+            ? []
+            : [(props: HTMLProps) => validation.getValidationProps(disabled(), props)]),
+        ],
+        stateAttributesMapping: sliderStateAttributesMapping,
+      });
 
   return provideContext(SliderRootContext, contextValue, () => (
     <CompositeList refs={{ elements: thumbRefs.current }} onMapChange={setThumbMap}>

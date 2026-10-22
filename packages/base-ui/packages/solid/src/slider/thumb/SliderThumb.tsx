@@ -30,17 +30,58 @@ import type { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../..
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useIsHydrating } from '../../utils/useIsHydrating';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { valueToPercent } from '../../utils/valueToPercent';
 import { visuallyHidden } from '../../utils/visuallyHidden';
 import type { SliderRootState } from '../root/SliderRoot';
 import { useSliderRootContext } from '../root/SliderRootContext';
-import { sliderStateAttributesMapping } from '../root/stateAttributesMapping';
+import { sliderStateAttributesMapping, writeSliderState } from '../root/stateAttributesMapping';
 import { getMidpoint } from '../utils/getMidpoint';
 import { getSliderValue } from '../utils/getSliderValue';
 import { getDecimalPrecision, roundValueToStep } from '../utils/roundValueToStep';
 import { script as prehydrationScript } from './prehydrationScript.min';
 import * as SliderThumbDataAttributes from './SliderThumbDataAttributes';
 import { releaseServerFormState } from '../../utils/releaseServerFormState';
+
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+const THUMB_OWN_KEY_LIST = [
+  'children',
+  'aria-describedby',
+  'aria-label',
+  'aria-labelledby',
+  'aria-valuetext',
+  'disabled',
+  'getAriaLabel',
+  'getAriaValueText',
+  'id',
+  'index',
+  'inputRef',
+  'onBlur',
+  'onFocus',
+  'onKeyDown',
+  'tabIndex',
+] as const;
+const THUMB_OWN_KEYS: ReadonlySet<string> = new Set(THUMB_OWN_KEY_LIST);
+
+/** What the native thumb's attributes and handlers read: one object per thumb. */
+interface SliderThumbModel {
+  index: () => number;
+  id: () => string | undefined;
+  onPointerDown: (event: PointerEvent) => void;
+}
+
+function writeThumbAttributes(w: SetAttribute, model: SliderThumbModel) {
+  w.set(SliderThumbDataAttributes.index, model.index());
+  w.set('id', model.id());
+}
+
+const THUMB_HANDLERS = {
+  onPointerDown: partHandler<SliderThumbModel, PointerEvent>('onPointerDown', (model, event) =>
+    model.onPointerDown(event),
+  ),
+};
 
 const ALL_KEYS = new Set([...COMPOSITE_KEYS, PAGE_UP, PAGE_DOWN]);
 
@@ -88,23 +129,12 @@ function getNewValue(
  * Documentation: [Base UI Slider](https://base-ui.com/react/components/slider)
  */
 export function SliderThumb(componentProps: SliderThumb.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'children',
-    'aria-describedby',
-    'aria-label',
-    'aria-labelledby',
-    'aria-valuetext',
-    'disabled',
-    'getAriaLabel',
-    'getAriaValueText',
-    'id',
-    'index',
-    'inputRef',
-    'onBlur',
-    'onFocus',
-    'onKeyDown',
-    'tabIndex',
-  ]);
+  // The native path reads the props as they are; only the slow path splits them into views.
+  // Client renders only: the last inset thumb renders the slider's prehydration script.
+  const native = canRenderNative(componentProps);
+  const split = native ? undefined : splitComponentProps(componentProps, THUMB_OWN_KEY_LIST);
+  const local = split ? split[1] : componentProps;
+  const elementProps = split?.[2];
 
   const id = useBaseUiId(() => local.id);
 
@@ -554,23 +584,61 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
     }
   }
 
+  function handlePointerDown(event: PointerEvent) {
+    // Keep disabled thumbs from writing transient pointer state.
+    if (untrack(disabled)) {
+      return;
+    }
+
+    const isVertical = untrack(vertical);
+    pressedThumbIndexRef.current = untrack(index);
+    const midpoint = getMidpoint(event.currentTarget as HTMLElement, isVertical);
+    pressedThumbCenterOffsetRef.current = (isVertical ? event.clientY : event.clientX) - midpoint;
+  }
+
+  const content = () => (
+    <>
+      {local.children}
+      <input
+        ref={mergedInputRef}
+        {...(inputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)}
+      />
+      {/* Rendered with the last thumb to ensure all preceding thumbs are already in the DOM. */}
+      <Show when={inset() && last() && renderBeforeHydration()}>
+        <PrehydrationScript script={prehydrationScript} />
+      </Show>
+    </>
+  );
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div>` with its index,
+  // id, position style and range input, no props view (D32).
+  if (native) {
+    const model: SliderThumbModel = { index, id, onPointerDown: handlePointerDown };
+    return renderNativeElement(DIV, componentProps, {
+      own: THUMB_OWN_KEYS,
+      state,
+      stateWriter: writeSliderState,
+      mapping: sliderStateAttributesMapping,
+      attributes: writeThumbAttributes,
+      handlers: THUMB_HANDLERS,
+      handlerTarget: model,
+      partStyle: thumbStyle,
+      reactive: true,
+      refs: [
+        listItemRef,
+        (el: HTMLDivElement | null) => {
+          thumbRef.current = el;
+        },
+      ],
+      children: content,
+    }) as unknown as JSX.Element;
+  }
+
   const element = useRenderElement('div', componentProps, {
     state,
     ref: [listItemRef, thumbRef],
     get children() {
-      return (
-        <>
-          {local.children}
-          <input
-            ref={mergedInputRef}
-            {...(inputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)}
-          />
-          {/* Rendered with the last thumb to ensure all preceding thumbs are already in the DOM. */}
-          <Show when={inset() && last() && renderBeforeHydration()}>
-            <PrehydrationScript script={prehydrationScript} />
-          </Show>
-        </>
-      );
+      return content();
     },
     props: [
       {
@@ -580,23 +648,12 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
         get id() {
           return id();
         },
-        onPointerDown(event: PointerEvent) {
-          // Keep disabled thumbs from writing transient pointer state.
-          if (untrack(disabled)) {
-            return;
-          }
-
-          const isVertical = untrack(vertical);
-          pressedThumbIndexRef.current = untrack(index);
-          const midpoint = getMidpoint(event.currentTarget as HTMLElement, isVertical);
-          pressedThumbCenterOffsetRef.current =
-            (isVertical ? event.clientY : event.clientX) - midpoint;
-        },
+        onPointerDown: handlePointerDown,
         get style() {
           return thumbStyle();
         },
       },
-      elementProps,
+      elementProps!,
     ],
     stateAttributesMapping: sliderStateAttributesMapping,
   });

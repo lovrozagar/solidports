@@ -378,38 +378,32 @@ describe('<Slider.Control />', () => {
       expect(onValueCommitted).toHaveBeenCalledTimes(1);
     });
 
-    it(
-      'starts a touch drag that did not begin with a pointer event',
-      () => {
-        const { control, onValueChange } = renderCancelTestSlider();
+    it('starts a touch drag that did not begin with a pointer event', () => {
+      const { control, onValueChange } = renderCancelTestSlider();
 
-        fireEvent.touchStart(control, createTouches([{ identifier: 1, clientX: 40, clientY: 0 }]));
-        fireEvent.touchMove(
-          document.body,
-          createTouches([{ identifier: 1, clientX: 70, clientY: 0 }]),
-        );
+      fireEvent.touchStart(control, createTouches([{ identifier: 1, clientX: 40, clientY: 0 }]));
+      fireEvent.touchMove(
+        document.body,
+        createTouches([{ identifier: 1, clientX: 70, clientY: 0 }]),
+      );
 
-        expect(onValueChange.mock.calls.at(-1)?.[0]).toBe(70);
-      },
-    );
+      expect(onValueChange.mock.calls.at(-1)?.[0]).toBe(70);
+    });
 
-    it(
-      'ignores a touch start that does not land on a thumb',
-      () => {
-        const onValueChange = vi.fn();
-        render(() => (
-          <Slider.Root defaultValue={20} onValueChange={onValueChange}>
-            <Slider.Control data-testid="control" />
-          </Slider.Root>
-        ));
-        const control = screen.getByTestId('control');
-        vi.spyOn(control, 'getBoundingClientRect').mockImplementation(getHorizontalSliderRect);
+    it('ignores a touch start that does not land on a thumb', () => {
+      const onValueChange = vi.fn();
+      render(() => (
+        <Slider.Root defaultValue={20} onValueChange={onValueChange}>
+          <Slider.Control data-testid="control" />
+        </Slider.Root>
+      ));
+      const control = screen.getByTestId('control');
+      vi.spyOn(control, 'getBoundingClientRect').mockImplementation(getHorizontalSliderRect);
 
-        fireEvent.touchStart(control, createTouches([{ identifier: 1, clientX: 40, clientY: 0 }]));
+      fireEvent.touchStart(control, createTouches([{ identifier: 1, clientX: 40, clientY: 0 }]));
 
-        expect(onValueChange).not.toHaveBeenCalled();
-      },
-    );
+      expect(onValueChange).not.toHaveBeenCalled();
+    });
 
     it.skipIf(typeof Touch === 'undefined')(
       'keeps a touch drag going after pointercancel and commits and ends it on touchcancel',

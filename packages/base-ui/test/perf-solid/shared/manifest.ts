@@ -162,6 +162,17 @@ const renderFormCosts = (family: 'accordion' | 'collapsible') =>
  */
 export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   avatar: ['render core cost > an Avatar (Root, Image, Fallback) costs at most 49 reactive nodes'],
+  slider: [
+    'slider cost against the hand-written floor > the floor renders the same DOM as a slider',
+    "slider cost against the hand-written floor > a slider's parts render on the native path",
+    'slider cost against the hand-written floor > root costs at most its native budget',
+    'slider cost against the hand-written floor > label costs at most its native budget',
+    'slider cost against the hand-written floor > value costs at most its native budget',
+    'slider cost against the hand-written floor > control costs at most its native budget',
+    'slider cost against the hand-written floor > track costs at most its native budget',
+    'slider cost against the hand-written floor > indicator costs at most its native budget',
+    'slider cost against the hand-written floor > thumb costs at most its native budget',
+  ],
   'use-render': ['render core cost > a part built on useRender costs at most 16 reactive nodes'],
   accordion: [
     'native disclosure part cost > a closed Accordion item (Item + Header + Trigger + Panel) costs at most 14 nodes (dev)',
@@ -338,7 +349,6 @@ export const PENDING_COST: Partial<Record<ComponentName, string>> = {
   menubar: '8.1 composite lists family',
   'otp-field': '6.1 forms family',
   'scroll-area': '7.1 Tabs and ScrollArea family',
-  slider: '6.1 forms family',
   toolbar: '5.1 toggles family',
   'unstable-use-media-query': '4.1 static parts family',
 };
