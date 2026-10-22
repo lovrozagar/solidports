@@ -122,8 +122,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'PreviewCard', // before: 99, then 69, 56 (D32's closed-root unit)
-      55,
+      'PreviewCard', // before: 99, then 69, 56, 55 (D32's closed-root unit and native trigger)
+      44,
       () => (
         <PreviewCard.Root>
           <PreviewCard.Trigger href="#">Trigger</PreviewCard.Trigger>

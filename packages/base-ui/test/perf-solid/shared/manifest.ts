@@ -245,6 +245,9 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   'preview-card': [
     closedRoot('PreviewCard'),
     bareRoot('PreviewCard'),
+    'preview card cost against the hand-written floor > the floor renders the same DOM as a closed PreviewCard.Trigger',
+    'preview card cost against the hand-written floor > a closed PreviewCard.Trigger renders on the native path',
+    'preview card cost against the hand-written floor > a closed PreviewCard.Trigger costs at most the native trigger budget',
     '<PreviewCard.Trigger /> cost > builds its inline-rect props once, whatever its card and the active trigger do',
     '<PreviewCard.Trigger /> cost > records the pointer while its card is closed and keeps it while the card is open',
   ],
