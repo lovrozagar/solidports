@@ -43,6 +43,24 @@ describe('createKeyedSelector', () => {
     dispose();
   });
 
+  // Object values (a Select's or Combobox's item objects) are keyed by identity: a toggle re-runs
+  // only the objects that joined or left, not every object reader.
+  it('re-runs only the readers whose object joined or left the values', () => {
+    const a = { id: 'a' };
+    const b = { id: 'b' };
+    const c = { id: 'c' };
+    const [values, setValues] = createSignal<readonly unknown[]>([a]);
+    const { runs, seen, dispose } = track(values, [a, b, c, { id: 'a' }]);
+    expect([...seen.values()]).toEqual([true, false, false, false]);
+    runs.forEach((_, key) => runs.set(key, 0));
+
+    setValues([a, b]);
+    flush();
+    expect([...seen.values()]).toEqual([true, true, false, false]);
+    expect([...runs.values()]).toEqual([0, 1, 0, 0]);
+    dispose();
+  });
+
   // A selector rewrite must stay pulled: a writer that applies membership in an effect leaves a
   // reader that re-runs for another source in the same batch seeing the old membership with the
   // new value of that source for one pass (measured 2026-10-17: `second:open` before

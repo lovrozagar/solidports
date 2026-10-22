@@ -2,20 +2,44 @@ import { createProjection } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { isServer } from '@solidjs/web';
 
-type Key = string | number;
+type Key = string | number | object;
 
 const isKey = (value: unknown): value is Key =>
-  typeof value === 'string' || typeof value === 'number';
+  typeof value === 'string' ||
+  typeof value === 'number' ||
+  (typeof value === 'object' && value !== null) ||
+  typeof value === 'function';
 
-/** The projection's property for a key: numbers and strings apart (`1` is not `'1'`). */
-const slot = (key: Key) => (typeof key === 'number' ? `n${key}` : `s${key}`);
+/** An object's identity as a number, shared by every selector: weakly held, never reused. */
+const identities = new WeakMap<object, number>();
+let nextIdentity = 0;
+
+/**
+ * The projection's property for a key: numbers, strings and objects apart (`1` is not `'1'`), an
+ * object by identity.
+ */
+const slot = (key: Key) => {
+  if (typeof key === 'number') {
+    return `n${key}`;
+  }
+  if (typeof key === 'string') {
+    return `s${key}`;
+  }
+  let identity = identities.get(key);
+  if (identity === undefined) {
+    identity = nextIdentity;
+    nextIdentity += 1;
+    identities.set(key, identity);
+  }
+  return `o${identity}`;
+};
 
 /**
  * Membership of keys in a list's selected `values` (an Accordion's open items), from one keyed
  * projection created by the list's owner (core spec S4): `isSelected(key)` reads only `key`'s
  * entry, so a change of `values` re-runs only the readers of the keys that joined or left it,
- * where a memo per item re-runs every item. A key that is neither a string nor a number is
- * compared by identity against `values` itself. The projection exists on both sides (hydration ids
+ * where a memo per item re-runs every item. An object is keyed by identity; any other key (`null`,
+ * a boolean) is compared by identity against `values` itself. The projection exists on both sides (hydration ids
  * align); the server reads `values` directly.
  */
 export interface KeyedSelector {

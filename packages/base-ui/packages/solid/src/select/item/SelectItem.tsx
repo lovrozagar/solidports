@@ -1,5 +1,13 @@
-import { createEffect, createMemo, createRenderEffect, onCleanup, untrack } from 'solid-js';
-import type { Accessor } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createRenderEffect,
+  getOwner,
+  onCleanup,
+  runWithOwner,
+  untrack,
+} from 'solid-js';
+import type { Accessor, Owner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   IndexGuessBehavior,
@@ -119,8 +127,26 @@ class NativeSelectItemModel implements SelectItemContext {
     this.registeredIndex = -1;
     this.registeredValue = undefined;
     this.state = new NativeSelectItemState(this);
-    this.selected = createMemo(() => root.store.select('isSelected', () => this.value()));
+    this.owner = getOwner();
+    this.compared = undefined;
   }
+
+  /**
+   * The item's selection: its value's entry in the root's keyed membership, so a selection change
+   * re-runs only the items that joined or left it (D32's batch 1 regate: every item re-reading the
+   * whole value took select/multiple-1000's toggle 50 from 86 to 188 ms). A custom
+   * `isItemEqualToValue` cannot be keyed: the item then compares in a memo of its own.
+   */
+  readonly selected = (): boolean => {
+    const { root } = this;
+    if (!root.customItemEquality()) {
+      return root.selectedMembership(this.value());
+    }
+    this.compared ??= runWithOwner(this.owner, () =>
+      createMemo(() => root.store.select('isSelected', () => this.value())),
+    );
+    return this.compared();
+  };
 
   value() {
     return this.props.value ?? null;
@@ -132,11 +158,8 @@ class NativeSelectItemModel implements SelectItemContext {
 
   readonly hasRegistered = () => this.index() !== -1;
 
-  /**
-   * The item's selection, as its own memo: `isSelected` is not keyed (multiple selection compares
-   * against an array), so without it every value change re-ran every item's bindings.
-   */
-  declare readonly selected: Accessor<boolean>;
+  declare private readonly owner: Owner | null;
+  declare private compared: Accessor<boolean> | undefined;
 
   readonly selectedByFocus = () => this.root.store.select('isSelectedByFocus', this.index);
 

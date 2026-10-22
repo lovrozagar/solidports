@@ -28,6 +28,8 @@ import { useLabelableId } from '../../internals/labelable-provider/useLabelableI
 import { createDepsMemo, provideContext, useRef } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
+import { createKeyedSelector } from '../../utils/createKeyedSelector';
+import type { KeyedSelector } from '../../utils/createKeyedSelector';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import {
@@ -586,6 +588,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   const popupProps = getFloatingProps();
   const rootOwner = getOwner();
   let itemProps: Record<string, unknown> | undefined;
+  let selectedMembership: KeyedSelector | undefined;
 
   // One lazy view, built once: a `mergeProps` memo would enumerate the live reference props on
   // every key-set change (e.g. on open) and hand the trigger a new object, rebuilding its props.
@@ -646,6 +649,20 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       itemProps ??= runWithOwner(rootOwner, () => getItemProps());
       return itemProps;
     },
+    get selectedMembership() {
+      selectedMembership ??= runWithOwner(rootOwner, () =>
+        createKeyedSelector(() => {
+          const selected = store.state.value;
+          if (multiple()) {
+            return Array.isArray(selected) ? selected : EMPTY_ARRAY;
+          }
+          // An unset value is a member too: an item without a value matches it, as `isSelected` does.
+          return [selected];
+        }),
+      );
+      return selectedMembership;
+    },
+    customItemEquality: () => props.isItemEqualToValue != null,
     get events() {
       return floatingContext.context.events;
     },
