@@ -212,6 +212,9 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   combobox: [
     closedRoot('Combobox'),
     'render core cost > Combobox.Item costs at most 23 reactive nodes',
+    'combobox cost against the hand-written floor > the floor renders the same option DOM as an open Combobox.Item',
+    'combobox cost against the hand-written floor > an open Combobox.Item renders on the native path',
+    'combobox cost against the hand-written floor > an open Combobox.Item costs at most the floor item plus 25%',
   ],
   'context-menu': [closedRoot('ContextMenu')],
   dialog: [closedRoot('Dialog')],

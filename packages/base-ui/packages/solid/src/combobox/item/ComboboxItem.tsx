@@ -1,4 +1,4 @@
-import { createMemo, createSignal, untrack } from 'solid-js';
+import { createMemo, createRenderEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
@@ -13,8 +13,24 @@ import {
 } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { compareItemEquality, findItemIndex, resolveSelectedIndex } from '../../utils/itemEquality';
-import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
+import type {
+  BaseUIComponentProps,
+  BaseUIEvent,
+  HTMLProps,
+  NonNativeButtonProps,
+} from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative, partHandler, readHandler } from '../../utils/native';
+import type { Dispatch } from '../../utils/native';
+import {
+  compileStateWriter,
+  currentWritePass,
+  renderNativeElement,
+} from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
+import { provideNativeContext } from '../../utils/native/context';
+import { createNativeListItem } from '../../utils/native/listItem';
+import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
 import { propsSourceMemo } from '../../utils/propsView';
 import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { flushSync } from '../../utils/flushSync';
@@ -25,6 +41,392 @@ import {
 } from '../root/ComboboxRootContext';
 import { useComboboxRowContext } from '../row/ComboboxRowContext';
 import { ComboboxItemContext } from './ComboboxItemContext';
+import type { ComboboxStore } from '../store';
+
+/** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
+const NATIVE_STATIC_KEYS = ['nativeButton', 'index'] as const;
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set(['value', 'index', 'disabled', 'nativeButton']);
+const OPTION: Record<string, unknown> = { role: 'option' };
+const GRIDCELL: Record<string, unknown> = { role: 'gridcell' };
+const GUESS_INDEX = { guessIndex: true } as const;
+
+type ItemEvent<T extends Event> = BaseUIEvent<T>;
+
+/**
+ * The item's state, as `class`/`style` functions and its `data-*` attributes read it: prototype
+ * getters over the item, each selection read once per write pass (a keyed read registers a
+ * release per read, and the attribute write reads them too).
+ */
+class NativeComboboxItemState implements ComboboxItem.State {
+  declare private readonly item: NativeComboboxItemModel;
+  declare private pass: number;
+  declare private cachedHighlighted: boolean;
+  declare private cachedSelected: boolean;
+
+  constructor(item: NativeComboboxItemModel) {
+    this.item = item;
+    this.pass = -1;
+    this.cachedHighlighted = false;
+    this.cachedSelected = false;
+  }
+
+  private read() {
+    const pass = currentWritePass();
+    if (this.pass !== pass) {
+      this.pass = pass;
+      this.cachedHighlighted = this.item.highlighted();
+      this.cachedSelected = this.item.selected();
+    }
+  }
+
+  get disabled() {
+    return this.item.disabled();
+  }
+
+  get selected() {
+    this.read();
+    return this.cachedSelected;
+  }
+
+  get highlighted() {
+    this.read();
+    return this.cachedHighlighted;
+  }
+}
+
+interface ItemRegistration {
+  registered: boolean;
+  hasItems: boolean;
+  index: number;
+  value: unknown;
+  isItemEqualToValue: (itemValue: any, selectedValue: any) => boolean;
+}
+
+/**
+ * A native open combobox item: its model, the target of its module-level handlers, its capture
+ * listener and its attribute write, and the value its item parts read through
+ * `ComboboxItemContext`. One object per item.
+ */
+class NativeComboboxItemModel implements ComboboxItemContext {
+  declare readonly props: ComboboxItem.Props;
+  declare readonly store: ComboboxStore;
+  declare readonly hasItems: Accessor<boolean>;
+  declare readonly index: Accessor<number>;
+  declare readonly textRef: { current: HTMLElement | null | undefined };
+  declare readonly state: NativeComboboxItemState;
+  /** The `valuesRef` slot this item last wrote, so a move or an unmount clears only its own. */
+  declare registeredIndex: number;
+  declare registeredValue: unknown;
+
+  constructor(
+    props: ComboboxItem.Props,
+    store: ComboboxStore,
+    hasItems: Accessor<boolean>,
+    index: Accessor<number>,
+  ) {
+    this.props = props;
+    this.store = store;
+    this.hasItems = hasItems;
+    this.index = index;
+    this.textRef = { current: null };
+    this.state = new NativeComboboxItemState(this);
+    this.registeredIndex = -1;
+    this.registeredValue = undefined;
+  }
+
+  value() {
+    return this.props.value ?? null;
+  }
+
+  disabled() {
+    return this.store.state.disabled || Boolean(this.props.disabled);
+  }
+
+  highlighted() {
+    return this.store.select('isActive', this.index);
+  }
+
+  readonly selected = () =>
+    this.store.state.selectionMode !== 'none' &&
+    this.store.select('isSelected', () => this.value());
+
+  id() {
+    const rootId = this.store.state.id;
+    const index = this.index();
+    return rootId != null && index !== -1 ? `${rootId}-${index}` : undefined;
+  }
+
+  private clearSlot() {
+    const values = this.store.context.valuesRef.current;
+    if (this.registeredIndex !== -1 && values[this.registeredIndex] === this.registeredValue) {
+      delete values[this.registeredIndex];
+    }
+    this.registeredIndex = -1;
+  }
+
+  /** The visible-values slot and the selected-index claim (React's two layout effects). */
+  register(deps: ItemRegistration) {
+    this.clearSlot();
+    if (!deps.registered || deps.hasItems) {
+      return;
+    }
+    this.store.context.valuesRef.current[deps.index] = deps.value;
+    this.registeredIndex = deps.index;
+    this.registeredValue = deps.value;
+    // Runs while closed as well (the list can stay mounted via `keepMounted` or a force-mount), so
+    // the index tracks the item's composite position, keeping closed-trigger typeahead in sync
+    // when the rendered order changes.
+    const store = this.store;
+    const selectedValue = store.state.selectedValue;
+    let nextIndex = store.state.selectedIndex;
+    if (store.state.selectionMode === 'multiple' && Array.isArray(selectedValue)) {
+      nextIndex = resolveSelectedIndex(
+        deps.index,
+        deps.value,
+        store.context.valuesRef.current,
+        selectedValue,
+        deps.isItemEqualToValue,
+        nextIndex,
+      );
+    } else if (compareItemEquality(deps.value, selectedValue, deps.isItemEqualToValue)) {
+      nextIndex = deps.index;
+    }
+    store.set('selectedIndex', nextIndex);
+  }
+
+  unregister() {
+    this.clearSlot();
+  }
+
+  /** The capture-phase pointerdown (an `EventListener` object: no closure per item). */
+  handleEvent(event: Event) {
+    // The compat `mouseup` only fires for the primary pointer, so a non-primary touch must not
+    // overwrite the shared ref: a mismatch would make the primary pointer's release read as a
+    // drag-select and commit a second time after `click`.
+    if ((event as PointerEvent).isPrimary) {
+      this.store.context.pointerDownItemRef.current = event.currentTarget as Element;
+    }
+    event.preventDefault();
+  }
+
+  /** The root's list navigation handler for `key` (none until the interactions are created). */
+  callListNavigation(key: string, event: Event) {
+    const handler = readHandler(this.store.state.itemProps, key);
+    if (handler) {
+      handler(event);
+    }
+  }
+
+  commitSelection(nativeEvent: MouseEvent) {
+    const store = this.store;
+    const selectItem = () => store.context.handleSelection(nativeEvent, this.value());
+    if (store.state.submitOnItemClick) {
+      flushSync(selectItem);
+      store.context.requestSubmit();
+    } else {
+      selectItem();
+    }
+  }
+
+  mouseDown(event: MouseEvent) {
+    // iOS Safari can emit a synthetic mousedown for touch taps without a preceding pointerdown.
+    // Prevent default here too so tapping an item does not blur the input.
+    event.preventDefault();
+    this.callListNavigation('onMouseDown', event);
+  }
+
+  click(event: MouseEvent) {
+    if (!this.disabled() && !this.store.state.readOnly) {
+      this.commitSelection(event);
+    }
+    this.callListNavigation('onClick', event);
+  }
+
+  mouseUp(event: MouseEvent) {
+    const store = this.store;
+    const pointerStartedOnItem = store.context.pointerDownItemRef.current === event.currentTarget;
+    store.context.pointerDownItemRef.current = null;
+    if (
+      !this.disabled() &&
+      !store.state.readOnly &&
+      event.button === 0 &&
+      !pointerStartedOnItem &&
+      untrack(() => this.highlighted())
+    ) {
+      this.commitSelection(event);
+    }
+    this.callListNavigation('onMouseUp', event);
+  }
+}
+
+/** The registration inputs: tracked by the item's one registration effect. */
+function readRegistration(item: NativeComboboxItemModel): ItemRegistration {
+  const index = item.index();
+  return {
+    registered: index !== -1,
+    hasItems: item.hasItems(),
+    index,
+    value: item.value(),
+    isItemEqualToValue: item.store.state.isItemEqualToValue,
+  };
+}
+
+/**
+ * `useButton`'s keydown after the lower-priority handlers, for a non-native composite item that is
+ * not a link: Space and Enter click the item (Space unless typeahead prevented it).
+ */
+function compositeItemKeyDownAfter(event: ItemEvent<KeyboardEvent>) {
+  if (event.baseUIHandlerPrevented || event.target !== event.currentTarget) {
+    return;
+  }
+  const currentTarget = event.currentTarget as Element;
+  if (event.key === ' ') {
+    const role = currentTarget.getAttribute('role');
+    const isTextNavigationRole =
+      role?.startsWith('menuitem') || role === 'option' || role === 'gridcell';
+    if (event.defaultPrevented && isTextNavigationRole) {
+      return;
+    }
+    event.preventDefault();
+    event.preventBaseUIHandler();
+    dispatchClickWithModifiers(currentTarget, event);
+    return;
+  }
+  if (event.key !== 'Enter' || event.defaultPrevented) {
+    return;
+  }
+  event.preventDefault();
+  event.preventBaseUIHandler();
+  dispatchClickWithModifiers(currentTarget, event);
+}
+
+/** A disabled item cancels the event and runs no handler (`useButton`'s click and pointerdown). */
+function preventWhileDisabled(item: NativeComboboxItemModel, event: Event) {
+  if (item.disabled()) {
+    event.preventDefault();
+    return false;
+  }
+  return true;
+}
+
+const callListNavigation = (key: string) => (item: NativeComboboxItemModel, event: Event) =>
+  item.callListNavigation(key, event);
+
+/**
+ * A native item's handlers, in the slow path's `mergeProps` order (the button's wrappers, then the
+ * consumer's, then the item's own, then the root's list navigation), created once.
+ */
+const ITEM_HANDLERS: Readonly<Record<string, Dispatch<NativeComboboxItemModel>>> = {
+  onClick: partHandler<NativeComboboxItemModel, MouseEvent>(
+    'onClick',
+    (item, event) => item.click(event),
+    preventWhileDisabled,
+  ),
+  onMouseDown: partHandler<NativeComboboxItemModel, MouseEvent>(
+    'onMouseDown',
+    (item, event) => item.mouseDown(event),
+    (item) => !item.disabled(),
+  ),
+  onMouseUp: partHandler<NativeComboboxItemModel, MouseEvent>('onMouseUp', (item, event) =>
+    item.mouseUp(event),
+  ),
+  onKeyDown: partHandler<NativeComboboxItemModel, KeyboardEvent>(
+    'onKeyDown',
+    (item, event) => {
+      item.callListNavigation('onKeyDown', event);
+      compositeItemKeyDownAfter(event);
+    },
+    (item, event) => {
+      // `useFocusableWhenDisabled`: a disabled item keeps Tab and blocks every other key.
+      if (item.disabled() && event.key !== 'Tab') {
+        event.preventDefault();
+      }
+      return !item.disabled();
+    },
+  ),
+  onFocus: partHandler<NativeComboboxItemModel, FocusEvent>(
+    'onFocus',
+    callListNavigation('onFocus'),
+  ),
+  onMouseMove: partHandler<NativeComboboxItemModel, MouseEvent>(
+    'onMouseMove',
+    callListNavigation('onMouseMove'),
+  ),
+  onPointerLeave: partHandler<NativeComboboxItemModel, PointerEvent>(
+    'onPointerLeave',
+    callListNavigation('onPointerLeave'),
+  ),
+  onPointerDown: partHandler<NativeComboboxItemModel, PointerEvent>(
+    'onPointerDown',
+    callListNavigation('onPointerDown'),
+    preventWhileDisabled,
+  ),
+};
+
+/** Bound only when the consumer passes them: `useButton`'s gate around the consumer's handler. */
+const ITEM_HANDLERS_IF_PASSED: Readonly<Record<string, Dispatch<NativeComboboxItemModel>>> = {
+  onKeyUp: partHandler<NativeComboboxItemModel>('onKeyUp', undefined, (item) => !item.disabled()),
+};
+
+/** The item state's `data-*` attributes in the slow path's key order. */
+const writeItemState = compileStateWriter(['disabled', 'selected', 'highlighted'], undefined);
+
+/** The item's own attributes below the consumer's: one write per pass. */
+function writeItemAttributes(w: SetAttribute, item: NativeComboboxItemModel) {
+  const state = item.state;
+  w.set('id', item.id());
+  let ariaSelected: 'true' | 'false' | undefined;
+  if (item.store.state.selectionMode !== 'none') {
+    ariaSelected = state.selected ? 'true' : 'false';
+  }
+  w.set('aria-selected', ariaSelected);
+  // `useFocusableWhenDisabled` for a non-native composite item.
+  w.set('aria-disabled', state.disabled ? 'true' : undefined);
+}
+
+const itemState = (item: NativeComboboxItemModel) => item.state;
+
+function NativeComboboxItem(props: ComboboxItem.Props, isRow: boolean): JSX.Element {
+  const store = useComboboxRootContext();
+  const hasItems = useComboboxHasItemsContext();
+  let item: NativeComboboxItemModel | undefined;
+  const listItem = createNativeListItem<null>(null, {
+    ...GUESS_INDEX,
+    textRef: () => item!.textRef.current,
+  });
+  item = new NativeComboboxItemModel(props, store, hasItems, listItem.index);
+  const model = item;
+  createRenderEffect(
+    () => readRegistration(model),
+    (deps) => untrack(() => model.register(deps)),
+  );
+  void onCleanup(() => model.unregister());
+
+  const el = (<div />) as unknown as HTMLDivElement;
+  return provideNativeContext(ComboboxItemContext, model as ComboboxItemContext, () =>
+    renderNativeElement(el, props, {
+      own: OWN_KEYS,
+      state: itemState,
+      stateWriter: writeItemState,
+      stateView: model.state,
+      reactive: true,
+      literal: isRow ? GRIDCELL : OPTION,
+      attributes: writeItemAttributes,
+      handlers: ITEM_HANDLERS,
+      handlersIfPassed: ITEM_HANDLERS_IF_PASSED,
+      handlerTarget: model,
+      refs: [
+        listItem.setRef,
+        (node: HTMLElement | null) => {
+          if (node) {
+            node.addEventListener('pointerdown', model, true);
+          }
+        },
+      ],
+    }),
+  ) as unknown as JSX.Element;
+}
 
 interface ComboboxItemInnerProps {
   componentProps: ComboboxItem.Props;
@@ -329,6 +731,18 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
   if (untrack(() => virtualized() && componentProps.index == null)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return <ComboboxItemVirtualizedIndex componentProps={componentProps} />;
+  }
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a listed item (no `index`, not
+  // virtualized) renders its option with direct JSX; `useButton` and the composite list item
+  // inlined (D32). `nativeButton` asks for a `<button>`, which keeps the slow path.
+  if (
+    untrack(() => !virtualized() && componentProps.index == null) &&
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    untrack(() => componentProps.nativeButton) !== true
+  ) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+    return NativeComboboxItem(componentProps, Boolean(useComboboxRowContext()));
   }
 
   return (

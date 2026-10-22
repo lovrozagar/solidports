@@ -1,12 +1,12 @@
 ---
-tags: [combobox, floating, composite, perf]
-sources: [packages/base-ui/packages/solid/src/combobox, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/combobox/item/ComboboxItem.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-17
+tags: [combobox, native, floating, composite, perf]
+sources: [packages/base-ui/packages/solid/src/combobox, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/combobox/item/ComboboxItem.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/combobox/combobox.cost.test.tsx, packages/base-ui/packages/solid/test/floor/combobox.tsx]
+verified: 2026-10-22
 ---
 
 # Combobox
 
-Combobox is fully ported on the slow `useRenderElement` path; filtering and closing beat React by large margins, while open, clear and reopen with 1000 items cost 2–3x React.
+Combobox is fully ported; its listed items render natively (D32), so opening combobox/1000 keeps 5.7 MB against React's 9.3 MB, while the root, input and popup parts are still on the slow `useRenderElement` path.
 
 ## Status
 
@@ -27,7 +27,11 @@ All under `packages/base-ui/packages/solid/src/combobox/`. The shared engine is 
 
 ## Native fast path
 
-No. No Combobox file imports `utils/native`; every part renders through `useRenderElement`. See [render pipeline](../architecture/render-pipeline.md).
+`Combobox.Item` for a listed item (the D32 sweep, after Select and Menu), in Combobox and Autocomplete alike. The other parts still render through `useRenderElement`. See [render pipeline](../architecture/render-pipeline.md).
+
+- The item renders its `<div role="option">` (`gridcell` in a row) through the kit when its props are plain, the list is not virtualized, it has no `index` prop and `nativeButton` is not `true`. One `NativeComboboxItemModel` per item is the target of the module-level handler tables, of the attribute write, of `ComboboxItemContext` and, as an `EventListener` object, of the capture-phase pointerdown; `useButton`'s composite gates are inlined in the slow path's `mergeProps` order (button gate, consumer, item, the root's list navigation).
+- The visible-values slot and the selected-index claim are one render effect that compares against the slot it last wrote; a listed item needs no `listRef` slot (only a virtualized or indexed item writes one).
+- Follow-up leaf: a virtualized item and an item with an `index` prop keep the slow path.
 
 ## Reactive cost
 
@@ -36,9 +40,12 @@ Dev probe 2026-10-14, rc.13: closed root with one item 146 nodes, open 459, each
 Current budgets:
 
 - Closed root (Input + unopened popup + List with one item): ≤ 149, down from 210 before deferring interactions (`packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx:192`).
-- No per-item or open-root budget exists.
+- Open `Combobox.Item`: at most the hand-written floor item plus 25% (`combobox.cost.test.tsx`, floor `test/floor/combobox.tsx`): within 6 nodes against the floor's 5 (25 on the slow path).
+- No open-root budget exists.
 
 ## Benchmarks
+
+Heap kept by combobox/1000's first open (local Chromium, production bundles, two full collections around the step, `zz-heapdiff`, 2026-10-22): React 9.3 MB and 326k objects; Solid 16.9 MB and 495k on the slow item path, 5.7 MB and 170k on the native one.
 
 CI run 38882393542, commit b9b813c9, Solid rc.15. Sync ms.
 
