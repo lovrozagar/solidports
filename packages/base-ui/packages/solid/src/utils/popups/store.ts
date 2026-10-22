@@ -146,6 +146,11 @@ export type PopupStoreContext<ChangeEventDetails> = {
    * intent; it is cleared once they exist.
    */
   activateInteractions?: (() => void) | undefined;
+  /**
+   * Runs `build` once the popup is first open or mounted, in a lazy scope of the root, and keeps
+   * what it creates for the root's life (`createOpenLatch`). Set by `useImplicitActiveTrigger`.
+   */
+  whenOpened?: ((build: () => void) => void) | undefined;
 };
 
 type S = PopupStoreState<unknown>;

@@ -38,8 +38,8 @@ All under `packages/base-ui/packages/solid/src/popover/`.
 | :--- | ---: |
 | Closed root (dev probe 2026-10-14, rc.13) | 91 |
 | Open root (dev probe 2026-10-14, rc.13) | 365 |
-| Closed-root budget, `closedRoot.cost.test.tsx:110` | 55 (before: 113, then 80, 66) |
-| Closed `Popover.Root` alone, `closedRoot.cost.test.tsx` (floor root: 9) | 27 (before: 38) |
+| Closed-root budget, `closedRoot.cost.test.tsx:110` | 53 (before: 113, then 80, 66, 55) |
+| Closed `Popover.Root` alone, `closedRoot.cost.test.tsx` (floor root: 9) | 25 (before: 38, then 27) |
 | Closed `Popover.Trigger`, `popover.cost.test.tsx` (floor `test/floor/popover.tsx`: 6) | 24 (slow path: 38) |
 
 There is no open-root budget.
@@ -68,6 +68,25 @@ D32's native trigger, local Chromium heap diff (`popover/roots-500` mount, objec
 - `floating-ui-solid/hooks/useFloatingRootContext.ts:73` syncs element props into the store through an effect that re-runs on every `open` change.
 
 See [floating](../architecture/floating.md) and the [optimization map](../perf/optimization-map.md).
+
+## After the sweep (D32 polish)
+
+D32's closed-root unit stopped at step 3: each further step cut two or three nodes per root, and the next needs riskier wiring. A closed `Popover.Root` alone costs 25 dev nodes against the floor root's 9:
+
+| Source | Nodes |
+| :--- | ---: |
+| `ComponentWithPayload` (the component and its memo) | 3 |
+| `FloatingTree` around the root | 3 |
+| `useSyncedFloatingRootContext`: the synced memo and its syncs into the floating store | 3 |
+| The interactions gate's first tracked reads of `mounted` and `open` (their bindings' signals) | 2 |
+| `useControlledProp` for `openProp` and `triggerIdProp` | 2 |
+| The root provider, `onSettled` (`actionsRef`), the open latch, the interactions branch memo, `useUnmountAfterClose`, the open selector, the `modal` snapshot memo (`useSyncedValues`) | 1 each |
+| The test harness's own nodes | about 2 |
+
+The leaves, in order:
+
+1. An intent-aware open latch: the floating store sync joins `createOpenLatch` once a trigger's first intent can build it before the hover interactions read the floating store's reference element, which they do while the popup is still closed.
+2. A `FloatingTree` diet for roots with no nested popup.
 
 ## Known issues and divergences
 

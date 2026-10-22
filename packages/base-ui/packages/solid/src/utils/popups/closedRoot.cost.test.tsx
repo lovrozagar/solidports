@@ -62,8 +62,8 @@ describe('closed popup root cost', () => {
   // Budgets are the counts after deferring the interactions; the comments give the counts before.
   const roots: [name: string, budget: number, root: () => JSX.Element][] = [
     [
-      'Tooltip', // before: 110, then 73 (D32's closed-root unit)
-      64,
+      'Tooltip', // before: 110, then 73, 64 (D32's closed-root unit)
+      63,
       () => (
         <Tooltip.Root>
           <Tooltip.Trigger>Trigger</Tooltip.Trigger>
@@ -76,8 +76,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Menu', // before: 189, then 120 (D32's closed-root unit)
-      114,
+      'Menu', // before: 189, then 120, 114 (D32's closed-root unit)
+      113,
       () => (
         <Menu.Root>
           <Menu.Trigger>Trigger</Menu.Trigger>
@@ -92,8 +92,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'ContextMenu', // before: 153, then 80 (D32's closed-root unit)
-      74,
+      'ContextMenu', // before: 153, then 80, 74 (D32's closed-root unit)
+      73,
       () => (
         <ContextMenu.Root>
           <ContextMenu.Trigger>Area</ContextMenu.Trigger>
@@ -108,8 +108,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Popover', // before: 113, then 80 with the slow trigger, 66 (D32's native trigger and closed-root unit)
-      55,
+      'Popover', // before: 113, then 80 with the slow trigger, 66, 55 (D32's native trigger and closed-root unit)
+      53,
       () => (
         <Popover.Root>
           <Popover.Trigger>Trigger</Popover.Trigger>
@@ -122,8 +122,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'PreviewCard', // before: 99, then 69 (D32's closed-root unit)
-      56,
+      'PreviewCard', // before: 99, then 69, 56 (D32's closed-root unit)
+      55,
       () => (
         <PreviewCard.Root>
           <PreviewCard.Trigger href="#">Trigger</PreviewCard.Trigger>
@@ -136,8 +136,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Dialog', // before: 94, then 63 (D32's closed-root unit)
-      54,
+      'Dialog', // before: 94, then 63, 54 (D32's closed-root unit)
+      53,
       () => (
         <Dialog.Root>
           <Dialog.Trigger>Trigger</Dialog.Trigger>
@@ -148,8 +148,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'AlertDialog', // before: 94, then 63 (D32's closed-root unit)
-      54,
+      'AlertDialog', // before: 94, then 63, 54 (D32's closed-root unit)
+      53,
       () => (
         <AlertDialog.Root>
           <AlertDialog.Trigger>Trigger</AlertDialog.Trigger>
@@ -160,8 +160,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Drawer', // before: 125, then 88 (D32's closed-root unit)
-      73,
+      'Drawer', // before: 125, then 88, 73 (D32's closed-root unit)
+      72,
       () => (
         <Drawer.Root>
           <Drawer.Trigger>Trigger</Drawer.Trigger>
@@ -243,12 +243,12 @@ describe('closed popup root cost', () => {
   // intent (D32's closed-root unit). Budgets are the counts after it; the comments give the counts
   // before.
   const bareRoots: [name: string, budget: number, root: () => JSX.Element][] = [
-    ['Popover', 27, () => <Popover.Root />], // before: 38
-    ['Tooltip', 31, () => <Tooltip.Root />], // before: 40
-    ['PreviewCard', 28, () => <PreviewCard.Root />], // before: 39
-    ['Dialog', 22, () => <Dialog.Root />], // before: 31
-    ['AlertDialog', 22, () => <AlertDialog.Root />], // before: 31
-    ['Drawer', 41, () => <Drawer.Root />], // before: 56
+    ['Popover', 25, () => <Popover.Root />], // before: 38, then 27
+    ['Tooltip', 30, () => <Tooltip.Root />], // before: 40, then 31
+    ['PreviewCard', 27, () => <PreviewCard.Root />], // before: 39, then 28
+    ['Dialog', 21, () => <Dialog.Root />], // before: 31, then 22
+    ['AlertDialog', 21, () => <AlertDialog.Root />], // before: 31, then 22
+    ['Drawer', 40, () => <Drawer.Root />], // before: 56, then 41
   ];
 
   it.each(bareRoots)(

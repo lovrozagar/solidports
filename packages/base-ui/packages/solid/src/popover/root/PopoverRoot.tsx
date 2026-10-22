@@ -68,7 +68,7 @@ function PopoverRootComponent<Payload>(
   );
 
   usePopupRootSync(store, open);
-  useImplicitActiveTrigger(store);
+  const whenOpened = useImplicitActiveTrigger(store);
   const { forceUnmount } = useOpenStateTransitions(open, store, () => {
     store.context.stickIfOpen = true;
     store.set('openChangeReason', null);
@@ -78,11 +78,15 @@ function PopoverRootComponent<Payload>(
     modal,
   });
 
-  createEffect(open, (isOpen) => {
-    if (!isOpen) {
-      store.context.stickIfOpenTimeout.clear();
-    }
-  });
+  // A close clears the patient-click timeout: built on the first open (`whenOpened`), since a root
+  // that never opened has no timeout to clear.
+  whenOpened(() =>
+    createEffect(open, (isOpen) => {
+      if (!isOpen) {
+        store.context.stickIfOpenTimeout.clear();
+      }
+    }),
+  );
 
   // React's `useImperativeHandle`.
   onSettled(() => {
