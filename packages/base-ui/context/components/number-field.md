@@ -20,6 +20,10 @@ NumberField is fully ported. With plain props, Root, ScrubArea, Group, Input, In
 
 ScrubAreaCursor, rendered only while scrubbing, stays on the slow path. All parts read one compiled state writer (`writeNumberFieldState`, `utils/stateAttributesMapping.ts`).
 
+## Pointer lock
+
+ScrubArea's pointerdown requests a pointer lock on the body and awaits it. Chromium can grant it after a quick click has already ended the scrub: the probe saw the request, then pointerup and click, then the grant. Nothing released a lock granted that late, so the user's pointer stayed locked (the cursor hidden) until Escape, and in the browser suite the leftover lock swallowed a later test's real click (CI run 39789387208). The scrub area now releases a lock granted after the scrub ended (`releases a pointer lock granted after the scrub ended`). Upstream `@base-ui/react` has the same race.
+
 ## Reactive cost
 
 `numberField.cost.test.tsx` measures each part against the hand-written floor (`test/floor/numberField.tsx`, which renders the same DOM in jsdom). Dev nodes per part, each child measured inside a Root:
@@ -47,6 +51,7 @@ Chromium heap the bench step keeps (production builds, a heap snapshot after a f
 
 - Input renders on the slow path on the server and while hydrating, for the form-state attributes the kit does not reconcile (see [Field](field.md)).
 - ScrubAreaCursor stays on the slow path.
+- File an upstream issue for the late pointer lock (see Pointer lock): `@base-ui/react`'s ScrubArea has the same race.
 
 ## Docs
 
