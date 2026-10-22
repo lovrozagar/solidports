@@ -1,9 +1,13 @@
 import { createEffect } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useLabel } from '../../internals/labelable-provider/useLabel';
 import { splitComponentProps, useRef } from '../../solid-helpers';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
+import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { error } from '../../utils/error';
-import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useFieldItemContext } from '../item/FieldItemContext';
 import type { FieldRootState } from '../root/FieldRoot';
@@ -11,14 +15,36 @@ import { useFieldRootContext } from '../root/FieldRootContext';
 import { fieldValidityMapping } from '../utils/constants';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
+const LABEL = { tag: 'label', create: () => (<label />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set(['id', 'nativeLabel']);
+const writeLabelState = compileStateWriter(['disabled', 'touched', 'dirty', 'valid', 'filled', 'focused'], fieldValidityMapping);
+
+/** The label's attributes, as `useLabel`'s props produce them. */
+function writeLabelAttributes(w: SetAttribute, labelProps: HTMLProps) {
+  w.set('id', labelProps.id);
+  w.set('for', (labelProps as { for?: string | undefined }).for);
+}
+
+type LabelHandler = (event: Event) => void;
+const forwardTo = (key: 'onMouseDown' | 'onClick' | 'onPointerDown') =>
+  partHandler<HTMLProps>(key, (labelProps, event) =>
+    (labelProps[key] as unknown as LabelHandler)(event),
+  );
+
+const LABEL_HANDLERS = {
+  onMouseDown: forwardTo('onMouseDown'),
+  onClick: forwardTo('onClick'),
+  onPointerDown: forwardTo('onPointerDown'),
+};
+
 /**
  * An accessible label that is automatically associated with the field control.
  * Renders a `<label>` element.
  *
  * Documentation: [Base UI Field](https://base-ui.com/react/components/field)
  */
-export function FieldLabel(componentProps: FieldLabel.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['id', 'nativeLabel']);
+export function FieldLabel(componentProps: FieldLabel.Props): JSX.Element {
+  const local = componentProps;
   // Solid: JSX attribute types allow `false` to remove the attribute; it means unset here.
   const idProp = () => (local.id === false ? undefined : local.id);
   const nativeLabel = () => local.nativeLabel ?? true;
@@ -66,6 +92,28 @@ export function FieldLabel(componentProps: FieldLabel.Props) {
       }
     });
   }
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<label>` with its id,
+  // its control and its handlers, no props view (D32).
+  if (canRenderNative(componentProps, undefined, true)) {
+    return renderNativeElement(LABEL, componentProps, {
+      own: OWN_KEYS,
+      state,
+      stateWriter: writeLabelState,
+      mapping: fieldValidityMapping,
+      attributes: writeLabelAttributes,
+      handlers: LABEL_HANDLERS,
+      handlerTarget: labelProps,
+      reactive: true,
+      refs: [
+        (el: HTMLLabelElement | null) => {
+          labelRef.current = el;
+        },
+      ],
+    }) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, ['id', 'nativeLabel']);
 
   const element = useRenderElement('label', componentProps, {
     ref: labelRef,

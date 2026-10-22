@@ -1,5 +1,6 @@
-import { createMemo, createSignal, onSettled, untrack } from 'solid-js';
+import { createComponent, createMemo, createSignal, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useFieldsetRootContext } from '../../fieldset/root/FieldsetRootContext';
 import type { Form } from '../../form';
 import { useFormContext } from '../../form/FormContext';
@@ -15,27 +16,37 @@ import {
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative } from '../../utils/native';
+import { provideNativeContext } from '../../utils/native/context';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
 import { DEFAULT_VALIDITY_STATE, fieldValidityMapping } from '../utils/constants';
 import { FieldRootContext } from './FieldRootContext';
 import { useFieldValidation } from './useFieldValidation';
 
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'validate',
+  'validationDebounceTime',
+  'validationMode',
+  'name',
+  'disabled',
+  'invalid',
+  'dirty',
+  'touched',
+  'actionsRef',
+]);
+const writeFieldState = compileStateWriter(
+  ['disabled', 'touched', 'dirty', 'valid', 'filled', 'focused'],
+  fieldValidityMapping,
+);
+
 /**
  * @internal
  */
-function FieldRootInner(componentProps: FieldRoot.Props) {
+function FieldRootInner(componentProps: FieldRoot.Props): JSX.Element {
   const { errors, validationMode: formValidationMode, submitCountRef } = useFormContext();
 
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'validate',
-    'validationDebounceTime',
-    'validationMode',
-    'name',
-    'disabled',
-    'invalid',
-    'dirty',
-    'touched',
-    'actionsRef',
-  ]);
+  const local = componentProps;
   const validationDebounceTime = () => local.validationDebounceTime ?? 0;
   const validationMode = () => local.validationMode ?? formValidationMode();
   const name = () => local.name;
@@ -242,6 +253,32 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
     focused,
   };
 
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div>` with the
+  // field's state attributes, no props view (D32).
+  if (canRenderNative(componentProps, undefined, true)) {
+    return provideNativeContext(FieldRootContext, contextValue, () =>
+      renderNativeElement(DIV, componentProps, {
+        own: OWN_KEYS,
+        state,
+        stateWriter: writeFieldState,
+        mapping: fieldValidityMapping,
+        reactive: true,
+      }),
+    ) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, [
+    'validate',
+    'validationDebounceTime',
+    'validationMode',
+    'name',
+    'disabled',
+    'invalid',
+    'dirty',
+    'touched',
+    'actionsRef',
+  ]);
+
   const element = useRenderElement('div', componentProps, {
     state,
     props: elementProps,
@@ -262,12 +299,14 @@ type UseValidate = (
  *
  * Documentation: [Base UI Field](https://base-ui.com/react/components/field)
  */
-export function FieldRoot(componentProps: FieldRoot.Props) {
-  return (
-    <LabelableProvider>
-      <FieldRootInner {...componentProps} />
-    </LabelableProvider>
-  );
+export function FieldRoot(componentProps: FieldRoot.Props): JSX.Element {
+  // The props pass through as they are: a JSX spread would make them a proxy, which takes the
+  // inner part off its native path.
+  return createComponent(LabelableProvider, {
+    get children() {
+      return createComponent(FieldRootInner, componentProps);
+    },
+  });
 }
 
 export interface FieldValidityData {

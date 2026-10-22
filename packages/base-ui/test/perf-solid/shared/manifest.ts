@@ -230,6 +230,19 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'dialog cost against the hand-written floor > a closed Dialog.Trigger costs at most the native trigger budget',
   ],
   drawer: [closedRoot('Drawer'), bareRoot('Drawer')],
+  field: [
+    'field cost against the hand-written floor > the floor renders the same DOM as a field in a fieldset',
+    "field cost against the hand-written floor > a field's parts render on the native path",
+    'field cost against the hand-written floor > fieldRoot costs at most its native budget',
+    'field cost against the hand-written floor > label costs at most its native budget',
+    'field cost against the hand-written floor > control costs at most its native budget',
+    'field cost against the hand-written floor > description costs at most its native budget',
+    'field cost against the hand-written floor > error costs at most its native budget',
+  ],
+  fieldset: [
+    'field cost against the hand-written floor > fieldsetRoot costs at most its native budget',
+    'field cost against the hand-written floor > legend costs at most its native budget',
+  ],
   menu: [
     closedRoot('Menu'),
     'menu cost against the hand-written floor > the floor renders the same item DOM as an open Menu.Item',
@@ -310,8 +323,6 @@ export const PENDING_COST: Partial<Record<ComponentName, string>> = {
   'checkbox-group': '5.1 toggles family',
   'csp-provider': '4.1 static parts family',
   'direction-provider': '4.1 static parts family',
-  field: '6.1 forms family',
-  fieldset: '6.1 forms family',
   form: '6.1 forms family',
   input: '4.1 static parts family',
   menubar: '8.1 composite lists family',
