@@ -1,6 +1,6 @@
 import { createSignal, Show } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
-import { fireEvent, screen } from '@solidjs/testing-library';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';
 import { act, createRenderer, describeConformance, isJSDOM, wait } from '#test-utils';
 import { platform } from '../../utils/platform';
@@ -369,7 +369,7 @@ describe('<NumberField.ScrubArea />', () => {
 
     try {
       render(() => (
-        <NumberField.Root defaultValue={0}>
+        <NumberField.Root defaultValue={0} data-testid="root">
           <NumberField.Input />
           <NumberField.ScrubArea data-testid="scrub-area" />
         </NumberField.Root>
@@ -379,11 +379,14 @@ describe('<NumberField.ScrubArea />', () => {
       await act(async () => {
         scrubArea.dispatchEvent(createPointerDownEvent(scrubArea));
       });
+      expect(screen.getByTestId('root')).toHaveAttribute('data-scrubbing');
       await act(async () => {
         window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
       });
-      // The scrub ends on pointerup, 20ms later in Firefox.
-      await wait(50);
+      // The scrub ends on pointerup, a timeout later in Firefox.
+      await waitFor(() => {
+        expect(screen.getByTestId('root')).not.toHaveAttribute('data-scrubbing');
+      });
       const exitsBeforeGrant = exitPointerLock.mock.calls.length;
 
       await act(async () => {
