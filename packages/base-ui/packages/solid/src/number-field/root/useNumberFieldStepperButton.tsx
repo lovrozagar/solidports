@@ -1,4 +1,8 @@
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { useButton } from '../../internals/use-button';
 import { isTouchLikePointerType, usePressAndHold } from '../../internals/usePressAndHold';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
@@ -12,7 +16,7 @@ import type { EventWithOptionalKeyState } from '../utils/types';
 import type { NumberFieldRoot } from './NumberFieldRoot';
 import { REASONS } from '../../utils/reasons';
 import { useNumberFieldRootContext } from './NumberFieldRootContext';
-import { stateAttributesMapping } from '../utils/stateAttributesMapping';
+import { stateAttributesMapping, writeNumberFieldState } from '../utils/stateAttributesMapping';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 const SELECT_NONE_STYLE = {
@@ -22,6 +26,87 @@ const SELECT_NONE_STYLE = {
 
 type StepperButtonProps = NativeButtonProps & BaseUIComponentProps<'button', NumberFieldRoot.State>;
 
+const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
+const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'nativeButton']);
+
+const BUTTON = {
+  tag: 'button',
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template is labelled by its `aria-label` literal
+  create: () => (<button />) as unknown as Element,
+};
+const INCREMENT_LITERAL = { type: 'button', tabindex: -1, 'aria-label': 'Increase' };
+const DECREMENT_LITERAL = { type: 'button', tabindex: -1, 'aria-label': 'Decrease' };
+const selectNoneStyle = () => SELECT_NONE_STYLE;
+
+type PressHandler = (event: Event) => void;
+
+/** What the native stepper's attributes and handlers read: one object per stepper. */
+interface StepperModel {
+  disabled: () => boolean;
+  /** `useButton`'s `disabled`: a read-only stepper is unavailable too. */
+  buttonDisabled: () => boolean;
+  id: () => string | undefined;
+  onClick: (event: MouseEvent) => void;
+  onPointerDown: (event: PointerEvent) => void;
+  pointerHandlers: Record<string, PressHandler>;
+}
+
+function writeStepperAttributes(w: SetAttribute, model: StepperModel) {
+  w.set('disabled', model.disabled() ? true : undefined);
+  w.set('aria-controls', model.id());
+  // `useFocusableWhenDisabled` for a native button focusable while disabled.
+  w.set('aria-disabled', model.buttonDisabled() ? 'true' : 'false');
+}
+
+/** `useButton`'s gate around a click or a pointerdown: a disabled stepper cancels it. */
+function preventWhileDisabled(model: StepperModel, event: Event) {
+  if (model.buttonDisabled()) {
+    event.preventDefault();
+    return false;
+  }
+  return true;
+}
+
+const runWhileEnabled = (model: StepperModel) => !model.buttonDisabled();
+
+const pressHandler = (key: string) =>
+  partHandler<StepperModel>(key, (model, event) => model.pointerHandlers[key](event));
+
+const STEPPER_HANDLERS = {
+  onClick: partHandler<StepperModel, MouseEvent>(
+    'onClick',
+    (model, event) => model.onClick(event),
+    preventWhileDisabled,
+  ),
+  onPointerDown: partHandler<StepperModel, PointerEvent>(
+    'onPointerDown',
+    (model, event) => model.onPointerDown(event),
+    preventWhileDisabled,
+  ),
+  // `useFocusableWhenDisabled`'s keydown: a disabled stepper keeps focus but takes no key but Tab.
+  onKeyDown: partHandler<StepperModel, KeyboardEvent>('onKeyDown', undefined, (model, event) => {
+    if (model.buttonDisabled()) {
+      if (event.key !== 'Tab') {
+        event.preventDefault();
+      }
+      return false;
+    }
+    return true;
+  }),
+  onTouchStart: pressHandler('onTouchStart'),
+  onTouchEnd: pressHandler('onTouchEnd'),
+  onPointerUp: pressHandler('onPointerUp'),
+  onPointerMove: pressHandler('onPointerMove'),
+  onMouseEnter: pressHandler('onMouseEnter'),
+  onMouseLeave: pressHandler('onMouseLeave'),
+  onMouseUp: pressHandler('onMouseUp'),
+};
+
+const STEPPER_HANDLERS_IF_PASSED = {
+  onKeyUp: partHandler<StepperModel>('onKeyUp', undefined, runWhileEnabled),
+  onMouseDown: partHandler<StepperModel>('onMouseDown', undefined, runWhileEnabled),
+};
+
 /**
  * Shared implementation for the increment and decrement stepper buttons. They differ only in the
  * direction they step and the boundary (`max` vs `min`) at which they become disabled.
@@ -30,7 +115,7 @@ export function useNumberFieldStepperButton(
   componentProps: StepperButtonProps,
   isIncrement: boolean,
 ) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
+  const local = componentProps;
   const disabledProp = () => local.disabled ?? false;
   const nativeButton = () => local.nativeButton ?? true;
 
@@ -172,6 +257,44 @@ export function useNumberFieldStepperButton(
     },
   };
 
+  const buttonState = solidMergeProps(state, {
+    get disabled() {
+      return disabled();
+    },
+  });
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<button>` with
+  // `useButton`'s gates (a native button focusable while disabled) inlined, no props view (D32).
+  if (
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true) &&
+    // Static once `canRenderNative` passes: a plain value, read without tracking anything.
+    (componentProps.nativeButton ?? true) === true
+  ) {
+    const model: StepperModel = {
+      disabled,
+      buttonDisabled: () => disabled() || readOnly(),
+      id,
+      onClick: props.onClick as (event: MouseEvent) => void,
+      onPointerDown: props.onPointerDown as (event: PointerEvent) => void,
+      pointerHandlers: pointerHandlers as unknown as Record<string, PressHandler>,
+    };
+    return renderNativeElement(BUTTON, componentProps, {
+      own: OWN_KEYS,
+      state: buttonState,
+      stateWriter: writeNumberFieldState,
+      mapping: stateAttributesMapping,
+      literal: isIncrement ? INCREMENT_LITERAL : DECREMENT_LITERAL,
+      attributes: writeStepperAttributes,
+      partStyle: selectNoneStyle,
+      handlers: STEPPER_HANDLERS,
+      handlersIfPassed: STEPPER_HANDLERS_IF_PASSED,
+      handlerTarget: model,
+      reactive: true,
+    }) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
+
   const { getButtonProps, buttonRef } = useButton({
     // Read-only steppers are exposed as unavailable through button disabled semantics, while
     // `data-readonly` (from `state`) is preserved for styling. `aria-readonly` isn't valid on the
@@ -181,12 +304,6 @@ export function useNumberFieldStepperButton(
     },
     native: nativeButton,
     focusableWhenDisabled: true,
-  });
-
-  const buttonState = solidMergeProps(state, {
-    get disabled() {
-      return disabled();
-    },
   });
 
   const element = useRenderElement('button', componentProps, {

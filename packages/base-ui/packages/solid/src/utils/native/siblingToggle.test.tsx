@@ -17,6 +17,7 @@ import { Fieldset } from '@solidports/base-ui/fieldset';
 import { Menu } from '@solidports/base-ui/menu';
 import { Meter } from '@solidports/base-ui/meter';
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
+import { NumberField } from '@solidports/base-ui/number-field';
 import { Popover } from '@solidports/base-ui/popover';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { Progress } from '@solidports/base-ui/progress';
@@ -86,6 +87,21 @@ describe('GOTCHA-020: native parts keep their elements beside a toggling sibling
           <Field.Error match>Second</Field.Error>
         </Field.Root>
       </Fieldset.Root>
+    ));
+  });
+
+  it('NumberField parts', () => {
+    expectKept((Sibling) => (
+      <NumberField.Root defaultValue={1}>
+        <NumberField.ScrubArea>Amount</NumberField.ScrubArea>
+        <Sibling />
+        <NumberField.Group>
+          <NumberField.Decrement />
+          <Sibling />
+          <NumberField.Input />
+          <NumberField.Increment />
+        </NumberField.Group>
+      </NumberField.Root>
     ));
   });
 
