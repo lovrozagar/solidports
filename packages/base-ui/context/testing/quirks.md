@@ -1,7 +1,7 @@
 ---
 tags: [testing, flush, jsdom, ssr]
 sources: [packages/base-ui/packages/solid/test/setupSolid.ts, packages/base-ui/packages/solid/test/createRenderer.ts, packages/base-ui/packages/solid/test/act.ts, packages/base-ui/packages/solid/test/flushMicrotasks.ts, packages/base-ui/packages/solid/test/ssrFixtures.ts, packages/base-ui/packages/solid/test/defineSsrFixtures.ts, packages/base-ui/packages/solid/test/hydration/globalSetup.ts, packages/base-ui/packages/solid/src/utils/testUtils.ts, packages/base-ui/vitest.shared.mts]
-verified: 2026-10-21
+verified: 2026-10-22
 ---
 
 # Test quirks
@@ -45,6 +45,8 @@ Solid 2 batches writes until a flush, so the harness flushes after every testing
 - Engine-specific skips use `isWebKit`, `platform.engine.*` or `/WebKit/.test(navigator.userAgent)`; the parity script models each.
 - Environment probes in a test file (`CSS.supports`, engine flags, `navigator` reads) are evaluated inside the test or the skip condition, never at module load: a module-level throw takes out every test in the file, and some reporters show it as "0 tests". jsdom defines `CSS` without `CSS.supports`; a load-time `CSS.supports(...)` in the drawer keyboard tests failed main's JSDOM suite (28c62fe5 fixed it). Safari implements no `overflow-anchor`, and Solid's style binding drops a property the engine lacks, so its tests assert the scroll anchor only where `CSS.supports('overflow-anchor', 'auto')` holds.
 - CI retries a failed test once (`vitest.shared.mts`). Browser parity confirms Solid-only failures with two reruns.
+- WebKit ignores a zero-movement `mousemove` in list navigation (`isStationaryWebKitPointer` in `useListNavigation.ts`, upstream mui/base-ui#4002), and `fireEvent.mouseMove` sends zero movement by default. A test that moves the highlight by mousemove passes `{ movementX: 1, movementY: 1 }`, or it fails in WebKit only (the Menu fan-out test, 59364cf9).
+- Local WebKit on this Linux host: Playwright's WebKit lacks system libraries here (`browserType.launch: Host system is missing dependencies`), so run it in Playwright's image (`mcr.microsoft.com/playwright:v1.61.1-noble`) over a read-only overlay of the worktree, as `.tmp/grunt/tools/scripts/wk-parity-docker.sh` does for the whole parity run and `wk-one-docker.sh` for one vitest filter. The tree must have its own install, as the stamp worktree does: a worktree that resolves packages from the checkout's install links its workspace packages to the checkout, outside the container. The scripts are local (`.tmp` is gitignored).
 
 ## Time zone
 
