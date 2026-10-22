@@ -27,7 +27,10 @@ const INTENT_OPTIONS = { capture: true, passive: true };
 // root, not the document: from a document listener, an event inside a closed shadow root has a
 // composed path that stops at the shadow host, so a trigger inside never saw its intent.
 const intentCallbacks = new WeakMap<EventTarget, Set<() => void>>();
-const listeningRoots = new WeakSet<Node>();
+// The roots with listeners, each with the number of its triggers still waiting: a root's listeners
+// go once its last waiting trigger has its interactions or unmounts, so a torn-down shadow root
+// keeps none.
+const listeningRoots = new Map<Node, number>();
 let pendingTargets = 0;
 
 function onRootIntent(event: Event) {
@@ -46,12 +49,13 @@ function onRootIntent(event: Event) {
 
 function listenForIntent(target: Element, onIntent: () => void) {
   const root = target.getRootNode();
-  if (!listeningRoots.has(root)) {
-    listeningRoots.add(root);
+  const waiting = listeningRoots.get(root) ?? 0;
+  if (waiting === 0) {
     for (const type of INTENT_EVENTS) {
       root.addEventListener(type, onRootIntent, INTENT_OPTIONS);
     }
   }
+  listeningRoots.set(root, waiting + 1);
   let callbacks = intentCallbacks.get(target);
   if (!callbacks) {
     callbacks = new Set();
@@ -64,6 +68,15 @@ function listenForIntent(target: Element, onIntent: () => void) {
     if (current?.delete(onIntent) && current.size === 0) {
       intentCallbacks.delete(target);
       pendingTargets -= 1;
+    }
+    const left = (listeningRoots.get(root) ?? 1) - 1;
+    if (left === 0) {
+      listeningRoots.delete(root);
+      for (const type of INTENT_EVENTS) {
+        root.removeEventListener(type, onRootIntent, INTENT_OPTIONS);
+      }
+    } else {
+      listeningRoots.set(root, left);
     }
   };
 }
