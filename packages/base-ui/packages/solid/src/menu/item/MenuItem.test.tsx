@@ -2,6 +2,7 @@ import { expect, vi, describe, it } from 'vitest';
 import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { For } from 'solid-js';
 import { splitProps } from '../../solid-1-compat';
 
 describe('<Menu.Item />', () => {
@@ -33,6 +34,46 @@ describe('<Menu.Item />', () => {
       errorSpy.mockRestore();
       warnSpy.mockRestore();
     }
+  });
+
+  // D32's native item keeps its state per item and per menu: activating an item in one Menu leaves
+  // nothing behind that stops another Menu on the page from opening and activating its items.
+  it('opens a second Menu on the page after activating an item in the first', async () => {
+    const onSecond = vi.fn();
+    const { user } = render(() => (
+      <div>
+        <For each={['first', 'second']}>
+          {(name) => (
+            <Menu.Root>
+              <Menu.Trigger data-testid={`${name}-trigger`}>{name}</Menu.Trigger>
+              <Menu.Portal>
+                <Menu.Positioner>
+                  <Menu.Popup>
+                    <Menu.Item
+                      onClick={name === 'second' ? onSecond : undefined}
+                    >{`${name} a`}</Menu.Item>
+                    <Menu.Item>{`${name} b`}</Menu.Item>
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
+          )}
+        </For>
+      </div>
+    ));
+
+    await user.click(screen.getByTestId('first-trigger'));
+    await user.click(await screen.findByRole('menuitem', { name: 'first b' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('menuitem', { name: 'first b' })).toBe(null);
+    });
+
+    await user.click(screen.getByTestId('second-trigger'));
+    await user.click(await screen.findByRole('menuitem', { name: 'second a' }));
+    expect(onSecond).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.queryByRole('menuitem', { name: 'second a' })).toBe(null);
+    });
   });
 
   it('calls the onClick handler when clicked', async () => {

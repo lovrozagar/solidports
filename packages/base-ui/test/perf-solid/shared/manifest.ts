@@ -216,7 +216,12 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   'context-menu': [closedRoot('ContextMenu')],
   dialog: [closedRoot('Dialog')],
   drawer: [closedRoot('Drawer')],
-  menu: [closedRoot('Menu')],
+  menu: [
+    closedRoot('Menu'),
+    'menu cost against the hand-written floor > the floor renders the same item DOM as an open Menu.Item',
+    'menu cost against the hand-written floor > an open Menu.Item renders on the native path',
+    'menu cost against the hand-written floor > an open Menu.Item costs at most the floor item plus 25%',
+  ],
   meter: [
     staticPart('a Meter.Track costs at most 1 node'),
     staticPart('a Meter.Indicator costs at most 2 nodes'),

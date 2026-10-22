@@ -137,6 +137,11 @@ function useUnfilteredItem(): MenuFilterItemResult {
   return UNFILTERED;
 }
 
+/** Whether an item's filter result is the plain menu's: always visible, no ref, no children. */
+export function isUnfilteredItem(item: MenuFilterItemResult): boolean {
+  return item === UNFILTERED;
+}
+
 /**
  * Registers an item part with the filter of the menu it belongs to. A plain menu's items are
  * always visible.
