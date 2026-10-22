@@ -26,6 +26,18 @@ import {
 	withLink,
 } from "../packages/base-ui/scripts/remote-mac.mjs"
 
+/**
+ * The environment a spawned run gets: the caller's, without its `REMOTE_MAC_*` and `GATES_*`
+ * variables. This file runs inside a remote-mac run on the Mac, whose `REMOTE_MAC_HEARTBEAT` a
+ * spawned run would otherwise inherit and remove, stopping the real run (exit 143), and whose
+ * `GATES_*` settings would change what a locked run does. Each test sets the ones it means.
+ */
+function testEnv(): Record<string, string | undefined> {
+	return Object.fromEntries(
+		Object.entries(process.env).filter(([key]) => !key.startsWith("REMOTE_MAC_") && !key.startsWith("GATES_")),
+	)
+}
+
 const temps: string[] = []
 afterEach(() => {
 	for (const dir of temps.splice(0)) rmSync(dir, { recursive: true, force: true })
@@ -174,8 +186,7 @@ describe("stopping a Mac run", () => {
 		mkdirSync(join(home, ".gates"), { recursive: true })
 		const seen = async (heavy: string | undefined) => {
 			const out = join(dir, `heavy-${heavy ?? "default"}`)
-			const env: Record<string, string | undefined> = { ...process.env, HOME: home, PATH: `${dir}:${process.env.PATH}` }
-			delete env.GATES_HEAVY
+			const env: Record<string, string | undefined> = { ...testEnv(), HOME: home, PATH: `${dir}:${process.env.PATH}` }
 			if (heavy !== undefined) env.GATES_HEAVY = heavy
 			const run = Bun.spawn(["bash", "-c", lockedRun(60, ["sh", "-c", `echo "$GATES_HEAVY" > ${out}`])], {
 				env,
@@ -204,7 +215,7 @@ describe("stopping a Mac run", () => {
 		const pidFile = join(dir, "command.pid")
 		const run = Bun.spawn(["bash", "-c", lockedRun(60, ["sh", "-c", `echo $$ > ${pidFile}; exec sleep 30`])], {
 			env: {
-				...process.env,
+				...testEnv(),
 				HOME: home,
 				PATH: `${dir}:${process.env.PATH}`,
 				REMOTE_MAC_WATCH: String(session.pid),
@@ -248,7 +259,7 @@ describe("stopping a Mac run", () => {
 		const script = lockedRun(60, ["sh", "-c", `echo $$ > ${pidFile}; exec sleep 30`])
 		const run = Bun.spawn(["bash", "-c", `exec 2>${quote(fifo)}\n${script}`], {
 			env: {
-				...process.env,
+				...testEnv(),
 				HOME: home,
 				PATH: `${dir}:${process.env.PATH}`,
 				REMOTE_MAC_WATCH: String(session.pid),
@@ -274,7 +285,7 @@ describe("stopping a Mac run", () => {
 		const session = Bun.spawn(["sleep", "60"])
 		const pidFile = join(dir, "command.pid")
 		const run = Bun.spawn(["bash", "-c", lockedRun(60, ["sh", "-c", `echo $$ > ${pidFile}; exec sleep 30`])], {
-			env: { ...process.env, HOME: home, PATH: `${dir}:${process.env.PATH}`, REMOTE_MAC_WATCH: String(session.pid) },
+			env: { ...testEnv(), HOME: home, PATH: `${dir}:${process.env.PATH}`, REMOTE_MAC_WATCH: String(session.pid) },
 			stdout: "ignore",
 			stderr: "ignore",
 		})
@@ -325,7 +336,7 @@ describe("queued Mac runs", () => {
 						outDir: "remote-mac-out/x",
 					}),
 				],
-				{ env: { ...process.env, HOME: home }, stdout: "ignore", stderr: "ignore" },
+				{ env: { ...testEnv(), HOME: home }, stdout: "ignore", stderr: "ignore" },
 			)
 			expect(await run.exited).toBe(0)
 		} finally {
@@ -364,7 +375,7 @@ describe("queued Mac runs", () => {
 						outDir: `remote-mac-out/${id}`,
 					}),
 				],
-				{ env: { ...process.env, HOME: home, RUN_ID: id }, stdout: "ignore", stderr: "ignore" },
+				{ env: { ...testEnv(), HOME: home, RUN_ID: id }, stdout: "ignore", stderr: "ignore" },
 			)
 		const runs = [start("a"), start("b")]
 		expect(await Promise.all(runs.map((run) => run.exited))).toEqual([0, 0])
@@ -398,7 +409,7 @@ describe("queued Mac runs", () => {
 					outDir: ".gates/remote-mac-out/x",
 				}),
 			],
-			{ env: { ...process.env, HOME: home }, stdout: "pipe", stderr: "ignore" },
+			{ env: { ...testEnv(), HOME: home }, stdout: "pipe", stderr: "ignore" },
 		)
 		// The command's exit code survives the copy.
 		expect(await run.exited).toBe(3)
@@ -435,7 +446,7 @@ describe("queued Mac runs", () => {
 					outDir: ".gates/remote-mac-out/x",
 				}),
 			],
-			{ env: { ...process.env, HOME: home }, stdout: "pipe", stderr: "ignore" },
+			{ env: { ...testEnv(), HOME: home }, stdout: "pipe", stderr: "ignore" },
 		)
 		expect(await run.exited).toBe(1)
 		const out = await new Response(run.stdout).text()
@@ -501,5 +512,29 @@ describe("the link to the Mac", () => {
 				budgetMs: 50,
 			}),
 		).rejects.toThrow(/link to the Mac stayed down/)
+	})
+})
+
+describe("test environment", () => {
+	test("a spawned run never sees the caller's REMOTE_MAC_ or GATES_ variables", () => {
+		const saved = { heartbeat: process.env.REMOTE_MAC_HEARTBEAT, heavy: process.env.GATES_HEAVY }
+		process.env.REMOTE_MAC_HEARTBEAT = "/caller/heartbeat"
+		process.env.GATES_HEAVY = "caller"
+		try {
+			const env = testEnv()
+			expect(Object.keys(env).filter((key) => key.startsWith("REMOTE_MAC_") || key.startsWith("GATES_"))).toEqual([])
+			expect(env.PATH).toBe(process.env.PATH)
+		} finally {
+			for (const [key, value] of [
+				["REMOTE_MAC_HEARTBEAT", saved.heartbeat],
+				["GATES_HEAVY", saved.heavy],
+			] as const) {
+				if (value === undefined) delete process.env[key]
+				else process.env[key] = value
+			}
+		}
+		// Every spawn in this file builds its environment from `testEnv`.
+		const source = readFileSync(import.meta.path, "utf8")
+		expect(source.match(new RegExp(String.raw`\.\.\.process\.env`, "g"))).toBeNull()
 	})
 })
