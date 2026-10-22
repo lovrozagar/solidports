@@ -90,7 +90,7 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
     disabled,
   });
 
-  useImplicitActiveTrigger(store, { closeOnActiveTriggerUnmount: true });
+  void useImplicitActiveTrigger(store, { closeOnActiveTriggerUnmount: true });
   const { forceUnmount, transitionStatus } = useOpenStateTransitions(open, store);
   const isInstantPhase = store.useState('isInstantPhase');
   const instantType = store.useState('instantType');

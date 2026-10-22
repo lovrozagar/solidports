@@ -249,7 +249,7 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
     rootId,
   });
 
-  useImplicitActiveTrigger(store);
+  void useImplicitActiveTrigger(store);
   const { forceUnmount, transitionStatus } = useOpenStateTransitions(
     open,
     store,
