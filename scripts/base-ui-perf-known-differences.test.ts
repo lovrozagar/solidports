@@ -32,4 +32,13 @@ describe("known React/Solid DOM differences", () => {
 		expect(knownDifference(KNOWN["menu/page"]?.hydrate, react, solid)).toBe(true)
 		expect(KNOWN["menu/page"].hydrate.reason).toContain("TriggerFocusGuards")
 	})
+
+	test("the SSR popover page keeps each closed Popover.Trigger's inert trailing guard", () => {
+		// popover/roots-500 server-rendered: 500 closed triggers, each with Solid's inert trailing
+		// focus guard after hydration (the bench's summary at 2e9a0d93: React 502 nodes, Solid 1002).
+		const react = JSON.stringify({ nodes: 502, expanded: 0, checkboxes: 0, dialog: 0, tabsSelected: 0, labelled: 0 })
+		const solid = JSON.stringify({ nodes: 1002, expanded: 0, checkboxes: 0, dialog: 0, tabsSelected: 0, labelled: 0 })
+		expect(knownDifference(KNOWN["popover/page"]?.hydrate, react, solid)).toBe(true)
+		expect(KNOWN["popover/page"].hydrate.reason).toContain("TriggerFocusGuards")
+	})
 })

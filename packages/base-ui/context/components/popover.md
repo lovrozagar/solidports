@@ -85,8 +85,12 @@ D32's closed-root unit stopped at step 3: each further step cut two or three nod
 
 The leaves, in order:
 
-1. An intent-aware open latch: the floating store sync joins `createOpenLatch` once a trigger's first intent can build it before the hover interactions read the floating store's reference element, which they do while the popup is still closed.
-2. A `FloatingTree` diet for roots with no nested popup.
+1. The inert trailing focus guard's page weight, for every family on `TriggerFocusGuards` (`utils/popups/TriggerFocusGuards.tsx`: Popover.Trigger and Menu.Trigger). Each closed trigger ships a `<span aria-hidden>` with the inline `visuallyHidden` style on the server and keeps it after hydration: about 180 bytes of HTML and one node per trigger. The SSR bench's popover/page (500 closed popovers) serves 178 KB of HTML against React's 79 KB and hydrates 1002 elements against 502 (`known-differences.json`, popover/page). The red test first: server HTML bytes per closed trigger against React's. Then measure three options against the test that motivated the guard (a focused trigger is not blurred when its popup opens):
+   - (a) render the trailing guard only while the popup is open or opening, inserted after the trigger, if that insertion no longer re-inserts the focused trigger;
+   - (b) keep it, but shrink it to a shared class instead of the inline style, if the no-stylesheet constraint allows one;
+   - (c) structure the trigger's parent so the list diff never moves the trigger.
+2. An intent-aware open latch: the floating store sync joins `createOpenLatch` once a trigger's first intent can build it before the hover interactions read the floating store's reference element, which they do while the popup is still closed.
+3. A `FloatingTree` diet for roots with no nested popup.
 
 ## Known issues and divergences
 
