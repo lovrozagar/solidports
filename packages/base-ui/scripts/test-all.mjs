@@ -64,6 +64,8 @@ export const suites = [
     run: [
       'bunx eslint packages/solid/src packages/solid/test docs/solid/src test/perf-solid --report-unused-disable-directives --max-warnings 0',
     ],
+    // Run whole by `--changed` too: the verify stamp runs the repository's lint, not this one.
+    changed: true,
   },
   { job: 'Linting', name: 'eslint-rule-tests', cwd: baseUi, run: ['bun run test:lint-rules'] },
   {
@@ -276,9 +278,9 @@ export function planSuites(options) {
     let selected = true;
     let detail;
     if (options.changed != null) {
-      selected = Boolean(suite.vitest);
+      selected = Boolean(suite.vitest || suite.changed);
       detail = selected ? undefined : 'not selected (--changed)';
-      if (selected) {
+      if (suite.vitest) {
         const since = options.changed ? ` ${options.changed}` : '';
         // Only the vitest commands: a quick diff run skips the preparation steps (`types`).
         run = run
