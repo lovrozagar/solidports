@@ -9,15 +9,107 @@ import {
   useTriggerDataForwarding,
   useTriggerInteractions,
 } from '../../utils/popups';
-import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
-import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import {
+  CommonTriggerDataAttributes,
+  triggerOpenStateMapping,
+} from '../../utils/popupStateMapping';
+import type { BaseUIComponentProps, BaseUIEvent, HTMLProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative, partHandler, readHandler } from '../../utils/native';
+import type { Dispatch } from '../../utils/native';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { usePreviewCardRootContext } from '../root/PreviewCardContext';
 import type { PreviewCardHandle } from '../store/PreviewCardHandle';
 import type { PreviewCardHandleStore } from '../store/PreviewCardStore';
 import { CLOSE_DELAY, OPEN_DELAY } from '../utils/constants';
+
+/** Props the native path reads once, as the slow path does. */
+const NATIVE_STATIC_KEYS = ['handle'] as const;
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set(['delay', 'closeDelay', 'id', 'payload', 'handle']);
+
+/**
+ * A native trigger's model: the target of its module-level handlers and attribute write. Its
+ * handler sources in the slow path's `mergeProps` order below the consumer's: the inline-rect
+ * handlers, the root's trigger props (dismissal), then focus and hover once the interactions exist.
+ * One object per trigger.
+ */
+class NativePreviewCardTriggerModel implements PreviewCardTrigger.State {
+  declare readonly isOpen: () => boolean;
+  declare readonly id: () => string | undefined;
+  declare private readonly sources: ReadonlyArray<() => object | undefined>;
+
+  constructor(
+    isOpen: () => boolean,
+    id: () => string | undefined,
+    sources: ReadonlyArray<() => object | undefined>,
+  ) {
+    this.isOpen = isOpen;
+    this.id = id;
+    this.sources = sources;
+  }
+
+  get open() {
+    return this.isOpen();
+  }
+
+  /** Calls each source's handler for `key` until one prevents the rest (`mergeProps` order). */
+  dispatch(key: string, event: BaseUIEvent<Event>) {
+    for (const source of this.sources) {
+      if (event.baseUIHandlerPrevented) {
+        return;
+      }
+      const props = source();
+      const handler = props ? readHandler(props, key) : undefined;
+      if (handler) {
+        handler(event);
+      }
+    }
+  }
+}
+
+const dispatchSources = (key: string) => (trigger: NativePreviewCardTriggerModel, event: Event) =>
+  trigger.dispatch(key, event as BaseUIEvent<Event>);
+
+/**
+ * A native trigger's handlers, created once: the consumer's handler, then the trigger's sources.
+ * The keys are every handler the sources can carry: inline rect (`onFocus`, `onMouseEnter`,
+ * `onMouseMove`), dismissal (`onKeyDown`, `onPointerDown`, `onClick`), focus (`onFocus`, `onBlur`,
+ * `onMouseLeave`) and hover (`onMouseMove`, `onPointerDown`, `onPointerEnter`).
+ */
+const TRIGGER_HANDLERS: Readonly<Record<string, Dispatch<NativePreviewCardTriggerModel>>> =
+  Object.fromEntries(
+    [
+      'onClick',
+      'onPointerDown',
+      'onPointerEnter',
+      'onKeyDown',
+      'onMouseEnter',
+      'onMouseMove',
+      'onMouseLeave',
+      'onFocus',
+      'onBlur',
+    ].map((key) => [key, partHandler(key, dispatchSources(key))]),
+  );
+
+/** The trigger's own attributes below the consumer's: one write per pass. */
+function writeTriggerAttributes(w: SetAttribute, trigger: NativePreviewCardTriggerModel) {
+  w.set('id', trigger.id());
+  // `triggerOpenStateMapping`.
+  w.set(CommonTriggerDataAttributes.popupOpen, trigger.isOpen() ? '' : undefined);
+}
+
+/** No state attribute of its own: `data-popup-open` is written with the attributes. */
+const writeTriggerState = compileStateWriter([], undefined);
+
+const triggerState = (trigger: NativePreviewCardTriggerModel) => trigger;
+const constant =
+  <T,>(value: T) =>
+  () =>
+    value;
 
 /**
  * A link that opens the preview card.
@@ -26,6 +118,11 @@ import { CLOSE_DELAY, OPEN_DELAY } from '../utils/constants';
  * Documentation: [Base UI Preview Card](https://base-ui.com/react/components/preview-card)
  */
 export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.Props<Payload>) {
+  // Native fast path (`context/architecture/render-pipeline.md`): a root's own trigger (no detached
+  // handle) renders with direct JSX; the props chain is inlined (D32).
+  const native =
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    untrack(() => componentProps.handle == null);
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'delay',
     'closeDelay',
@@ -115,42 +212,70 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
     () => isOpenedByThisTrigger() || isMountedByThisTrigger(),
   );
 
-  const state: PreviewCardTrigger.State = {
-    get open() {
-      return isOpenedByThisTrigger();
-    },
-  };
-
   const rootTriggerProps = () => currentStore().select('triggerProps', isMountedByThisTrigger);
   // Built once: the handlers read the open state when they fire (`getInlineRectTriggerProps`).
   const inlineRectTriggerProps = getInlineRectTriggerProps(
     inlineRectCoordsRef,
     isOpenedByThisTrigger,
   ) as HTMLProps;
+  const setRefs = (el: Element | null) => {
+    triggerElementRef.current = el;
+    registerTrigger(el);
+    setTriggerElement(el);
+  };
 
-  // Read per key by the element props: a change does not rebuild the props chain.
-  const rootTriggerSource = propsSourceAccessor(() => rootTriggerProps());
-  const element = useRenderElement('a', componentProps, {
-    state,
-    ref: (el: Element | null) => {
-      triggerElementRef.current = el;
-      registerTrigger(el);
-      setTriggerElement(el);
-    },
-    props: [
-      propsSourceAccessor(() => interactions()?.hoverProps),
-      propsSourceAccessor(() => interactions()?.focusProps.reference as HTMLProps | undefined),
-      rootTriggerSource,
-      inlineRectTriggerProps,
-      {
-        get id() {
-          return thisTriggerId();
-        },
+  // The native element is created once, here, under the trigger's owner.
+  const element: () => JSX.Element = native ? constant(nativeElement()) : slowElement();
+
+  function nativeElement() {
+    const model = new NativePreviewCardTriggerModel(isOpenedByThisTrigger, thisTriggerId, [
+      () => inlineRectTriggerProps,
+      rootTriggerProps,
+      () => interactions()?.focusProps.reference,
+      () => interactions()?.hoverProps,
+    ]);
+    // eslint-disable-next-line jsx-a11y/anchor-is-valid -- the template link gets the consumer's `href` and children
+    const el = (<a />) as unknown as HTMLAnchorElement;
+    return renderNativeElement(el, componentProps, {
+      own: OWN_KEYS,
+      state: triggerState,
+      stateWriter: writeTriggerState,
+      stateView: model,
+      reactive: true,
+      attributes: writeTriggerAttributes,
+      handlers: TRIGGER_HANDLERS,
+      handlerTarget: model,
+      refs: [setRefs],
+    }) as unknown as JSX.Element;
+  }
+
+  function slowElement() {
+    const state: PreviewCardTrigger.State = {
+      get open() {
+        return isOpenedByThisTrigger();
       },
-      elementProps,
-    ],
-    stateAttributesMapping: triggerOpenStateMapping,
-  });
+    };
+
+    // Read per key by the element props: a change does not rebuild the props chain.
+    const rootTriggerSource = propsSourceAccessor(() => rootTriggerProps());
+    return useRenderElement('a', componentProps, {
+      state,
+      ref: setRefs,
+      props: [
+        propsSourceAccessor(() => interactions()?.hoverProps),
+        propsSourceAccessor(() => interactions()?.focusProps.reference as HTMLProps | undefined),
+        rootTriggerSource,
+        inlineRectTriggerProps,
+        {
+          get id() {
+            return thisTriggerId();
+          },
+        },
+        elementProps,
+      ],
+      stateAttributesMapping: triggerOpenStateMapping,
+    });
+  }
 
   return element();
 }

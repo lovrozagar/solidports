@@ -1,6 +1,7 @@
 /* eslint-disable testing-library/no-container -- compares the rendered documents directly */
 /*
- * Parity for the parts D32's sweep put on the native path: the Popover and Tooltip triggers and the
+ * Parity for the parts D32's sweep put on the native path: the Popover, Tooltip and PreviewCard
+ * triggers and the
  * Select, Menu and Combobox items (with Select's item text and indicator). Each tree renders through
  * the native paths, then, alone, with every swept part forced onto the slow path (`part`), and the
  * two must produce the same normalized document, closed and after the steps that change the parts'
@@ -19,6 +20,7 @@ import { describe, expect, it } from 'vitest';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { Menu } from '@solidports/base-ui/menu';
 import { Popover } from '@solidports/base-ui/popover';
+import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { Select } from '@solidports/base-ui/select';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { createRenderer } from '#test-utils';
@@ -100,6 +102,19 @@ describe('native parity: popup parts', () => {
       <Tooltip.Root defaultOpen>
         {part(Tooltip.Trigger, slow, 'button', { children: 'Tip' })}
       </Tooltip.Root>
+    ));
+  });
+
+  it('PreviewCard.Trigger renders the same DOM closed and open', () => {
+    expectParity((slow) => (
+      <PreviewCard.Root>
+        {part(PreviewCard.Trigger, slow, 'a', { href: '#card', children: 'Card' })}
+      </PreviewCard.Root>
+    ));
+    expectParity((slow) => (
+      <PreviewCard.Root defaultOpen>
+        {part(PreviewCard.Trigger, slow, 'a', { href: '#card', children: 'Card' })}
+      </PreviewCard.Root>
     ));
   });
 
