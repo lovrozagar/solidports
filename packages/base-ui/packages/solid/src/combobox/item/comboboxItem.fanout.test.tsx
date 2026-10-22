@@ -96,6 +96,7 @@ describe('Combobox: a selection change re-runs only the items whose selection ch
     large.set([large.items[200]]);
     large.set([large.items[200], large.items[3]]);
     expect(large.selected()).toEqual(['Item 3', 'Item 200']);
+    expect(few).toBe(7);
     expect(large.valueSubscribers()).toBe(few);
     large.unmount();
   });
@@ -109,6 +110,7 @@ describe('Combobox: a selection change re-runs only the items whose selection ch
     const large = mount(300, false);
     large.set(large.items[200]);
     expect(large.selected()).toEqual(['Item 200']);
+    expect(few).toBe(8);
     expect(large.valueSubscribers()).toBe(few);
     large.unmount();
   });
