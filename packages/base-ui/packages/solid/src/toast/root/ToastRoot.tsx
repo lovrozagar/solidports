@@ -1,4 +1,6 @@
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { closest } from '../../utils/shadowDom';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps, useRef, provideContext } from '../../solid-helpers';
@@ -12,6 +14,10 @@ import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { provideNativeContext } from '../../utils/native/context';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { getDisplacement } from '../../utils/useSwipeDismiss';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
@@ -28,6 +34,66 @@ export const toastRootStateAttributesMapping: StateAttributesMapping<ToastRootSt
   },
 };
 
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set(['toast', 'swipeDirection']);
+const ROOT_LITERAL = { tabindex: 0, 'aria-modal': 'false' };
+const writeRootState = compileStateWriter(
+  ['transitionStatus', 'expanded', 'limited', 'type', 'swiping', 'swipeDirection'],
+  toastRootStateAttributesMapping,
+);
+
+/** What the native root's attributes and handlers read: one object per root. */
+interface ToastRootModel {
+  toast: () => ToastObjectType<any>;
+  titleId: Accessor<string | undefined>;
+  descriptionId: Accessor<string | undefined>;
+  focused: Accessor<boolean>;
+  swipeEnabled: () => boolean;
+  handlePointerDown: (event: PointerEvent & { currentTarget: HTMLDivElement }) => void;
+  handlePointerMove: (event: PointerEvent) => void;
+  handleSwipeEnd: (event: PointerEvent) => void;
+  handleKeyDown: (event: KeyboardEvent) => void;
+}
+
+/** The root's reactive attributes, as its slow path's default props produce them. */
+function writeRootAttributes(w: SetAttribute, model: ToastRootModel) {
+  const toast = model.toast();
+  const isHighPriority = toast.priority === 'high';
+  w.set('role', isHighPriority ? 'alertdialog' : 'dialog');
+  w.set('aria-labelledby', model.titleId());
+  w.set('aria-describedby', model.descriptionId());
+  w.set('aria-hidden', isHighPriority && !model.focused() ? 'true' : undefined);
+  w.set('inert', toast.limited ? true : undefined);
+}
+
+const whileSwipeEnabled = (model: ToastRootModel) => model.swipeEnabled();
+
+const ROOT_HANDLERS = {
+  onPointerDown: partHandler<ToastRootModel, PointerEvent>('onPointerDown', (model, event) => {
+    if (model.swipeEnabled()) {
+      model.handlePointerDown(event as unknown as PointerEvent & { currentTarget: HTMLDivElement });
+    }
+  }),
+  onPointerMove: partHandler<ToastRootModel, PointerEvent>('onPointerMove', (model, event) => {
+    if (whileSwipeEnabled(model)) {
+      model.handlePointerMove(event);
+    }
+  }),
+  onPointerUp: partHandler<ToastRootModel, PointerEvent>('onPointerUp', (model, event) => {
+    if (whileSwipeEnabled(model)) {
+      model.handleSwipeEnd(event);
+    }
+  }),
+  onPointerCancel: partHandler<ToastRootModel, PointerEvent>('onPointerCancel', (model, event) => {
+    if (whileSwipeEnabled(model)) {
+      model.handleSwipeEnd(event);
+    }
+  }),
+  onKeyDown: partHandler<ToastRootModel, KeyboardEvent>('onKeyDown', (model, event) =>
+    model.handleKeyDown(event),
+  ),
+};
+
 const SWIPE_THRESHOLD = 40;
 const REVERSE_CANCEL_THRESHOLD = 10;
 const OPPOSITE_DIRECTION_DAMPING_FACTOR = 0.5;
@@ -42,8 +108,8 @@ type SwipeDirection = 'up' | 'down' | 'left' | 'right';
  *
  * Documentation: [Base UI Toast](https://base-ui.com/react/components/toast)
  */
-export function ToastRoot(componentProps: ToastRoot.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['toast', 'swipeDirection']);
+export function ToastRoot(componentProps: ToastRoot.Props): JSX.Element {
+  const local = componentProps;
 
   const isAnchored = () => local.toast.positionerProps?.anchor !== undefined;
 
@@ -462,6 +528,18 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     };
   }
 
+  function rootStyle(): JSX.CSSProperties {
+    return {
+      ...getDragStyles(),
+      [ToastRootCssVars.index as string]:
+        local.toast.transitionStatus === 'ending' ? domIndex() : visibleIndex(),
+      [ToastRootCssVars.offsetY as string]: `${offsetY()}px`,
+      [ToastRootCssVars.height as string]: local.toast.height
+        ? `${local.toast.height}px`
+        : undefined,
+    } as JSX.CSSProperties;
+  }
+
   const isHighPriority = () => local.toast.priority === 'high';
 
   const defaultProps: HTMLProps = {
@@ -496,15 +574,7 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
       return local.toast.limited;
     },
     get style() {
-      return {
-        ...getDragStyles(),
-        [ToastRootCssVars.index as string]:
-          local.toast.transitionStatus === 'ending' ? domIndex() : visibleIndex(),
-        [ToastRootCssVars.offsetY as string]: `${offsetY()}px`,
-        [ToastRootCssVars.height as string]: local.toast.height
-          ? `${local.toast.height}px`
-          : undefined,
-      };
+      return rootStyle();
     },
   };
 
@@ -538,10 +608,45 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     },
   };
 
+  const setRootRef = (el: HTMLDivElement | null) => {
+    rootRef.current = el;
+  };
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div>` with the root's
+  // attributes, style and swipe handlers, no props view (D32).
+  if (canRenderNative(componentProps, undefined, true)) {
+    const model: ToastRootModel = {
+      toast: () => local.toast,
+      titleId,
+      descriptionId,
+      focused,
+      swipeEnabled,
+      handlePointerDown,
+      handlePointerMove,
+      handleSwipeEnd,
+      handleKeyDown,
+    };
+    return provideNativeContext(ToastRootContext, toastRoot, () =>
+      renderNativeElement(DIV, componentProps, {
+        own: OWN_KEYS,
+        state,
+        stateWriter: writeRootState,
+        mapping: toastRootStateAttributesMapping,
+        literal: ROOT_LITERAL,
+        attributes: writeRootAttributes,
+        partStyle: rootStyle,
+        handlers: ROOT_HANDLERS,
+        handlerTarget: model,
+        reactive: true,
+        refs: [setRootRef],
+      }),
+    ) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, ['toast', 'swipeDirection']);
+
   const element = useRenderElement('div', componentProps, {
-    ref: (el: HTMLDivElement | null) => {
-      rootRef.current = el;
-    },
+    ref: setRootRef,
     state,
     stateAttributesMapping: toastRootStateAttributesMapping,
     props: [defaultProps, elementProps],

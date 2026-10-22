@@ -1,10 +1,14 @@
-import { children as resolveChildren, createComponent, Show } from 'solid-js';
+import { children as resolveChildren, createComponent, createEffect, Show, untrack } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useId } from '../../utils/useId';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import type { NativeElementTemplate, SetAttribute } from '../../utils/native/element';
 import { useToastRootContext } from '../root/ToastRootContext';
+import type { ToastRootContext } from '../root/ToastRootContext';
+import { isRenderableNode } from './isRenderableNode';
 import { useRenderableElement } from './useRenderableElement';
-import { createDepsEffect } from '../../solid-helpers';
+import { isStaticProp } from '../../solid-helpers';
 
 /**
  * Shared logic for `Toast.Title` and `Toast.Description`, which only differ by the rendered tag,
@@ -29,6 +33,107 @@ export function useToastLabelPart(
 }
 
 /**
+ * Registers the label's id with the root while the label renders: one effect over the id it
+ * renders with (`undefined` while it renders nothing), re-applied only when that changes.
+ */
+function registerLabelId(
+  shouldRender: Accessor<boolean>,
+  id: Accessor<string | undefined>,
+  setId: Setter<string | undefined>,
+) {
+  createEffect(
+    () => (shouldRender() ? id() : undefined),
+    (currentId) => {
+      if (currentId === undefined) {
+        return undefined;
+      }
+
+      setId(currentId);
+      return () => {
+        setId((existing) => (existing === currentId ? undefined : existing));
+      };
+    },
+  );
+}
+
+const LABEL_OWN_KEYS: ReadonlySet<string> = new Set(['id', 'children']);
+const writeLabelState = compileStateWriter(['type'], undefined);
+
+/** A native label's toast, id and content: one object per label. */
+class ToastLabelModel {
+  declare readonly root: ToastRootContext;
+  declare readonly id: Accessor<string | undefined>;
+  declare readonly content: Accessor<JSX.Element>;
+
+  constructor(
+    root: ToastRootContext,
+    id: Accessor<string | undefined>,
+    content: Accessor<JSX.Element>,
+  ) {
+    this.root = root;
+    this.id = id;
+    this.content = content;
+  }
+
+  get type() {
+    return this.root.toast().type;
+  }
+}
+
+function writeLabelAttributes(w: SetAttribute, model: ToastLabelModel) {
+  w.set('id', model.id());
+}
+
+const labelStateOf = (model: ToastLabelModel) => ({
+  get type() {
+    return model.type;
+  },
+});
+
+const labelContentOf = (model: ToastLabelModel) => model.content() as JSX.Element;
+
+/**
+ * `Toast.Title` and `Toast.Description` on the native fast path (no `render`): the element is
+ * rendered only while its content is renderable, with no props view (D32).
+ */
+export function renderNativeToastLabel(
+  props: { id?: unknown; children?: unknown },
+  template: NativeElementTemplate,
+  part: 'title' | 'description',
+): JSX.Element {
+  const root = useToastRootContext();
+  const { id, children, setId } = useToastLabelPart(
+    // A static id needs no memo (`useId`).
+    isStaticProp(props, 'id')
+      ? (untrack(() => props.id) as string | undefined)
+      : () => props.id as string | undefined,
+    () => props.children as JSX.Element,
+    part,
+  );
+  // Show memoizes its condition: no memo of our own.
+  const shouldRender = () => isRenderableNode(children());
+  registerLabelId(shouldRender, id, setId);
+  const model = new ToastLabelModel(root, id, children);
+
+  return createComponent(Show, {
+    get when() {
+      return shouldRender();
+    },
+    children: () =>
+      renderNativeElement(template, props, {
+        own: LABEL_OWN_KEYS,
+        state: labelStateOf,
+        stateView: model,
+        stateWriter: writeLabelState,
+        attributes: writeLabelAttributes,
+        handlerTarget: model,
+        reactive: true,
+        children: () => labelContentOf(model),
+      }) as unknown as JSX.Element,
+  });
+}
+
+/**
  * Mounts the evaluated label element only when it carries renderable content (so a `render` prop's
  * own children count, while a childless styling-only `render` stays conditional), registering the
  * generated id with the root while the part renders.
@@ -42,20 +147,7 @@ export function useToastLabelElement(
 ): JSX.Element {
   const { rendered, shouldRender } = useRenderableElement(element, render, content);
 
-  createDepsEffect(
-    () => ({ shouldRender: shouldRender(), id: id() }),
-    (deps) => {
-      if (!deps.shouldRender) {
-        return undefined;
-      }
-
-      const currentId = deps.id;
-      setId(currentId);
-      return () => {
-        setId((existing) => (existing === currentId ? undefined : existing));
-      };
-    },
-  );
+  registerLabelId(shouldRender, id, setId);
 
   return createComponent(Show, {
     get when() {

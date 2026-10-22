@@ -285,6 +285,15 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     GROUPED_TOGGLE,
   ],
   'toggle-group': [GROUPED_TOGGLE],
+  toast: [
+    'toast cost against the hand-written floor > the floor renders the same DOM as a toast',
+    "toast cost against the hand-written floor > a toast's parts render on the native path",
+    'toast cost against the hand-written floor > Toast root costs at most its native budget',
+    'toast cost against the hand-written floor > Toast content costs at most its native budget',
+    'toast cost against the hand-written floor > Toast title costs at most its native budget',
+    'toast cost against the hand-written floor > Toast description costs at most its native budget',
+    'toast cost against the hand-written floor > Toast close costs at most its native budget',
+  ],
   tooltip: [
     closedRoot('Tooltip'),
     bareRoot('Tooltip'),
@@ -310,7 +319,6 @@ export const PENDING_COST: Partial<Record<ComponentName, string>> = {
   'otp-field': '6.1 forms family',
   'scroll-area': '7.1 Tabs and ScrollArea family',
   slider: '6.1 forms family',
-  toast: '10.1 toast family',
   toolbar: '5.1 toggles family',
   'unstable-use-media-query': '4.1 static parts family',
 };
