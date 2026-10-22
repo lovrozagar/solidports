@@ -234,7 +234,13 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   ],
   radio: [RADIO, RADIO_INDICATOR],
   'radio-group': [RADIO],
-  select: [closedRoot('Select'), 'render core cost > Select.Item costs at most 23 reactive nodes'],
+  select: [
+    closedRoot('Select'),
+    'render core cost > Select.Item costs at most 23 reactive nodes',
+    'select cost against the hand-written floor > the floor renders the same option DOM as an open Select.Item',
+    'select cost against the hand-written floor > an open Select.Item renders on the native path',
+    'select cost against the hand-written floor > an open Select.Item costs at most the floor item plus 25%',
+  ],
   separator: [
     staticPart('a Separator with a literal orientation costs at most 1 node'),
     staticPart('a Separator with a reactive orientation costs at most 2 nodes'),

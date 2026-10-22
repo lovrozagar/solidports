@@ -18,6 +18,50 @@ describe('<Select.Item />', () => {
     }),
   );
 
+  // D32's native item keeps its pointer and selection state per item and per root: a selection in
+  // one Select leaves nothing behind that stops another Select on the page from opening.
+  it('opens a second Select on the page after selecting an item in the first', async () => {
+    const { user } = render(() => (
+      <div>
+        <For each={['first', 'second']}>
+          {(name) => (
+            <Select.Root>
+              <Select.Trigger data-testid={`${name}-trigger`}>
+                <Select.Value placeholder={name} />
+              </Select.Trigger>
+              <Select.Portal>
+                <Select.Positioner>
+                  <Select.Popup data-testid={`${name}-popup`}>
+                    <Select.List>
+                      <Select.Item value={`${name}-a`}>
+                        <Select.ItemText>{`${name} a`}</Select.ItemText>
+                      </Select.Item>
+                      <Select.Item value={`${name}-b`}>
+                        <Select.ItemText>{`${name} b`}</Select.ItemText>
+                      </Select.Item>
+                    </Select.List>
+                  </Select.Popup>
+                </Select.Positioner>
+              </Select.Portal>
+            </Select.Root>
+          )}
+        </For>
+      </div>
+    ));
+
+    await user.click(screen.getByTestId('first-trigger'));
+    await user.click(await screen.findByRole('option', { name: 'first b' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('first-trigger')).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    await user.click(screen.getByTestId('second-trigger'));
+    await waitFor(() => {
+      expect(screen.getByTestId('second-trigger')).toHaveAttribute('aria-expanded', 'true');
+    });
+    expect(await screen.findByRole('option', { name: 'second a' })).toBeVisible();
+  });
+
   it('treats a null value as an empty selection in multiple mode', async () => {
     const handleValueChange = vi.fn();
 

@@ -25,6 +25,11 @@ export interface SelectRootContext {
   getItemProps: (
     props?: HTMLProps & { active?: boolean | undefined; selected?: boolean | undefined },
   ) => Record<string, unknown>; // PREVENT_COMMIT
+  /**
+   * The list navigation and typeahead item props every item merges: one live view per root, read
+   * when an item's handler fires (`getItemProps()` without user props is the same for every item).
+   */
+  readonly itemProps: Record<string, unknown>;
   events: FloatingEvents;
   valueRef: ReactLikeRef<HTMLSpanElement | null | undefined>;
   valuesRef: ReactLikeRef<Array<any>>;
