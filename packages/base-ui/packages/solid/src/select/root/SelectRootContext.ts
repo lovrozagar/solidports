@@ -2,6 +2,7 @@ import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { UseFieldValidationReturnValue } from '../../field/root/useFieldValidation';
 import type { FloatingEvents, FloatingRootContext } from '../../floating-ui-solid';
+import type { KeyedSelector } from '../../utils/createKeyedSelector';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { HTMLProps } from '../../utils/types';
 import type { SelectStore } from '../store';
@@ -30,6 +31,14 @@ export interface SelectRootContext {
    * when an item's handler fires (`getItemProps()` without user props is the same for every item).
    */
   readonly itemProps: Record<string, unknown>;
+  /**
+   * Membership of item values in the selected value (keyed, D32): an item reads its own value's
+   * entry, so a selection change re-runs only the items that joined or left it. Created by the root
+   * on the first item's read. Under a custom `isItemEqualToValue` items compare instead.
+   */
+  readonly selectedMembership: KeyedSelector;
+  /** Whether the root compares item values with a custom `isItemEqualToValue`. */
+  customItemEquality: () => boolean;
   events: FloatingEvents;
   valueRef: ReactLikeRef<HTMLSpanElement | null | undefined>;
   valuesRef: ReactLikeRef<Array<any>>;

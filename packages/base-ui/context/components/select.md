@@ -41,7 +41,7 @@ Dev probe 2026-10-14, rc.13: closed root with one item 121 nodes, open 436, each
 
 Current budgets:
 
-- Open `Select.Item` with its `ItemText` and an unselected `ItemIndicator`: at most the hand-written floor item plus 25% (`select.cost.test.tsx`, floor `test/floor/select.tsx`); 10 nodes against the floor's 9 (42 on the slow path): the item's selection is a memo of its own, since `isSelected` is not keyed (multiple selection compares against an array), so a value change re-runs only the items whose selection changed.
+- Open `Select.Item` with its `ItemText` and an unselected `ItemIndicator`: at most the hand-written floor item plus 25% (`select.cost.test.tsx`, floor `test/floor/select.tsx`); 10 nodes against the floor's 9 (42 on the slow path): the item's selection reads the root's keyed membership (`createKeyedSelector`, created on the first item's read), so a value change re-runs only the items that joined or left it (`selectItem.fanout.test.tsx`: the value's subscribers stay flat from 30 to 300 items). A custom `isItemEqualToValue` cannot be keyed, and each item then compares in a memo of its own. Object values without a comparer are keyed by identity.
 - Closed root (Trigger + Value + unopened popup + one item): ≤ 108, down from 188 before deferring interactions, providing context on one owner and creating the transition machinery on the first open (`packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx:174`).
 - `Select.Item` ≤ 23 (`packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx:66`).
 - No open-root budget exists.
