@@ -494,15 +494,20 @@ function runCommand(command, cwd, log, runDir) {
  * Why a vitest suite's log does not show a complete run, or `undefined` when every run in it
  * reached all of its test files. A run that ends early (a browser that lost its iframe, a run cut
  * off) can still exit 0 with files that never ran: every \`Test Files\` summary must account for
- * all of its files (passed, failed, skipped or todo), and a log with none is incomplete too.
+ * all of its files (passed, failed, skipped or todo), and a log with none is incomplete too, unless
+ * the suite runs with `--passWithNoTests` (`--changed`) and vitest found no test file to run.
  * @param {string} log
+ * @param {{ passWithNoTests?: boolean }} [options]
  * @returns {string | undefined}
  */
-export function vitestIncomplete(log) {
+export function vitestIncomplete(log, options = {}) {
   // eslint-disable-next-line no-control-regex -- vitest colors its summary with ANSI escapes
   const plain = log.replace(/\u001b\[[0-9;]*m/g, '');
   const summaries = [...plain.matchAll(/^\s*Test Files\s+(.*?)\s*\((\d+)\)\s*$/gm)];
   if (summaries.length === 0) {
+    if (options.passWithNoTests && /^No test files found, exiting with code 0$/m.test(plain)) {
+      return undefined;
+    }
     return 'no vitest summary in the log';
   }
   for (const [, counts, total] of summaries) {
@@ -532,7 +537,9 @@ async function runSuite(suite, runDir) {
     }
   }
   if (suite.vitest) {
-    const incomplete = vitestIncomplete(fs.readFileSync(log, 'utf8'));
+    const incomplete = vitestIncomplete(fs.readFileSync(log, 'utf8'), {
+      passWithNoTests: suite.run.every((command) => command.includes('--passWithNoTests')),
+    });
     if (incomplete) {
       return { status: 'fail', detail: `incomplete: ${incomplete}` };
     }

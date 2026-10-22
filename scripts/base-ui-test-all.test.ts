@@ -2,7 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
-import { commandFor, EXCLUSIVE_LOCK, suites, vitestIncomplete } from "../packages/base-ui/scripts/test-all.mjs"
+import {
+	commandFor,
+	EXCLUSIVE_LOCK,
+	planSuites,
+	suites,
+	vitestIncomplete,
+} from "../packages/base-ui/scripts/test-all.mjs"
 
 const BASE_UI = resolve(import.meta.dir, "../packages/base-ui")
 const temps: string[] = []
@@ -153,6 +159,20 @@ describe("test:base-ui:all vitest completeness", () => {
 	test("every run in the log is checked, and a log without a summary is incomplete", () => {
 		expect(vitestIncomplete("Test Files  3 passed (3)\nTest Files  2 passed (9)")).toBe("ran 2 of 9 test files")
 		expect(vitestIncomplete("error: script exited")).toBe("no vitest summary in the log")
+	})
+
+	// `--changed` runs pass with no tests when no test file depends on the range (a scripts-only
+	// change): vitest then prints no summary, and the run is complete.
+	test("a run with no related tests is complete only where the suite passes with no tests", () => {
+		const log = "\nNo test files found, exiting with code 0\n\nprojects: @solidports/base-ui\n"
+		expect(vitestIncomplete(log, { passWithNoTests: true })).toBe(undefined)
+		expect(vitestIncomplete(log)).toBe("no vitest summary in the log")
+		expect(vitestIncomplete("error: script exited", { passWithNoTests: true })).toBe("no vitest summary in the log")
+	})
+
+	test("a --changed vitest suite passes with no tests", () => {
+		const changed = planSuites({ changed: "main", only: null, fullBench: false }).filter((suite) => suite.vitest)
+		expect(changed.every((suite) => suite.run.every((command) => command.includes("--passWithNoTests")))).toBe(true)
 	})
 
 	test("the vitest suites are checked", () => {
