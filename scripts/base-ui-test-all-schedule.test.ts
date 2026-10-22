@@ -64,6 +64,18 @@ describe("test:base-ui:all plan", () => {
 	// eslint and the generated docs too: the verify stamp runs neither, and CI runs both. A push gated
 	// on jsdom and Chromium alone carried a mui/no-floating-cleanup error (4ada29ab), and fadd8eb5
 	// failed CI's generated-docs check on an edit to generated output.
+	// vale too when the range changes Base UI's Markdown: neither the stamp nor CI's other steps lint
+	// prose, and 307fa1c8 failed CI's vale step on a note it edited (2c766d1e).
+	test("--changed selects vale when the range changes a Markdown file under packages/base-ui", () => {
+		const prose = planSuites({ changed: "main~3", changedFiles: ["packages/base-ui/context/testing/suites.md"] })
+		expect(byName(prose, "vale")).toMatchObject({ selected: true })
+		expect(byName(prose, "vale").run).toEqual(byName(planSuites({}), "vale").run)
+		const code = planSuites({ changed: "main~3", changedFiles: ["packages/base-ui/packages/solid/src/x.ts"] })
+		expect(byName(code, "vale")).toMatchObject({ selected: false, detail: "not selected (--changed)" })
+		const elsewhere = planSuites({ changed: "main~3", changedFiles: ["packages/recharts/README.md"] })
+		expect(byName(elsewhere, "vale")).toMatchObject({ selected: false })
+	})
+
 	test("--changed selects eslint, docs-generate, jsdom and chromium, running vitest on the module-graph diff", () => {
 		const suites = planSuites({ changed: "main~3" })
 		expect(suites.filter((s) => s.selected).map((s) => s.name)).toEqual([

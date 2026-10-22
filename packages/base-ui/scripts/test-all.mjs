@@ -76,7 +76,20 @@ export const suites = [
       "bunx stylelint --reportInvalidScopeDisables --reportNeedlessDisables 'docs/solid/**/*.css' --ignore-path .lintignore",
     ],
   },
-  { job: 'Linting', name: 'vale', cwd: baseUi, run: ['bun run valelint'] },
+  {
+    job: 'Linting',
+    name: 'vale',
+    cwd: baseUi,
+    run: ['bun run valelint'],
+    // Run by `--changed` when the range changes Base UI's Markdown: the verify stamp lints no prose,
+    // and an edited note failed CI's vale step (2c766d1e).
+    changedFiles: /^packages\/base-ui\/.*\.mdx?$/,
+    // `.vale.ini` reads its MUI styles from the repository's install (`../../` from Base UI): a
+    // worktree without an install of its own has none there.
+    unavailable: fs.existsSync(path.join(root, 'node_modules/@mui/internal-code-infra/vale'))
+      ? null
+      : "needs this tree's own install (.vale.ini reads its styles from it)",
+  },
   {
     job: 'Generated files',
     name: 'error-codes',
@@ -281,7 +294,12 @@ export function planSuites(options) {
     let selected = true;
     let detail;
     if (options.changed != null) {
-      selected = Boolean(suite.vitest || suite.changed);
+      selected = Boolean(
+        suite.vitest ||
+          suite.changed ||
+          (suite.changedFiles &&
+            (options.changedFiles ?? []).some((file) => suite.changedFiles.test(file))),
+      );
       detail = selected ? undefined : 'not selected (--changed)';
       if (suite.vitest) {
         const since = options.changed ? ` ${options.changed}` : '';
@@ -554,6 +572,14 @@ async function main() {
     light: Number(process.env.GATES_LIGHT ?? 4),
   };
   const started = Date.now();
+  if (options.changed != null) {
+    // The files the range changes, committed or not: suites that run only for some files read them.
+    const diff = spawnSync('git', ['diff', '--name-only', options.changed || 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    options.changedFiles = diff.status === 0 ? diff.stdout.split('\n').filter(Boolean) : [];
+  }
   const results = await runAll(
     planSuites(options),
     async (suite) => {
