@@ -6345,8 +6345,10 @@ describe('<Select.Root />', () => {
 
         await user.click(screen.getByTestId('trigger'));
 
-        const popup = await screen.findByTestId('popup');
-        const selected = screen.getByRole('option', { name: 'item 280' });
+        // The popup is mounted while closed, so it is found before the press opens it: wait for the
+        // open option, whose mousedown can be handled after the click resolves.
+        const popup = screen.getByTestId('popup');
+        const selected = await screen.findByRole('option', { name: 'item 280' });
         await waitFor(() => {
           const popupRect = popup.getBoundingClientRect();
           const itemRect = selected.getBoundingClientRect();

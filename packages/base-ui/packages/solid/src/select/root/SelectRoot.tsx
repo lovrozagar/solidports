@@ -3,7 +3,9 @@ import {
   createMemo,
   createSignal,
   For,
+  getOwner,
   onSettled,
+  runWithOwner,
   Show,
   snapshot,
   untrack,
@@ -578,9 +580,12 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     deferred('typeahead'),
   ]);
 
-  // The interaction getters return live views, so each is created once.
+  // The interaction getters return live views, so each is created once. The items share one,
+  // created under the root when the first item reads it: a closed root has none.
   const referenceProps = getReferenceProps();
   const popupProps = getFloatingProps();
+  const rootOwner = getOwner();
+  let itemProps: Record<string, unknown> | undefined;
 
   // One lazy view, built once: a `mergeProps` memo would enumerate the live reference props on
   // every key-set change (e.g. on open) and hand the trigger a new object, rebuilding its props.
@@ -637,6 +642,10 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     handleScrollArrowVisibility,
     scrollArrowsMountedCountRef,
     getItemProps,
+    get itemProps() {
+      itemProps ??= runWithOwner(rootOwner, () => getItemProps());
+      return itemProps;
+    },
     get events() {
       return floatingContext.context.events;
     },

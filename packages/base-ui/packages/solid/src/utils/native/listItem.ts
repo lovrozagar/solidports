@@ -1,6 +1,7 @@
 /*
  * Composite list registration for native parts: `useCompositeListItem` for an
- * item with an automatic index, no label and no text ref. The registration data is read once when
+ * item with an automatic index, and optionally a label and a text ref (read when the item
+ * registers, as the hook reads them). The registration data is read once when
  * it is static; a reactive metadata accessor re-registers from one effect. One signal (the index)
  * instead of the hook's signal + effect + render effect; the list sees the same registrations in
  * the same order. An optional index guess from the creation order avoids the post-flush re-render.
@@ -36,6 +37,8 @@ class ListItemRecord<Metadata> implements NativeListItem, CompositeListIndexSink
   declare readonly setRef: (node: HTMLElement | null | undefined) => void;
   declare private readonly list: CompositeListContextValue<Metadata>;
   declare private readonly metadata: Metadata | null | Accessor<Metadata | null>;
+  declare private readonly label: (() => string | undefined) | undefined;
+  declare private readonly textRef: (() => HTMLElement | null | undefined) | undefined;
   declare private element: Element | null;
   declare private registration: CompositeListRegistration<Metadata> | null;
 
@@ -43,12 +46,16 @@ class ListItemRecord<Metadata> implements NativeListItem, CompositeListIndexSink
     list: CompositeListContextValue<Metadata>,
     metadata: Metadata | null | Accessor<Metadata | null>,
     guessed: number,
+    label: (() => string | undefined) | undefined,
+    textRef: (() => HTMLElement | null | undefined) | undefined,
   ) {
     // The list sets the index only when a flush moves it.
     [this.index, this.set] = createSignal(guessed);
     this.current = guessed;
     this.list = list;
     this.metadata = metadata;
+    this.label = label;
+    this.textRef = textRef;
     this.element = null;
     this.registration = null;
     this.setRef = (node) => this.attach(node);
@@ -82,7 +89,15 @@ class ListItemRecord<Metadata> implements NativeListItem, CompositeListIndexSink
   }
 
   private register(node: Element, data: Metadata | null) {
-    this.registration = { metadata: data, index: null, label: undefined, textRef: undefined };
+    // The text ref is registered as a reader the list calls at flush, so a text element that
+    // attaches after the item (an ItemText part) needs no second registration.
+    const textRef = this.textRef;
+    this.registration = {
+      metadata: data,
+      index: null,
+      label: this.label === undefined ? undefined : untrack(this.label),
+      textRef: textRef === undefined ? undefined : () => untrack(textRef),
+    };
     this.list.register(node, this.registration, this, this);
   }
 
@@ -95,7 +110,13 @@ class ListItemRecord<Metadata> implements NativeListItem, CompositeListIndexSink
 
 export function createNativeListItem<Metadata>(
   metadata: Metadata | null | Accessor<Metadata | null>,
-  options?: { guessIndex?: boolean | undefined },
+  options?: {
+    guessIndex?: boolean | undefined;
+    /** The typeahead label, read when the item registers. */
+    label?: (() => string | undefined) | undefined;
+    /** The element whose text the list reads at flush (an item's text part). */
+    textRef?: (() => HTMLElement | null | undefined) | undefined;
+  },
 ): NativeListItem {
   const list = useCompositeListContext() as CompositeListContextValue<Metadata>;
   // `guessIndex`: the index is guessed from the creation order (`IndexGuessBehavior.GuessFromOrder`)
@@ -116,7 +137,7 @@ export function createNativeListItem<Metadata>(
     }
     return { setRef: noop, index: () => guessed };
   }
-  const item = new ListItemRecord(list, metadata, guessed);
+  const item = new ListItemRecord(list, metadata, guessed, options?.label, options?.textRef);
   if (reactive) {
     createEffect(metadata as Accessor<Metadata | null>, (data) => item.update(data));
   }
