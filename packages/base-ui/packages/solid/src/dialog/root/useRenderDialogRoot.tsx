@@ -100,7 +100,7 @@ export function useRenderDialogRoot<Payload>(
   const payload = store.useState('payload') as Accessor<Payload | undefined>;
 
   usePopupRootSync(store, open);
-  useImplicitActiveTrigger(store);
+  void useImplicitActiveTrigger(store);
   const { forceUnmount } = useOpenStateTransitions(open, store);
 
   // React's `useImperativeHandle`.
