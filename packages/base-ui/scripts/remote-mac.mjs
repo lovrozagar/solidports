@@ -347,8 +347,21 @@ async function main() {
   console.log(`remote-mac: ${options.sha.slice(0, 12)} on ${HOST}; log ${path.relative(root, log)}`);
   const out = fs.createWriteStream(log);
   // The run stops itself once this stops: a driver killed here leaves no run holding the lock there.
+  // A refresh that fails says why: a silent loss stops the run there after `HEARTBEAT_STALE_SECONDS`.
   const beat = setInterval(() => {
-    spawn('ssh', [HOST, `touch ${heartbeat}`], { stdio: 'ignore' }).on('error', () => {});
+    const touch = spawn('ssh', ['-o', 'ConnectTimeout=15', HOST, `touch ${heartbeat}`], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let stderr = '';
+    touch.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    touch.on('error', (error) => console.error(`remote-mac: heartbeat not sent: ${error.message}`));
+    touch.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`remote-mac: heartbeat ssh exited ${code}: ${stderr.trim()}`);
+      }
+    });
   }, HEARTBEAT_SECONDS * 1000);
   // A session the link dropped runs again from its start (the run there stops itself once the
   // heartbeat goes stale, and the next one queues on the lock); a run's own exit code is final.
