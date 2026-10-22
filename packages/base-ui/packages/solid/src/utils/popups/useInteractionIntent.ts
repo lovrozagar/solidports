@@ -20,15 +20,17 @@ const INTENT_EVENTS = [
 ] as const;
 const INTENT_OPTIONS = { capture: true, passive: true };
 
-// One capture listener per event type and document, shared by every trigger waiting for its first
-// intent: a trigger registers a callback instead of adding 11 listeners of its own. The document's
-// capture phase runs before the trigger's own listeners, so the interactions an intent creates
-// still receive the event that created them.
+// One capture listener per event type and root (the document, or the shadow root a trigger renders
+// in), shared by every trigger in it waiting for its first intent: a trigger registers a callback
+// instead of adding 11 listeners of its own. The root's capture phase runs before the trigger's own
+// listeners, so the interactions an intent creates still receive the event that created them. The
+// root, not the document: from a document listener, an event inside a closed shadow root has a
+// composed path that stops at the shadow host, so a trigger inside never saw its intent.
 const intentCallbacks = new WeakMap<EventTarget, Set<() => void>>();
-const listeningDocuments = new WeakSet<Document>();
+const listeningRoots = new WeakSet<Node>();
 let pendingTargets = 0;
 
-function onDocumentIntent(event: Event) {
+function onRootIntent(event: Event) {
   if (pendingTargets === 0) {
     return;
   }
@@ -43,11 +45,11 @@ function onDocumentIntent(event: Event) {
 }
 
 function listenForIntent(target: Element, onIntent: () => void) {
-  const doc = target.ownerDocument;
-  if (!listeningDocuments.has(doc)) {
-    listeningDocuments.add(doc);
+  const root = target.getRootNode();
+  if (!listeningRoots.has(root)) {
+    listeningRoots.add(root);
     for (const type of INTENT_EVENTS) {
-      doc.addEventListener(type, onDocumentIntent, INTENT_OPTIONS);
+      root.addEventListener(type, onRootIntent, INTENT_OPTIONS);
     }
   }
   let callbacks = intentCallbacks.get(target);
