@@ -1,3 +1,4 @@
+import type { JSX } from '@solidjs/web';
 import { createEffect, onSettled, untrack } from 'solid-js';
 import { isElement } from '@floating-ui/utils/dom';
 import { useDirection } from '../../direction-provider/DirectionContext';
@@ -19,12 +20,34 @@ import { isTouchLikePointerType } from '../../internals/usePressAndHold';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { SliderRootState } from '../root/SliderRoot';
 import { useSliderRootContext } from '../root/SliderRootContext';
-import { sliderStateAttributesMapping } from '../root/stateAttributesMapping';
+import { sliderStateAttributesMapping, writeSliderState } from '../root/stateAttributesMapping';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
+
 import { getMidpoint } from '../utils/getMidpoint';
 import { resolveThumbCollision } from '../utils/resolveThumbCollision';
 import { roundValueToStep } from '../utils/roundValueToStep';
 import { validateMinimumDistance } from '../utils/validateMinimumDistance';
 import { safelyChangePointerCapture } from '../../utils/pointerCapture';
+
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set();
+
+interface SliderControlModel {
+  renderBeforeHydration: () => boolean;
+  onPointerDown: (event: PointerEvent) => void;
+}
+
+function writeControlAttributes(w: SetAttribute, model: SliderControlModel) {
+  w.set('data-base-ui-slider-control', model.renderBeforeHydration() ? '' : undefined);
+}
+
+const CONTROL_HANDLERS = {
+  onPointerDown: partHandler<SliderControlModel, PointerEvent>('onPointerDown', (model, event) =>
+    model.onPointerDown(event),
+  ),
+};
 
 const INTENTIONAL_DRAG_COUNT_THRESHOLD = 2;
 
@@ -83,9 +106,7 @@ function getFingerCoords(
  *
  * Documentation: [Base UI Slider](https://base-ui.com/react/components/slider)
  */
-export function SliderControl(componentProps: SliderControl.Props) {
-  const [, , elementProps] = splitComponentProps(componentProps, []);
-
+export function SliderControl(componentProps: SliderControl.Props): JSX.Element {
   const {
     disabled,
     dragging,
@@ -493,6 +514,97 @@ export function SliderControl(componentProps: SliderControl.Props) {
     }
   });
 
+  function handlePointerDown(event: PointerEvent) {
+    // Replace a flag left by a cancelled gesture that had no `touchstart` to consume it.
+    pointerGestureRef.current = false;
+    const control = controlRef.current;
+    const target = getTarget(event);
+
+    if (
+      !control ||
+      untrack(disabled) ||
+      event.defaultPrevented ||
+      !isElement(target) ||
+      // Only handle left clicks
+      event.button !== 0
+    ) {
+      return;
+    }
+
+    if (isTargetDisabledThumb(target)) {
+      resetPressedThumb();
+      return;
+    }
+
+    const fingerCoords = { x: event.clientX, y: event.clientY };
+    startPressing(fingerCoords);
+
+    const finger = getFingerState(fingerCoords);
+
+    if (finger == null) {
+      return;
+    }
+
+    const pressedOnFocusedThumb = contains(
+      thumbRefs.current[finger.thumbIndex],
+      activeElement(ownerDocument(control)),
+    );
+
+    if (pressedOnFocusedThumb) {
+      event.preventDefault();
+    } else {
+      focusFrame.request(() => {
+        focusThumb(finger.thumbIndex);
+      });
+    }
+
+    setDragging(true);
+
+    const pressedOnAnyThumb = pressedThumbCenterOffsetRef.current != null;
+    if (!pressedOnAnyThumb) {
+      setValueFromPointer(finger, REASONS.trackPress, event);
+    }
+
+    if (event.pointerId) {
+      // Solid: a pointer no longer active (released before this handler, or a synthetic
+      // event) makes the capture throw; the press works without it.
+      safelyChangePointerCapture(control, event.pointerId, 'setPointerCapture');
+    }
+
+    moveCountRef.current = 0;
+    // Touch and pen presses can be followed by a compatibility `touchstart`.
+    pointerGestureRef.current = isTouchLikePointerType(event.pointerType);
+    const doc = ownerDocument(control);
+    doc.addEventListener('pointermove', handleTouchMove, { passive: true });
+    doc.addEventListener('pointerup', handleTouchEnd, { once: true });
+    doc.addEventListener('pointercancel', handlePointerCancel, { once: true });
+  }
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div>` with its
+  // pointerdown handler, no props view (D32). Client renders only, as the indicator: the
+  // prehydration script positions the parts while hydrating.
+  if (canRenderNative(componentProps)) {
+    return renderNativeElement(DIV, componentProps, {
+      own: OWN_KEYS,
+      state,
+      stateWriter: writeSliderState,
+      mapping: sliderStateAttributesMapping,
+      attributes: writeControlAttributes,
+      handlers: CONTROL_HANDLERS,
+      handlerTarget: { renderBeforeHydration, onPointerDown: handlePointerDown },
+      reactive: true,
+      refs: [
+        registerFieldControlRef,
+        (el: HTMLDivElement | null) => {
+          controlRef.current = el;
+        },
+        setStylesRef,
+      ],
+    }) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, []);
+
   const element = useRenderElement('div', componentProps, {
     state,
     ref: [registerFieldControlRef, controlRef, setStylesRef],
@@ -501,71 +613,7 @@ export function SliderControl(componentProps: SliderControl.Props) {
         get ['data-base-ui-slider-control' as string]() {
           return renderBeforeHydration() ? '' : undefined;
         },
-        onPointerDown(event: PointerEvent) {
-          // Replace a flag left by a cancelled gesture that had no `touchstart` to consume it.
-          pointerGestureRef.current = false;
-          const control = controlRef.current;
-          const target = getTarget(event);
-
-          if (
-            !control ||
-            untrack(disabled) ||
-            event.defaultPrevented ||
-            !isElement(target) ||
-            // Only handle left clicks
-            event.button !== 0
-          ) {
-            return;
-          }
-
-          if (isTargetDisabledThumb(target)) {
-            resetPressedThumb();
-            return;
-          }
-
-          const fingerCoords = { x: event.clientX, y: event.clientY };
-          startPressing(fingerCoords);
-
-          const finger = getFingerState(fingerCoords);
-
-          if (finger == null) {
-            return;
-          }
-
-          const pressedOnFocusedThumb = contains(
-            thumbRefs.current[finger.thumbIndex],
-            activeElement(ownerDocument(control)),
-          );
-
-          if (pressedOnFocusedThumb) {
-            event.preventDefault();
-          } else {
-            focusFrame.request(() => {
-              focusThumb(finger.thumbIndex);
-            });
-          }
-
-          setDragging(true);
-
-          const pressedOnAnyThumb = pressedThumbCenterOffsetRef.current != null;
-          if (!pressedOnAnyThumb) {
-            setValueFromPointer(finger, REASONS.trackPress, event);
-          }
-
-          if (event.pointerId) {
-            // Solid: a pointer no longer active (released before this handler, or a synthetic
-            // event) makes the capture throw; the press works without it.
-            safelyChangePointerCapture(control, event.pointerId, 'setPointerCapture');
-          }
-
-          moveCountRef.current = 0;
-          // Touch and pen presses can be followed by a compatibility `touchstart`.
-          pointerGestureRef.current = isTouchLikePointerType(event.pointerType);
-          const doc = ownerDocument(control);
-          doc.addEventListener('pointermove', handleTouchMove, { passive: true });
-          doc.addEventListener('pointerup', handleTouchEnd, { once: true });
-          doc.addEventListener('pointercancel', handlePointerCancel, { once: true });
-        },
+        onPointerDown: handlePointerDown,
       },
       elementProps,
     ],

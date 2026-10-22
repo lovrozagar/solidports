@@ -1,12 +1,22 @@
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
+import { canRenderNative } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useIsHydrating } from '../../utils/useIsHydrating';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { valueToPercent } from '../../utils/valueToPercent';
 import type { SliderRootState } from '../root/SliderRoot';
 import { useSliderRootContext } from '../root/SliderRootContext';
-import { sliderStateAttributesMapping } from '../root/stateAttributesMapping';
+import { sliderStateAttributesMapping, writeSliderState } from '../root/stateAttributesMapping';
+
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set();
+
+function writeIndicatorAttributes(w: SetAttribute, renderBeforeHydration: () => boolean) {
+  w.set('data-base-ui-slider-indicator', renderBeforeHydration() ? '' : undefined);
+}
 
 function getIndicatorStyles(
   vertical: boolean,
@@ -50,9 +60,7 @@ function getIndicatorStyles(
  *
  * Documentation: [Base UI Slider](https://base-ui.com/react/components/slider)
  */
-export function SliderIndicator(componentProps: SliderIndicator.Props) {
-  const [, , elementProps] = splitComponentProps(componentProps, []);
-
+export function SliderIndicator(componentProps: SliderIndicator.Props): JSX.Element {
   const { indicatorPosition, inset, max, min, orientation, renderBeforeHydration, state, values } =
     useSliderRootContext();
 
@@ -75,6 +83,24 @@ export function SliderIndicator(componentProps: SliderIndicator.Props) {
       isInset && renderBeforeHydration() && isHydrating(),
     );
   };
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div>` with its position
+  // style, no props view (D32). Client renders only: while hydrating, an inset indicator's style
+  // follows the slider's prehydration script.
+  if (canRenderNative(componentProps)) {
+    return renderNativeElement(DIV, componentProps, {
+      own: OWN_KEYS,
+      state,
+      stateWriter: writeSliderState,
+      mapping: sliderStateAttributesMapping,
+      attributes: writeIndicatorAttributes,
+      handlerTarget: renderBeforeHydration,
+      partStyle: style,
+      reactive: true,
+    }) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, []);
 
   const element = useRenderElement('div', componentProps, {
     state,

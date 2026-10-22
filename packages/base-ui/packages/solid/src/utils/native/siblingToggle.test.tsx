@@ -25,6 +25,7 @@ import { Radio } from '@solidports/base-ui/radio';
 import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { Select } from '@solidports/base-ui/select';
 import { Separator } from '@solidports/base-ui/separator';
+import { Slider } from '@solidports/base-ui/slider';
 import { Switch } from '@solidports/base-ui/switch';
 import { Tabs } from '@solidports/base-ui/tabs';
 import { Toast } from '@solidports/base-ui/toast';
@@ -102,6 +103,24 @@ describe('GOTCHA-020: native parts keep their elements beside a toggling sibling
           <NumberField.Increment />
         </NumberField.Group>
       </NumberField.Root>
+    ));
+  });
+
+  it('Slider parts', () => {
+    expectKept((Sibling) => (
+      <Slider.Root defaultValue={[20, 60]}>
+        <Slider.Label>Range</Slider.Label>
+        <Sibling />
+        <Slider.Value />
+        <Slider.Control>
+          <Slider.Track>
+            <Slider.Indicator />
+            <Sibling />
+            <Slider.Thumb index={0} />
+            <Slider.Thumb index={1} />
+          </Slider.Track>
+        </Slider.Control>
+      </Slider.Root>
     ));
   });
 
