@@ -61,12 +61,19 @@ describe("test:base-ui:all plan", () => {
 		])
 	})
 
-	// eslint too: the verify stamp runs the repository's lint, not Base UI's eslint, which CI runs. A
-	// push gated on jsdom and Chromium alone carried a mui/no-floating-cleanup error (4ada29ab).
-	test("--changed selects eslint, jsdom and chromium, running vitest on the module-graph diff", () => {
+	// eslint and the generated docs too: the verify stamp runs neither, and CI runs both. A push gated
+	// on jsdom and Chromium alone carried a mui/no-floating-cleanup error (4ada29ab), and fadd8eb5
+	// failed CI's generated-docs check on an edit to generated output.
+	test("--changed selects eslint, docs-generate, jsdom and chromium, running vitest on the module-graph diff", () => {
 		const suites = planSuites({ changed: "main~3" })
-		expect(suites.filter((s) => s.selected).map((s) => s.name)).toEqual(["eslint", "jsdom", "chromium"])
+		expect(suites.filter((s) => s.selected).map((s) => s.name)).toEqual([
+			"eslint",
+			"docs-generate",
+			"jsdom",
+			"chromium",
+		])
 		expect(byName(suites, "eslint").run).toEqual(byName(planSuites({}), "eslint").run)
+		expect(byName(suites, "docs-generate").run).toEqual(byName(planSuites({}), "docs-generate").run)
 		expect(byName(suites, "jsdom").run).toEqual([
 			"bun run test:solid:jsdom --run --maxWorkers=2 --changed main~3 --passWithNoTests",
 		])
