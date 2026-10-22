@@ -1417,6 +1417,35 @@ describe('<NavigationMenu.Root />', () => {
       });
     });
 
+    // Solid: a trigger creates its hover interactions on its first intent or once its item is
+    // active (D32). Switching to a trigger never hovered or focused must still hand it the hover
+    // close, so leaving it closes its popup.
+    it('closes an untouched trigger switched to by hover when the pointer leaves it', async () => {
+      const { user } = await render(() => <TestNavigationMenu />);
+      const trigger1 = screen.getByTestId('trigger-1');
+      const trigger2 = screen.getByTestId('trigger-2');
+
+      await user.hover(trigger1);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('popup-1')).not.toBe(null);
+      });
+
+      await user.hover(trigger2);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('popup-2')).not.toBe(null);
+      });
+      expect(trigger1).toHaveAttribute('aria-expanded', 'false');
+      expect(trigger2).toHaveAttribute('aria-expanded', 'true');
+
+      await user.unhover(trigger2);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('popup-2')).toBe(null);
+      });
+    });
+
     it('closes after pointerdown on a link in a hover-open popup when pointer leaves', async () => {
       const { user } = await render(() => <TestNavigationMenu />);
       const trigger1 = screen.getByTestId('trigger-1');
