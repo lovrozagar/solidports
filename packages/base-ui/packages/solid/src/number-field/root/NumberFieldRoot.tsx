@@ -31,6 +31,8 @@ import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import {
   BASE_NON_NUMERIC_SYMBOLS,
@@ -42,7 +44,7 @@ import {
   PLUS_SIGNS_WITH_ASCII,
   SPACE_SEPARATOR_RE,
 } from '../utils/parse';
-import { stateAttributesMapping } from '../utils/stateAttributesMapping';
+import { stateAttributesMapping, writeNumberFieldState } from '../utils/stateAttributesMapping';
 import type {
   ChangeEventCustomProperties,
   EventWithOptionalKeyState,
@@ -52,6 +54,32 @@ import { toValidatedNumber } from '../utils/validate';
 import { NumberFieldRootContext } from './NumberFieldRootContext';
 import type { InputMode } from './NumberFieldRootContext';
 
+const NATIVE_ROOT = { tag: 'div', create: () => (<div />) as unknown as Element };
+const NATIVE_OWN_KEY_LIST = [
+  'id',
+  'min',
+  'max',
+  'smallStep',
+  'step',
+  'largeStep',
+  'required',
+  'disabled',
+  'readOnly',
+  'form',
+  'name',
+  'defaultValue',
+  'value',
+  'onValueChange',
+  'onValueCommitted',
+  'allowWheelScrub',
+  'snapOnStep',
+  'allowOutOfRange',
+  'format',
+  'locale',
+  'inputRef',
+] as const;
+const NATIVE_OWN_KEYS: ReadonlySet<string> = new Set(NATIVE_OWN_KEY_LIST);
+
 /**
  * Groups all parts of the number field and manages its state.
  * Renders a `<div>` element.
@@ -59,29 +87,11 @@ import type { InputMode } from './NumberFieldRootContext';
  * Documentation: [Base UI Number Field](https://base-ui.com/react/components/number-field)
  */
 export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'id',
-    'min',
-    'max',
-    'smallStep',
-    'step',
-    'largeStep',
-    'required',
-    'disabled',
-    'readOnly',
-    'form',
-    'name',
-    'defaultValue',
-    'value',
-    'onValueChange',
-    'onValueCommitted',
-    'allowWheelScrub',
-    'snapOnStep',
-    'allowOutOfRange',
-    'format',
-    'locale',
-    'inputRef',
-  ]);
+  // The native path reads the props as they are; only the slow path splits them into views.
+  const native = canRenderNative(componentProps, undefined, true);
+  const split = native ? undefined : splitComponentProps(componentProps, NATIVE_OWN_KEY_LIST);
+  const local = split ? split[1] : componentProps;
+  const elementProps = split?.[2];
   const smallStep = () => local.smallStep ?? 0.1;
   const stepProp = () => local.step ?? 1;
   const largeStep = () => local.largeStep ?? 10;
@@ -498,11 +508,26 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
     onValueCommitted,
   };
 
-  const element = useRenderElement('div', componentProps, {
-    state,
-    props: elementProps,
-    stateAttributesMapping,
-  });
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div>` with the field's
+  // state attributes, no props view (D32). Built where the slow path's element resolves, inside the
+  // provider's children (its consumer children read the context), and once (GOTCHA-020).
+  let nativeElement: JSX.Element | undefined;
+  const element = native
+    ? () => {
+        nativeElement ??= renderNativeElement(NATIVE_ROOT, componentProps, {
+          own: NATIVE_OWN_KEYS,
+          state,
+          stateWriter: writeNumberFieldState,
+          mapping: stateAttributesMapping,
+          reactive: true,
+        }) as unknown as JSX.Element;
+        return nativeElement;
+      }
+    : useRenderElement('div', componentProps, {
+        state,
+        props: elementProps!,
+        stateAttributesMapping,
+      });
 
   // The JSX provider, not `provideContext`: its children memo orders the effects below it after the
   // root's (effects apply by reactive height). Converted, a Field with `validationMode="onSubmit"`

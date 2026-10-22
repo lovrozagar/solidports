@@ -1,6 +1,10 @@
+import type { JSX } from '@solidjs/web';
 import { createSignal, onCleanup } from 'solid-js';
 import { getTarget } from '../../floating-ui-solid/utils';
 import { createDepsEffect, splitComponentProps, useRef, provideContext } from '../../solid-helpers';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { provideNativeContext } from '../../utils/native/context';
+import { renderNativeElement } from '../../utils/native/element';
 import { addEventListener } from '../../utils/addEventListener';
 import { createGenericEventDetails } from '../../utils/createBaseUIEventDetails';
 import { flushSync } from '../../utils/flushSync';
@@ -14,7 +18,7 @@ import { useTimeout } from '../../utils/useTimeout';
 import type { NumberFieldRootState } from '../root/NumberFieldRoot';
 import { useNumberFieldRootContext } from '../root/NumberFieldRootContext';
 import { getViewportRect } from '../utils/getViewportRect';
-import { stateAttributesMapping } from '../utils/stateAttributesMapping';
+import { stateAttributesMapping, writeNumberFieldState } from '../utils/stateAttributesMapping';
 import { NumberFieldScrubAreaContext } from './NumberFieldScrubAreaContext';
 
 const SCRUB_AREA_STYLE = {
@@ -23,6 +27,24 @@ const SCRUB_AREA_STYLE = {
   'user-select': 'none',
 } as const satisfies HTMLProps['style'];
 
+const SPAN = { tag: 'span', create: () => (<span />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'direction',
+  'pixelSensitivity',
+  'teleportDistance',
+]);
+const SCRUB_AREA_LITERAL = { role: 'presentation' };
+const scrubAreaStyle = () => SCRUB_AREA_STYLE as JSX.CSSProperties;
+
+const SCRUB_AREA_HANDLERS = {
+  onPointerDown: partHandler<{ onPointerDown: (event: PointerEvent) => unknown }, PointerEvent>(
+    'onPointerDown',
+    (model, event) => {
+      void model.onPointerDown(event);
+    },
+  ),
+};
+
 /**
  * An interactive area where the user can click and drag to change the field value.
  * Renders a `<span>` element.
@@ -30,11 +52,7 @@ const SCRUB_AREA_STYLE = {
  * Documentation: [Base UI Number Field](https://base-ui.com/react/components/number-field)
  */
 export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'direction',
-    'pixelSensitivity',
-    'teleportDistance',
-  ]);
+  const local = componentProps;
   const direction = () => local.direction ?? 'horizontal';
   const pixelSensitivity = () => local.pixelSensitivity ?? 2;
 
@@ -347,26 +365,21 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
   let stopNativeClick: (() => void) | undefined;
   void onCleanup(() => stopNativeClick?.());
 
-  const element = useRenderElement('span', componentProps, {
-    ref: (el) => {
-      stopNativeClick?.();
-      stopNativeClick = undefined;
-      scrubAreaRef.current = el;
-      if (!el) {
-        return;
-      }
-      // Capture runs before the click reaches `onClick`, including a click the browser
-      // dispatches after pointerup. The deferred synthetic click checks this flag.
-      const markNativeClick = () => {
-        nativeClickReceived = true;
-      };
-      el.addEventListener('click', markNativeClick, true);
-      stopNativeClick = () => el.removeEventListener('click', markNativeClick, true);
-    },
-    state,
-    props: [defaultProps, elementProps],
-    stateAttributesMapping,
-  });
+  const setScrubAreaRef = (el: HTMLSpanElement | null | undefined) => {
+    stopNativeClick?.();
+    stopNativeClick = undefined;
+    scrubAreaRef.current = el ?? null;
+    if (!el) {
+      return;
+    }
+    // Capture runs before the click reaches `onClick`, including a click the browser
+    // dispatches after pointerup. The deferred synthetic click checks this flag.
+    const markNativeClick = () => {
+      nativeClickReceived = true;
+    };
+    el.addEventListener('click', markNativeClick, true);
+    stopNativeClick = () => el.removeEventListener('click', markNativeClick, true);
+  };
 
   const contextValue: NumberFieldScrubAreaContext = {
     isScrubbing,
@@ -374,6 +387,38 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
     isPointerLockDenied,
     scrubAreaCursorRef,
   };
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<span>` with its style
+  // and pointer handler, no props view (D32).
+  if (canRenderNative(componentProps, undefined, true)) {
+    return provideNativeContext(NumberFieldScrubAreaContext, contextValue, () =>
+      renderNativeElement(SPAN, componentProps, {
+        own: OWN_KEYS,
+        state,
+        stateWriter: writeNumberFieldState,
+        mapping: stateAttributesMapping,
+        literal: SCRUB_AREA_LITERAL,
+        partStyle: scrubAreaStyle,
+        handlers: SCRUB_AREA_HANDLERS,
+        handlerTarget: defaultProps,
+        reactive: true,
+        refs: [setScrubAreaRef],
+      }),
+    ) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, [
+    'direction',
+    'pixelSensitivity',
+    'teleportDistance',
+  ]);
+
+  const element = useRenderElement('span', componentProps, {
+    ref: setScrubAreaRef,
+    state,
+    props: [defaultProps, elementProps],
+    stateAttributesMapping,
+  });
 
   return provideContext(NumberFieldScrubAreaContext, contextValue, element);
 }

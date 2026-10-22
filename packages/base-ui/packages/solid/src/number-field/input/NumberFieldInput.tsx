@@ -16,6 +16,9 @@ import { formatNumber } from '../../utils/formatNumber';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, BaseUIHTMLProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative, partHandler } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { warn } from '../../utils/warn';
 import type { NumberFieldRootState } from '../root/NumberFieldRoot';
 import { useNumberFieldRootContext } from '../root/NumberFieldRootContext';
@@ -29,7 +32,7 @@ import {
   ANY_PLUS_DETECT_RE,
   FORMAT_CONTROL_DETECT_RE,
 } from '../utils/parse';
-import { stateAttributesMapping } from '../utils/stateAttributesMapping';
+import { stateAttributesMapping, writeNumberFieldState } from '../utils/stateAttributesMapping';
 import { hasNumberFormatRoundingOptions, removeFloatingPointErrors } from '../utils/validate';
 import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 
@@ -43,15 +46,60 @@ const NAVIGATE_KEYS = new Set([
   'Escape',
 ]);
 
+const INPUT = { tag: 'input', create: () => (<input />) as unknown as Element };
+const OWN_KEYS: ReadonlySet<string> = new Set(['aria-invalid', 'aria-describedby']);
+const INPUT_LITERAL = {
+  type: 'text',
+  autocomplete: 'off',
+  autocorrect: 'off',
+  spellcheck: 'false',
+  'aria-roledescription': 'Number field',
+};
+
+type InputHandler = (event: Event) => void;
+
+/** What the native input's attributes and handlers read: one object per input. */
+interface NumberFieldInputModel {
+  inputProps: JSX.InputHTMLAttributes<HTMLInputElement>;
+  inputValue: () => string;
+  validation: { readonly 'aria-describedby'?: unknown; readonly 'aria-invalid'?: unknown };
+}
+
+/** The input's attributes, as its slow path's props merge produces them. */
+function writeNumberFieldInputAttributes(w: SetAttribute, model: NumberFieldInputModel) {
+  const props = model.inputProps;
+  w.set('id', props.id);
+  w.set('required', props.required || undefined);
+  w.set('disabled', props.disabled || undefined);
+  w.set('readonly', props.readonly || undefined);
+  w.set('inputmode', props.inputmode);
+  w.set('aria-labelledby', props['aria-labelledby']);
+  w.set('aria-invalid', model.validation['aria-invalid']);
+  w.set('aria-describedby', model.validation['aria-describedby']);
+  // Written only when the text changes, so a mid-string caret survives.
+  w.set('prop:value', model.inputValue());
+}
+
+const forward = (key: 'onFocus' | 'onBlur' | 'onInput' | 'onKeyDown' | 'onPaste') =>
+  partHandler<NumberFieldInputModel>(key, (model, event) =>
+    (model.inputProps[key] as unknown as InputHandler)(event),
+  );
+
+const INPUT_HANDLERS = {
+  onFocus: forward('onFocus'),
+  onBlur: forward('onBlur'),
+  onInput: forward('onInput'),
+  onKeyDown: forward('onKeyDown'),
+  onPaste: forward('onPaste'),
+};
+
 /**
  * The native input control in the number field.
  * Renders an `<input>` element.
  *
  * Documentation: [Base UI Number Field](https://base-ui.com/react/components/number-field)
  */
-export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
-  const [, , elementProps] = splitComponentProps(componentProps, []);
-
+export function NumberFieldInput(componentProps: NumberFieldInput.Props): JSX.Element {
   const {
     allowInputSyncRef,
     formatOptionsRef,
@@ -498,6 +546,46 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
           return inputValue();
         },
       }) as unknown as BaseUIHTMLProps;
+
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<input>` with the
+  // field's attributes, validation and handlers, no props view (D32). Client renders only, as
+  // Field.Control: the server prints the value as the `value` attribute, which hydration keeps.
+  if (canRenderNative(componentProps)) {
+    const consumer = componentProps as Record<string, unknown>;
+    // The props below the validation source: the consumer's, over the input's own.
+    const previous = {
+      get 'aria-invalid'() {
+        return 'aria-invalid' in consumer ? consumer['aria-invalid'] : inputProps['aria-invalid'];
+      },
+      get 'aria-describedby'() {
+        return consumer['aria-describedby'];
+      },
+    };
+    const model: NumberFieldInputModel = {
+      inputProps,
+      inputValue,
+      validation: validation.getValidationSource(disabled, previous),
+    };
+    return renderNativeElement(INPUT, componentProps, {
+      own: OWN_KEYS,
+      state,
+      stateWriter: writeNumberFieldState,
+      mapping: stateAttributesMapping,
+      literal: INPUT_LITERAL,
+      attributes: writeNumberFieldInputAttributes,
+      handlers: INPUT_HANDLERS,
+      handlerTarget: model,
+      reactive: true,
+      refs: [
+        (el: HTMLInputElement | null) => {
+          inputRef.current = el;
+        },
+      ],
+      consumerChildren: false,
+    }) as unknown as JSX.Element;
+  }
+
+  const [, , elementProps] = splitComponentProps(componentProps, []);
 
   const element = useRenderElement('input', componentProps, {
     ref: (el) => {
