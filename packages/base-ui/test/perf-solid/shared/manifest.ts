@@ -113,6 +113,8 @@ export type ScenarioTag = (typeof SCENARIO_TAGS)[number];
 
 const closedRoot = (name: string) =>
   `closed popup root cost > a closed ${name} root stays within its node budget`;
+const bareRoot = (name: string) =>
+  `closed popup root cost > a closed ${name} root alone stays within its node budget`;
 const BUTTON_NATIVE =
   'native part cost > a native Button with literal props costs only the dev component root beyond its element';
 const BUTTON_REACTIVE =
@@ -178,7 +180,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     "accordion cost against the hand-written floor > an item's open reads its membership at most 20 times",
     "accordion cost against the hand-written floor > an item's mount reads its membership at most 7 times",
   ],
-  'alert-dialog': [closedRoot('AlertDialog')],
+  'alert-dialog': [closedRoot('AlertDialog'), bareRoot('AlertDialog')],
   button: [
     BUTTON_NATIVE,
     BUTTON_REACTIVE,
@@ -217,8 +219,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'combobox cost against the hand-written floor > an open Combobox.Item costs at most the floor item plus 25%',
   ],
   'context-menu': [closedRoot('ContextMenu')],
-  dialog: [closedRoot('Dialog')],
-  drawer: [closedRoot('Drawer')],
+  dialog: [closedRoot('Dialog'), bareRoot('Dialog')],
+  drawer: [closedRoot('Drawer'), bareRoot('Drawer')],
   menu: [
     closedRoot('Menu'),
     'menu cost against the hand-written floor > the floor renders the same item DOM as an open Menu.Item',
@@ -232,12 +234,14 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   'navigation-menu': [closedRoot('NavigationMenu')],
   popover: [
     closedRoot('Popover'),
+    bareRoot('Popover'),
     'popover cost against the hand-written floor > the floor renders the same DOM as a closed Popover.Trigger',
     'popover cost against the hand-written floor > a closed Popover.Trigger renders on the native path',
     'popover cost against the hand-written floor > a closed Popover.Trigger costs at most the native trigger budget',
   ],
   'preview-card': [
     closedRoot('PreviewCard'),
+    bareRoot('PreviewCard'),
     '<PreviewCard.Trigger /> cost > builds its inline-rect props once, whatever its card and the active trigger do',
     '<PreviewCard.Trigger /> cost > records the pointer while its card is closed and keeps it while the card is open',
   ],
@@ -268,7 +272,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     GROUPED_TOGGLE,
   ],
   'toggle-group': [GROUPED_TOGGLE],
-  tooltip: [closedRoot('Tooltip')],
+  tooltip: [closedRoot('Tooltip'), bareRoot('Tooltip')],
 };
 
 /** Components with no cost test yet, each naming the plan 3 leaf that adds its budget. */

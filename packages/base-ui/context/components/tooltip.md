@@ -1,7 +1,7 @@
 ---
 tags: [tooltip, popup, floating, perf]
 sources: [packages/base-ui/packages/solid/src/tooltip, packages/base-ui/packages/solid/src/utils/popups/useInteractionIntent.ts, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useFloatingRootContext.ts]
-verified: 2026-10-16
+verified: 2026-10-22
 ---
 
 # Tooltip
@@ -35,7 +35,8 @@ No. No Tooltip file imports `utils/native`; every part renders through `useRende
 | :--- | ---: |
 | Closed root (dev probe 2026-10-14, rc.13) | 81 |
 | Open root (dev probe 2026-10-14, rc.13) | 256 |
-| Closed-root budget, `closedRoot.cost.test.tsx:64` | 73 (before deferral: 110) |
+| Closed-root budget, `closedRoot.cost.test.tsx:64` | 64 (before deferral: 110, then 73) |
+| Closed `Tooltip.Root` alone, `closedRoot.cost.test.tsx` (floor root: 9) | 31 (before: 40) |
 
 There is no open-root budget.
 
@@ -53,6 +54,9 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync time in ms.
 | handle-500 unmount | 50.1 | 8.5 | 0.17x |
 
 Heap after mount: roots-500 uses 23993 KB versus React's 11218 KB; handle-500 uses 1781 KB versus 9910 KB.
+
+
+D32's closed-root unit, step 1, local Chromium heap diff (`tooltip/roots-500` mount, objects kept, 2026-10-22): React 13,126 KB, Solid before 23,855 KB, after 22,698 KB.
 
 ## Hot spots
 

@@ -1,6 +1,7 @@
-import { createEffect, onSettled, Show, untrack } from 'solid-js';
+import { createEffect, getOwner, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { createConditionalBranch } from '../../utils/native/conditional';
 import { FloatingTree, useDismiss } from '../../floating-ui-solid';
 import { ComponentWithPayload, isAbsentProp, provideContext } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
@@ -22,7 +23,8 @@ import type { State as PopoverStoreState } from '../store/PopoverStore';
 import { PopoverRootContext, usePopoverRootContext } from './PopoverRootContext';
 
 function PopoverRootComponent<Payload>(
-  props: PopoverRoot.Props<Payload> & { nestedInPopoverRoot: boolean },
+  props: PopoverRoot.Props<Payload>,
+  nestedInPopoverRoot: boolean,
 ) {
   const openProp = () => props.open;
   const defaultOpen = () => props.defaultOpen ?? false;
@@ -104,16 +106,22 @@ function PopoverRootComponent<Payload>(
   }
 
   const renderContent = () =>
-    provideContext(PopoverRootContext, { store } as PopoverRootContext<unknown>, () => (
-      <>
-        <Show when={shouldRenderInteractions()}>
-          <PopoverInteractions store={store} modal={modal()} />
-        </Show>
-        <ComponentWithPayload payload={payload} children={props.children} />
-      </>
-    ));
+    provideContext(PopoverRootContext, { store } as PopoverRootContext<unknown>, () => {
+      // The interactions render nothing: one memo creates them while they are needed, where a
+      // `Show` took four nodes per closed root (D32's closed-root unit). It is created under the
+      // root's context, as the `Show`'s branch was.
+      const interactions = createConditionalBranch(getOwner(), shouldRenderInteractions, () => (
+        <PopoverInteractions store={store} modal={modal()} />
+      ));
+      return (
+        <>
+          {interactions}
+          <ComponentWithPayload payload={payload} children={props.children} />
+        </>
+      );
+    });
 
-  if (props.nestedInPopoverRoot) {
+  if (nestedInPopoverRoot) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return renderContent();
   }
@@ -132,7 +140,8 @@ export function PopoverRoot<Payload = unknown>(props: PopoverRoot.Props<Payload>
   // provider resolves its children lazily: the root body (and its handle attachment) would run after
   // later siblings' bodies and render effects, unlike React, which renders the subtree in place.
   const nestedInPopoverRoot = usePopoverRootContext(true) != null;
-  return <PopoverRootComponent {...props} nestedInPopoverRoot={nestedInPopoverRoot} />;
+  // Called, not rendered: a `{...props}` spread merged the props into a proxy (two nodes per root).
+  return PopoverRootComponent(props, nestedInPopoverRoot);
 }
 
 function usePopoverRootStore<Payload>(initialState: Partial<PopoverStoreState<Payload>>) {

@@ -1,6 +1,7 @@
-import { onSettled, Show, untrack } from 'solid-js';
+import { getOwner, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { createConditionalBranch } from '../../utils/native/conditional';
 import { FloatingTree, useDismiss } from '../../floating-ui-solid';
 import {
   ComponentWithPayload,
@@ -25,7 +26,8 @@ import type { PreviewCardHandle } from '../store/PreviewCardHandle';
 import { PreviewCardRootContext, usePreviewCardRootContext } from './PreviewCardContext';
 
 function PreviewCardRootComponent<Payload>(
-  props: PreviewCardRoot.Props<Payload> & { nestedInPreviewCardRoot: boolean },
+  props: PreviewCardRoot.Props<Payload>,
+  nestedInPreviewCardRoot: boolean,
 ) {
   const openProp = () => props.open;
   const defaultOpen = () => props.defaultOpen ?? false;
@@ -109,16 +111,22 @@ function PreviewCardRootComponent<Payload>(
   }
 
   const renderContent = () =>
-    provideContext(PreviewCardRootContext, { store } as PreviewCardRootContext, () => (
-      <>
-        <Show when={shouldRenderInteractions()}>
-          <PreviewCardInteractions store={store} />
-        </Show>
-        <ComponentWithPayload payload={payload} children={props.children} />
-      </>
-    ));
+    provideContext(PreviewCardRootContext, { store } as PreviewCardRootContext, () => {
+      // The interactions render nothing: one memo creates them while they are needed, where a
+      // `Show` took four nodes per closed root (D32's closed-root unit). It is created under the
+      // root's context, as the `Show`'s branch was.
+      const interactions = createConditionalBranch(getOwner(), shouldRenderInteractions, () => (
+        <PreviewCardInteractions store={store} />
+      ));
+      return (
+        <>
+          {interactions}
+          <ComponentWithPayload payload={payload} children={props.children} />
+        </>
+      );
+    });
 
-  if (props.nestedInPreviewCardRoot) {
+  if (nestedInPreviewCardRoot) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return renderContent();
   }
@@ -161,7 +169,8 @@ export function PreviewCardRoot<Payload>(props: PreviewCardRoot.Props<Payload>) 
   // provider resolves its children lazily: the root body (and its handle attachment) would run after
   // later siblings' bodies and effects, unlike React, which renders the subtree in place.
   const nestedInPreviewCardRoot = usePreviewCardRootContext(true) != null;
-  return <PreviewCardRootComponent {...props} nestedInPreviewCardRoot={nestedInPreviewCardRoot} />;
+  // Called, not rendered: a `{...props}` spread merged the props into a proxy (two nodes per root).
+  return PreviewCardRootComponent(props, nestedInPreviewCardRoot);
 }
 
 export interface PreviewCardRootState {}

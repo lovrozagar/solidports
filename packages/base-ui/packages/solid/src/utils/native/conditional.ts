@@ -5,7 +5,7 @@
  * turns true and disposed when it turns false (the branch's cleanups run then, as a `Show`
  * branch's do) or with the part.
  */
-import { createRoot, runWithOwner } from 'solid-js';
+import { createMemo, createRoot, runWithOwner, untrack } from 'solid-js';
 import type { Owner } from 'solid-js';
 
 export function createNativeConditional<T>(
@@ -73,4 +73,33 @@ export abstract class NativeConditional<T> {
     }
     return this.branch?.value;
   }
+}
+
+/**
+ * A branch that renders nothing (hooks only, such as a popup root's interactions), created in one
+ * memo when `when` turns true and disposed when it turns false. Unlike `createNativeConditional`,
+ * the branch is created in the memo phase, where a `Show` creates its children, not by the parent's
+ * insert in the render-effect phase: its effects and listeners then exist in the same flush as
+ * before. One node, where a `Show` takes four. The branch lives in a root owned by `owner`.
+ */
+export function createConditionalBranch(
+  owner: Owner | null,
+  when: () => boolean,
+  render: () => unknown,
+): () => undefined {
+  let dispose: (() => void) | undefined;
+  return createMemo(() => {
+    if (when()) {
+      dispose ??= runWithOwner(owner, () =>
+        createRoot((disposeRoot) => {
+          untrack(render);
+          return disposeRoot;
+        }),
+      );
+    } else if (dispose) {
+      dispose();
+      dispose = undefined;
+    }
+    return undefined;
+  });
 }

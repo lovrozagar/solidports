@@ -19,6 +19,7 @@ import { Select } from '@solidports/base-ui/select';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
+import { FloorPopoverRoot } from '../../../test/floor/popover';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
 const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
@@ -61,8 +62,8 @@ describe('closed popup root cost', () => {
   // Budgets are the counts after deferring the interactions; the comments give the counts before.
   const roots: [name: string, budget: number, root: () => JSX.Element][] = [
     [
-      'Tooltip', // before: 110
-      73,
+      'Tooltip', // before: 110, then 73 (D32's closed-root unit)
+      64,
       () => (
         <Tooltip.Root>
           <Tooltip.Trigger>Trigger</Tooltip.Trigger>
@@ -75,8 +76,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Menu', // before: 189
-      120,
+      'Menu', // before: 189, then 120 (D32's closed-root unit)
+      114,
       () => (
         <Menu.Root>
           <Menu.Trigger>Trigger</Menu.Trigger>
@@ -91,8 +92,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'ContextMenu', // before: 153
-      80,
+      'ContextMenu', // before: 153, then 80 (D32's closed-root unit)
+      74,
       () => (
         <ContextMenu.Root>
           <ContextMenu.Trigger>Area</ContextMenu.Trigger>
@@ -107,8 +108,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Popover', // before: 113, then 80 with the slow trigger (D32's native trigger)
-      66,
+      'Popover', // before: 113, then 80 with the slow trigger, 66 (D32's native trigger and closed-root unit)
+      55,
       () => (
         <Popover.Root>
           <Popover.Trigger>Trigger</Popover.Trigger>
@@ -121,8 +122,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'PreviewCard', // before: 99
-      69,
+      'PreviewCard', // before: 99, then 69 (D32's closed-root unit)
+      56,
       () => (
         <PreviewCard.Root>
           <PreviewCard.Trigger href="#">Trigger</PreviewCard.Trigger>
@@ -135,8 +136,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Dialog', // before: 94
-      63,
+      'Dialog', // before: 94, then 63 (D32's closed-root unit)
+      54,
       () => (
         <Dialog.Root>
           <Dialog.Trigger>Trigger</Dialog.Trigger>
@@ -147,8 +148,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'AlertDialog', // before: 94
-      63,
+      'AlertDialog', // before: 94, then 63 (D32's closed-root unit)
+      54,
       () => (
         <AlertDialog.Root>
           <AlertDialog.Trigger>Trigger</AlertDialog.Trigger>
@@ -159,8 +160,8 @@ describe('closed popup root cost', () => {
       ),
     ],
     [
-      'Drawer', // before: 125
-      88,
+      'Drawer', // before: 125, then 88 (D32's closed-root unit)
+      73,
       () => (
         <Drawer.Root>
           <Drawer.Trigger>Trigger</Drawer.Trigger>
@@ -236,4 +237,26 @@ describe('closed popup root cost', () => {
     const created = perRoot(root);
     expect(created, `${name} ${created}`).toBeLessThanOrEqual(budget);
   });
+
+  // A closed root alone, with no trigger or popup parts, against the floor's root (one open signal
+  // and its context, `test/floor/popover.tsx`): what every popup family pays per root before any
+  // intent (D32's closed-root unit). Budgets are the counts after it; the comments give the counts
+  // before.
+  const bareRoots: [name: string, budget: number, root: () => JSX.Element][] = [
+    ['Popover', 27, () => <Popover.Root />], // before: 38
+    ['Tooltip', 31, () => <Tooltip.Root />], // before: 40
+    ['PreviewCard', 28, () => <PreviewCard.Root />], // before: 39
+    ['Dialog', 22, () => <Dialog.Root />], // before: 31
+    ['AlertDialog', 22, () => <AlertDialog.Root />], // before: 31
+    ['Drawer', 41, () => <Drawer.Root />], // before: 56
+  ];
+
+  it.each(bareRoots)(
+    'a closed %s root alone stays within its node budget',
+    (name, budget, root) => {
+      const created = perRoot(root);
+      const floor = perRoot(() => <FloorPopoverRoot />);
+      expect(created, `${name} ${created}, floor ${floor}`).toBeLessThanOrEqual(budget);
+    },
+  );
 });

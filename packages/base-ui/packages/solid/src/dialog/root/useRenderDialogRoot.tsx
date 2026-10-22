@@ -1,5 +1,6 @@
-import { Show, untrack } from 'solid-js';
+import { getOwner, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import { createConditionalBranch } from '../../utils/native/conditional';
 import {
   ComponentWithPayload,
   createDepsRenderEffect,
@@ -132,18 +133,20 @@ export function useRenderDialogRoot<Payload>(
     createHandleAttachment(() => props.handle, store);
   }
 
-  return provideContext(DialogRootContext, store as DialogStore<unknown>, () => (
-    <>
-      <Show when={shouldRenderInteractions()}>
-        <DialogInteractions
-          store={store}
-          parentContext={parentStore?.context}
-          isDrawer={isDrawer}
-        />
-      </Show>
-      <ComponentWithPayload payload={payload} children={props.children} />
-    </>
-  ));
+  return provideContext(DialogRootContext, store as DialogStore<unknown>, () => {
+    // The interactions render nothing: one memo creates them while they are needed, where a
+    // `Show` took four nodes per closed root (D32's closed-root unit). It is created under the
+    // root's context, as the `Show`'s branch was.
+    const interactions = createConditionalBranch(getOwner(), shouldRenderInteractions, () => (
+      <DialogInteractions store={store} parentContext={parentStore?.context} isDrawer={isDrawer} />
+    ));
+    return (
+      <>
+        {interactions}
+        <ComponentWithPayload payload={payload} children={props.children} />
+      </>
+    );
+  });
 }
 
 export type DialogRootMode = 'dialog' | 'drawer' | 'alert-dialog';
