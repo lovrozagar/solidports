@@ -27,6 +27,8 @@ describe('<PreviewCard.Trigger /> cost', () => {
   const { render } = createRenderer();
 
   it('builds its inline-rect props once, whatever its card and the active trigger do', async () => {
+    // The count is module-level: the file's other tests build triggers too, in any order.
+    inlineRect.builds = 0;
     const [open, setOpen] = createSignal(false);
     const [triggerId, setTriggerId] = createSignal<string | null>(null);
     await render(() => (
