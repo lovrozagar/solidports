@@ -62,8 +62,8 @@ describe('closed popup root cost', () => {
   // Budgets are the counts after deferring the interactions; the comments give the counts before.
   const roots: [name: string, budget: number, root: () => JSX.Element][] = [
     [
-      'Tooltip', // before: 110, then 73, 64 (D32's closed-root unit)
-      63,
+      'Tooltip', // before: 110, then 73, 64, 63 (D32's closed-root unit and native trigger)
+      49,
       () => (
         <Tooltip.Root>
           <Tooltip.Trigger>Trigger</Tooltip.Trigger>

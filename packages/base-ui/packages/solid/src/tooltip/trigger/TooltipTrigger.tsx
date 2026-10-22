@@ -1,4 +1,5 @@
 import { createMemo, createSignal, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { isElement } from '@floating-ui/utils/dom';
 import {
   safePolygon,
@@ -20,12 +21,19 @@ import {
   useTriggerDataForwarding,
   useTriggerInteractions,
 } from '../../utils/popups';
-import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
+import {
+  CommonTriggerDataAttributes,
+  triggerOpenStateMapping,
+} from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, BaseUIEvent } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { canRenderNative, partHandler, readHandler } from '../../utils/native';
+import type { Dispatch } from '../../utils/native';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { useTimeout } from '../../utils/useTimeout';
 import { useTooltipProviderContext } from '../provider/TooltipProviderContext';
 import { useTooltipRootContext } from '../root/TooltipRootContext';
@@ -41,6 +49,108 @@ function eventTargetElement(event: Event): Element | null {
   return isElement(target) ? target : null;
 }
 
+/** Props the native path reads once, as the slow path does. */
+const NATIVE_STATIC_KEYS = ['handle'] as const;
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'handle',
+  'payload',
+  'disabled',
+  'delay',
+  'closeOnClick',
+  'closeDelay',
+  'id',
+]);
+
+/**
+ * A native trigger's model: the target of its module-level handlers and attribute write. Its
+ * handler sources in the slow path's `mergeProps` order below the consumer's: the trigger's own
+ * handlers, the root's applied trigger props (client point, dismissal), then focus and hover once
+ * the interactions exist. One object per trigger.
+ */
+class NativeTooltipTriggerModel implements TooltipTrigger.State {
+  declare readonly isOpen: () => boolean;
+  declare readonly isDisabled: () => boolean;
+  declare readonly id: () => string | undefined;
+  declare private readonly sources: ReadonlyArray<() => object | undefined>;
+
+  constructor(
+    isOpen: () => boolean,
+    isDisabled: () => boolean,
+    id: () => string | undefined,
+    sources: ReadonlyArray<() => object | undefined>,
+  ) {
+    this.isOpen = isOpen;
+    this.isDisabled = isDisabled;
+    this.id = id;
+    this.sources = sources;
+  }
+
+  get open() {
+    return this.isOpen();
+  }
+
+  /** Calls each source's handler for `key` until one prevents the rest (`mergeProps` order). */
+  dispatch(key: string, event: BaseUIEvent<Event>) {
+    for (const source of this.sources) {
+      if (event.baseUIHandlerPrevented) {
+        return;
+      }
+      const props = source();
+      const handler = props ? readHandler(props, key) : undefined;
+      if (handler) {
+        handler(event);
+      }
+    }
+  }
+}
+
+const dispatchSources = (key: string) => (trigger: NativeTooltipTriggerModel, event: Event) =>
+  trigger.dispatch(key, event as BaseUIEvent<Event>);
+
+/**
+ * A native trigger's handlers, created once: the consumer's handler, then the trigger's sources.
+ * The keys are every handler the sources can carry: the trigger's own (`onMouseOver`, `onFocus`,
+ * `onMouseLeave`, `onPointerEnter`, `onPointerDown`, `onClick`), hover (`onMouseMove`,
+ * `onPointerDown`, `onPointerEnter`), focus (`onFocus`, `onBlur`, `onMouseLeave`), client point
+ * (`onMouseEnter`, `onMouseMove`, `onPointerDown`, `onPointerEnter`) and dismissal (`onKeyDown`,
+ * `onPointerDown`, `onClick`).
+ */
+const TRIGGER_HANDLERS: Readonly<Record<string, Dispatch<NativeTooltipTriggerModel>>> =
+  Object.fromEntries(
+    [
+      'onClick',
+      'onPointerDown',
+      'onPointerEnter',
+      'onKeyDown',
+      'onMouseEnter',
+      'onMouseMove',
+      'onMouseOver',
+      'onMouseLeave',
+      'onFocus',
+      'onBlur',
+    ].map((key) => [key, partHandler(key, dispatchSources(key))]),
+  );
+
+/** The trigger's own attributes below the consumer's: one write per pass. */
+function writeTriggerAttributes(w: SetAttribute, trigger: NativeTooltipTriggerModel) {
+  const disabled = trigger.isDisabled();
+  w.set('id', trigger.id());
+  w.set(TooltipTriggerDataAttributes.triggerDisabled, disabled ? '' : undefined);
+  w.set(TOOLTIP_TRIGGER_IDENTIFIER, disabled ? undefined : '');
+  // `triggerOpenStateMapping`.
+  w.set(CommonTriggerDataAttributes.popupOpen, trigger.isOpen() ? '' : undefined);
+}
+
+/** No state attribute of its own: `data-popup-open` is written with the attributes. */
+const writeTriggerState = compileStateWriter([], undefined);
+
+const triggerState = (trigger: NativeTooltipTriggerModel) => trigger;
+const constant =
+  <T,>(value: T) =>
+  () =>
+    value;
+
 /**
  * An element to attach the tooltip to.
  * Renders a `<button>` element.
@@ -48,6 +158,11 @@ function eventTargetElement(event: Event): Element | null {
  * Documentation: [Base UI Tooltip](https://base-ui.com/react/components/tooltip)
  */
 export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Payload>) {
+  // Native fast path (`context/architecture/render-pipeline.md`): a root's own trigger (no detached
+  // handle) renders with direct JSX; the props chain is inlined (D32).
+  const native =
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    untrack(() => componentProps.handle == null);
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'handle',
     'payload',
@@ -282,76 +397,109 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
     }
   };
 
-  const state: TooltipTrigger.State = {
-    get open() {
-      return isOpenedByThisTrigger();
+  // Own handlers, in the slow path's props order below the consumer's.
+  const ownHandlers = {
+    onMouseOver(event: MouseEvent) {
+      handleNestedTriggerHover(event);
+    },
+    onFocus(event: BaseUIEvent<FocusEvent>) {
+      if (isEnabledNestedTriggerTarget(eventTargetElement(event))) {
+        event.preventBaseUIHandler();
+      }
+    },
+    onMouseLeave() {
+      isNestedTriggerHoveredRef = false;
+      nestedTriggerOpenTimeout.clear();
+      pointerTypeRef = undefined;
+    },
+    onPointerEnter(event: PointerEvent) {
+      pointerTypeRef = event.pointerType;
+    },
+    onPointerDown(event: PointerEvent) {
+      pointerTypeRef = event.pointerType;
+      const targetStore = currentStore();
+      const shouldCloseOnClick = untrack(closeOnClick);
+      targetStore.set('closeOnClick', shouldCloseOnClick);
+      if (shouldCloseOnClick && !targetStore.select('open')) {
+        targetStore.cancelPendingOpen(event);
+      }
+    },
+    onClick(event: MouseEvent) {
+      const targetStore = currentStore();
+      if (untrack(closeOnClick) && !targetStore.select('open')) {
+        targetStore.cancelPendingOpen(event);
+      }
     },
   };
-
-  // Read per key by the element props: a change does not rebuild the props chain.
-  const rootTriggerSource = propsSourceAccessor(() =>
+  const appliedTriggerProps = () =>
     currentStore().select(
       'appliedTriggerProps',
       () => isMountedByThisTrigger() || trackCursorAxis() !== 'none',
-    ),
-  );
-  const element = useRenderElement('button', componentProps, {
-    state,
-    ref: (el: Element | null) => {
-      triggerElementRef.current = el;
-      registerTrigger(el);
-      setTriggerElement(el);
-    },
-    props: [
-      propsSourceAccessor(() => interactions()?.hover),
-      propsSourceAccessor(() => interactions()?.focus.reference),
-      rootTriggerSource,
-      {
-        onMouseOver(event: MouseEvent) {
-          handleNestedTriggerHover(event);
-        },
-        onFocus(event: BaseUIEvent<FocusEvent>) {
-          if (isEnabledNestedTriggerTarget(eventTargetElement(event))) {
-            event.preventBaseUIHandler();
-          }
-        },
-        onMouseLeave() {
-          isNestedTriggerHoveredRef = false;
-          nestedTriggerOpenTimeout.clear();
-          pointerTypeRef = undefined;
-        },
-        onPointerEnter(event: PointerEvent) {
-          pointerTypeRef = event.pointerType;
-        },
-        onPointerDown(event: PointerEvent) {
-          pointerTypeRef = event.pointerType;
-          const targetStore = currentStore();
-          const shouldCloseOnClick = untrack(closeOnClick);
-          targetStore.set('closeOnClick', shouldCloseOnClick);
-          if (shouldCloseOnClick && !targetStore.select('open')) {
-            targetStore.cancelPendingOpen(event);
-          }
-        },
-        onClick(event: MouseEvent) {
-          const targetStore = currentStore();
-          if (untrack(closeOnClick) && !targetStore.select('open')) {
-            targetStore.cancelPendingOpen(event);
-          }
-        },
-        get id() {
-          return thisTriggerId();
-        },
-        get [TooltipTriggerDataAttributes.triggerDisabled]() {
-          return disabled() ? '' : undefined;
-        },
-        get [TOOLTIP_TRIGGER_IDENTIFIER]() {
-          return disabled() ? undefined : '';
-        },
+    );
+  const setRefs = (el: Element | null) => {
+    triggerElementRef.current = el;
+    registerTrigger(el);
+    setTriggerElement(el);
+  };
+
+  // The native element is created once, here, under the trigger's owner.
+  const element: () => JSX.Element = native ? constant(nativeElement()) : slowElement();
+
+  function nativeElement() {
+    const model = new NativeTooltipTriggerModel(isOpenedByThisTrigger, disabled, thisTriggerId, [
+      () => ownHandlers,
+      appliedTriggerProps,
+      () => interactions()?.focus.reference,
+      () => interactions()?.hover,
+    ]);
+    // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
+    const el = (<button type="button" />) as unknown as HTMLButtonElement;
+    return renderNativeElement(el, componentProps, {
+      own: OWN_KEYS,
+      state: triggerState,
+      stateWriter: writeTriggerState,
+      stateView: model,
+      reactive: true,
+      attributes: writeTriggerAttributes,
+      handlers: TRIGGER_HANDLERS,
+      handlerTarget: model,
+      refs: [setRefs],
+    }) as unknown as JSX.Element;
+  }
+
+  function slowElement() {
+    const state: TooltipTrigger.State = {
+      get open() {
+        return isOpenedByThisTrigger();
       },
-      elementProps,
-    ],
-    stateAttributesMapping: triggerOpenStateMapping,
-  });
+    };
+
+    // Read per key by the element props: a change does not rebuild the props chain.
+    const rootTriggerSource = propsSourceAccessor(appliedTriggerProps);
+    return useRenderElement('button', componentProps, {
+      state,
+      ref: setRefs,
+      props: [
+        propsSourceAccessor(() => interactions()?.hover),
+        propsSourceAccessor(() => interactions()?.focus.reference),
+        rootTriggerSource,
+        {
+          ...ownHandlers,
+          get id() {
+            return thisTriggerId();
+          },
+          get [TooltipTriggerDataAttributes.triggerDisabled]() {
+            return disabled() ? '' : undefined;
+          },
+          get [TOOLTIP_TRIGGER_IDENTIFIER]() {
+            return disabled() ? undefined : '';
+          },
+        },
+        elementProps,
+      ],
+      stateAttributesMapping: triggerOpenStateMapping,
+    });
+  }
 
   return element();
 }

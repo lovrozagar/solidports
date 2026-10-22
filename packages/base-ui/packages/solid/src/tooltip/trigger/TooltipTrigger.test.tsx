@@ -3,7 +3,7 @@ import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } fr
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { createSignal } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 
 describe('<Tooltip.Trigger />', () => {
   const { render } = createRenderer();
@@ -14,6 +14,61 @@ describe('<Tooltip.Trigger />', () => {
       return render(() => <Tooltip.Root>{node(props!)}</Tooltip.Root>);
     },
   }));
+
+  // Solid: D32's class guard. Each trigger builds its hover and focus interactions on its first
+  // intent, so two tooltips on one page must each open from their own first contact.
+  describe('two tooltips on one page', () => {
+    function twoTooltips() {
+      return render(() => (
+        <div>
+          <For each={['first', 'second']}>
+            {(name) => (
+              <Tooltip.Root>
+                <Tooltip.Trigger data-testid={`${name}-trigger`} delay={0}>
+                  {name}
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Positioner>
+                    <Tooltip.Popup data-testid={`${name}-popup`}>{`${name} tip`}</Tooltip.Popup>
+                  </Tooltip.Positioner>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            )}
+          </For>
+        </div>
+      ));
+    }
+
+    it('opens the second on hover when its first intent is the pointer entering', async () => {
+      twoTooltips();
+      const second = screen.getByTestId('second-trigger');
+      fireEvent.pointerEnter(second, { pointerType: 'mouse' });
+      fireEvent.mouseEnter(second);
+      fireEvent.mouseMove(second, { movementX: 1, movementY: 1 });
+      await flushMicrotasks();
+      await waitFor(() => {
+        expect(second).toHaveAttribute('data-popup-open');
+      });
+      expect(screen.getByTestId('first-trigger')).not.toHaveAttribute('data-popup-open');
+    });
+
+    it('opens the second on focus after the first opened on focus and closed', async () => {
+      twoTooltips();
+      const first = screen.getByTestId('first-trigger');
+      const second = screen.getByTestId('second-trigger');
+      await act(async () => first.focus());
+      await waitFor(() => {
+        expect(first).toHaveAttribute('data-popup-open');
+      });
+      await act(async () => second.focus());
+      await waitFor(() => {
+        expect(second).toHaveAttribute('data-popup-open');
+      });
+      await waitFor(() => {
+        expect(first).not.toHaveAttribute('data-popup-open');
+      });
+    });
+  });
 
   it('throws a descriptive error when rendered without a root or a handle', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
