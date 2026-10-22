@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import {
+	changedBrowserTestFiles,
 	commandFor,
 	EXCLUSIVE_LOCK,
 	planSuites,
@@ -229,5 +230,149 @@ describe("test:base-ui:all covers CI's Base UI workflows", () => {
 			"parity-firefox",
 			"parity-webkit",
 		])
+	})
+})
+
+// `--changed` runs browser parity on the Solid test files the range changed, and on the test files
+// beside any library file it changed: a library change can break a cross-browser test it did not
+// touch. Paths are relative to packages/base-ui, as the parity suites run there.
+describe("the browser test files a range changed", () => {
+	const SOLID = "packages/base-ui/packages/solid/src"
+	const disk = new Set([
+		"packages/solid/src/a/A.test.tsx",
+		"packages/react/src/a/A.test.tsx",
+		"packages/solid/src/b/B.test.tsx",
+		"packages/solid/src/b/BSolidOnly.test.tsx",
+		"packages/react/src/b/B.test.tsx",
+		"packages/solid/src/c/C.test.ts",
+	])
+	const exists = (file: string) => disk.has(file)
+	const listDir = (dir: string) =>
+		[...disk].filter((file) => file.startsWith(`${dir}/`) && !file.slice(dir.length + 1).includes("/"))
+
+	test("keeps a changed Solid test file that exists, with its upstream counterpart", () => {
+		expect(changedBrowserTestFiles([`${SOLID}/a/A.test.tsx`], exists, listDir).files).toEqual([
+			"packages/react/src/a/A.test.tsx",
+			"packages/solid/src/a/A.test.tsx",
+		])
+	})
+
+	test("drops deleted test files, packages/solid/test and files outside the Solid sources", () => {
+		const names = [
+			`${SOLID}/gone/Gone.test.tsx`,
+			"packages/base-ui/packages/solid/test/pointerIsolation.test.tsx",
+			"packages/base-ui/scripts/test-all.mjs",
+			"packages/base-ui/packages/react/src/a/A.test.tsx",
+			"README.md",
+		]
+		expect(changedBrowserTestFiles(names, exists, listDir).files).toEqual([])
+	})
+
+	test("adds the test files beside a changed library file, and maps only those upstream has", () => {
+		const { files } = changedBrowserTestFiles([`${SOLID}/b/B.tsx`, `${SOLID}/c/c.ts`], exists, listDir)
+		expect(files).toEqual([
+			"packages/react/src/b/B.test.tsx",
+			"packages/solid/src/b/B.test.tsx",
+			"packages/solid/src/b/BSolidOnly.test.tsx",
+			"packages/solid/src/c/C.test.ts",
+		])
+	})
+
+	test("counts the Solid files once each and flags a selection over 40", () => {
+		const many = new Set(Array.from({ length: 41 }, (_, i) => `packages/solid/src/m/M${i}.test.tsx`))
+		const result = changedBrowserTestFiles(
+			[`${SOLID}/m/index.ts`, `${SOLID}/m/M0.test.tsx`],
+			(file) => many.has(file),
+			(dir) => [...many].filter((file) => file.startsWith(`${dir}/`)),
+		)
+		expect(result.solidCount).toBe(41)
+		expect(result.overBudget).toBe(true)
+		expect(changedBrowserTestFiles([`${SOLID}/a/A.test.tsx`], exists, listDir).overBudget).toBe(false)
+	})
+})
+
+// The scoped parity suites under `--changed`: both suites on the selected files only, the coverage
+// check limited to them, and WebKit through Playwright's Docker image (local WebKit lacks the host's
+// libraries). A full run keeps the whole-suite parity.
+describe("scoped browser parity under --changed", () => {
+	const browserTests = {
+		files: [
+			"packages/react/src/a/A.test.tsx",
+			"packages/solid/src/a/A.test.tsx",
+			"packages/solid/src/b/BSolid.test.tsx",
+		],
+		solidCount: 2,
+		overBudget: false,
+	}
+	const plan = (extra: Record<string, unknown> = {}) =>
+		planSuites({ changed: "main", only: null, fullBench: false, browserTests, docker: true, ...extra })
+	const parity = (planned: ReturnType<typeof planSuites>, browser: string) =>
+		planned.find((suite) => suite.name === `parity-${browser}`)!
+
+	test("selects both parity suites with the changed files as exact filters", () => {
+		for (const browser of ["firefox", "webkit"]) {
+			const suite = parity(plan(), browser)
+			expect(suite.selected).toBe(true)
+			const react = suite.run.find(
+				(command) => command.includes(`react-${browser}.json`) && !command.startsWith("node"),
+			)!
+			const solid = suite.run.find(
+				(command) => command.includes(`solid-${browser}.json`) && !command.startsWith("node"),
+			)!
+			expect(react).toContain("'packages/react/src/a/A.test.tsx'")
+			expect(react).not.toContain("packages/solid/src")
+			expect(solid).toContain("'packages/solid/src/a/A.test.tsx'")
+			expect(solid).toContain("'packages/solid/src/b/BSolid.test.tsx'")
+			const check = suite.run.at(-1)!
+			expect(check).toContain(`--confirm ${browser}`)
+			expect(check).toContain("--files")
+		}
+	})
+
+	test("runs Firefox locally and WebKit, with its reruns, in the Docker image", () => {
+		expect(parity(plan(), "firefox").run.join("\n")).not.toContain("webkit-docker.sh")
+		const webkit = parity(plan(), "webkit").run
+		expect(webkit.filter((command) => command.includes("bash scripts/webkit-docker.sh"))).toHaveLength(2)
+		expect(webkit.at(-1)).toContain("PARITY_RUNNER=scripts/webkit-docker.sh")
+	})
+
+	test("an upstream with none of the files gets an empty report instead of a whole-suite run", () => {
+		const solidOnly = { files: ["packages/solid/src/b/BSolid.test.tsx"], solidCount: 1, overBudget: false }
+		const firefox = parity(plan({ browserTests: solidOnly }), "firefox").run
+		expect(firefox.join("\n")).not.toContain("bun run test:firefox")
+		expect(
+			firefox.some((command) => command.includes('{"testResults":[]}') && command.includes("react-firefox.json")),
+		).toBe(true)
+	})
+
+	test("passes both with a note when the range changed no browser test file", () => {
+		const none = { files: [], solidCount: 0, overBudget: false }
+		for (const browser of ["firefox", "webkit"]) {
+			const suite = parity(plan({ browserTests: none }), browser)
+			expect(suite.selected).toBe(true)
+			expect(suite.run).toEqual([])
+			expect(suite.note).toBe("no browser test file changed")
+		}
+	})
+
+	test("reports the count, flagged over the budget, and still runs every file", () => {
+		expect(parity(plan(), "firefox").note).toBe("2 Solid test files")
+		const many = { ...browserTests, solidCount: 41, overBudget: true }
+		const suite = parity(plan({ browserTests: many }), "firefox")
+		expect(suite.note).toBe("41 Solid test files, over the 40-file budget")
+		expect(suite.run.length).toBeGreaterThan(0)
+	})
+
+	test("WebKit without Docker is not run, which fails --changed", () => {
+		const suite = parity(plan({ docker: false }), "webkit")
+		expect(suite.selected).toBe(true)
+		expect(suite.unavailable).toBe("Docker is not available for WebKit")
+	})
+
+	test("a full run keeps the whole-suite parity", () => {
+		for (const browser of ["firefox", "webkit"]) {
+			const suite = parity(planSuites({ changed: null, only: null, fullBench: false }), browser)
+			expect(suite.run).toEqual(suites.find((s) => s.name === `parity-${browser}`)!.run)
+		}
 	})
 })

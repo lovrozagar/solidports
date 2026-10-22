@@ -19,7 +19,9 @@
 //   bun run test:base-ui:all [--only <suite>,<suite>] [--list] [--full-bench]
 //   bun run test:base-ui:all --changed [ref]   every light suite whole, and jsdom and chromium
 //                                              on vitest's module-graph diff against HEAD
-//                                              (uncommitted changes) or the ref
+//                                              (uncommitted changes) or the ref, and Firefox
+//                                              and WebKit parity on the range's browser test
+//                                              files (WebKit in Playwright's Docker image)
 import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -58,8 +60,11 @@ export const LOCK_TIMEOUT_SECONDS = Number(process.env.GATES_TIMEOUT ?? 1200);
 // `--changed` every light suite runs whole, whatever the range (about 50 s together): selecting
 // them by the files a range changes let four CI-only failures through, one suite at a time (eslint
 // 4ada29ab, docs-generate fadd8eb5, vale 2c766d1e, error-codes 9a9f246b). The vitest suites run on
-// the module-graph diff, and every other heavy suite names in `fullOnly` why only a full run or CI
-// runs it.
+// the module-graph diff. The parity suites run scoped, on the Solid test files the range changed
+// or changed a source file beside (CI's parity caught new tests only after the push: a WebKit
+// mousemove test, and a Firefox pointer-lock test in run 39799938293); their `fullOnly` names the
+// whole run that only a full run or CI does. Every other heavy suite names in `fullOnly` why only a
+// full run or CI runs it.
 export const suites = [
   { job: 'Linting', name: 'format', cwd: '.', run: ['bun run fmt:check'] },
   { job: 'Linting', name: 'oxlint', cwd: '.', run: ['bun run lint'] },
@@ -189,6 +194,7 @@ export const suites = [
   ...['firefox', 'webkit'].map((browser) => ({
     job: 'Browser parity',
     name: `parity-${browser}`,
+    browser,
     cwd: baseUi,
     heavy: true,
     exclusive: true,
@@ -273,6 +279,57 @@ export const suites = [
   },
 ];
 
+/** The Solid sources, repo-relative, and the folders parity compares (relative to packages/base-ui). */
+const SOLID_SOURCES = `${solid}/src/`;
+const SOLID_SRC = 'packages/solid/src';
+const REACT_SRC = 'packages/react/src';
+const TEST_FILE = /\.test\.tsx?$/;
+/** Single-quotes `text` for the shell. */
+const quote = (text) => `'${text.replaceAll("'", "'\\''")}'`;
+/** Above this many Solid test files, a scoped parity run reports that it exceeds its budget. */
+export const BROWSER_TEST_BUDGET = 40;
+
+/**
+ * The browser test files a range changed, relative to packages/base-ui, for the scoped parity
+ * suites: each changed Solid test file under `packages/solid/src` that still exists, and every test
+ * file beside a changed Solid source file (a library change can break a cross-browser test it did
+ * not touch), each with its upstream counterpart when upstream has one. `names` are repo-relative;
+ * `exists(file)` and `listDir(dir)` (a folder's files, not recursive) take paths relative to
+ * packages/base-ui.
+ */
+export function changedBrowserTestFiles(names, exists, listDir) {
+  const solidFiles = new Set();
+  for (const name of names) {
+    if (!name.startsWith(SOLID_SOURCES)) {
+      continue;
+    }
+    const file = name.slice(baseUi.length + 1);
+    if (TEST_FILE.test(file)) {
+      if (exists(file)) {
+        solidFiles.add(file);
+      }
+    } else {
+      for (const sibling of listDir(path.posix.dirname(file))) {
+        if (TEST_FILE.test(sibling)) {
+          solidFiles.add(sibling);
+        }
+      }
+    }
+  }
+  const files = new Set(solidFiles);
+  for (const file of solidFiles) {
+    const upstream = REACT_SRC + file.slice(SOLID_SRC.length);
+    if (exists(upstream)) {
+      files.add(upstream);
+    }
+  }
+  return {
+    files: [...files].sort(),
+    solidCount: solidFiles.size,
+    overBudget: solidFiles.size > BROWSER_TEST_BUDGET,
+  };
+}
+
 export function parseArgs(argv) {
   const options = { only: null, list: false, changed: null, fullBench: false };
   for (let index = 0; index < argv.length; index += 1) {
@@ -293,13 +350,56 @@ export function parseArgs(argv) {
   return options;
 }
 
+/**
+ * A parity suite's commands on `browserTests` alone (`changedBrowserTestFiles`): both suites run
+ * only the selected files (an empty report stands in for a suite with none), and the check covers
+ * only them. WebKit runs, reruns included, in Playwright's Docker image: local WebKit lacks the
+ * host's libraries.
+ */
+function scopedParity(browser, browserTests) {
+  const report = (suite) => `"$TEST_ALL_RUN_DIR/${suite}-${browser}.json"`;
+  const list = `"$TEST_ALL_RUN_DIR/browser-tests-${browser}.txt"`;
+  const docker = browser === 'webkit';
+  const suiteRun = (suite, script, dir) => {
+    const files = browserTests.files.filter((file) => file.startsWith(`${dir}/`));
+    if (files.length === 0) {
+      return `printf '%s' '{"testResults":[]}' > ${report(suite)}`;
+    }
+    const filters = files.map(quote).join(' ');
+    return docker
+      ? `bash scripts/webkit-docker.sh ${script} ${report(suite)} ${filters} || true`
+      : `bun run ${script} --run --maxWorkers=2 --reporter=json --outputFile=${report(suite)} ${filters} || true`;
+  };
+  return [
+    `printf '%s\\n' ${browserTests.files.map(quote).join(' ')} > ${list}`,
+    suiteRun('react', `test:${browser}`, REACT_SRC),
+    suiteRun('solid', `test:solid:${browser}`, SOLID_SRC),
+    `${docker ? 'PARITY_RUNNER=scripts/webkit-docker.sh ' : ''}node scripts/browser-parity.mjs ${report('react')} ${report('solid')} --confirm ${browser} --files ${list}`,
+  ];
+}
+
 /** The suites with this run's commands, each marked selected or not (with the reason). */
 export function planSuites(options) {
   return suites.map((suite) => {
     let run = options.fullBench && suite.fullRun ? suite.fullRun : suite.run;
     let selected = true;
     let detail;
-    if (options.changed != null) {
+    let note;
+    let unavailable;
+    if (options.changed != null && suite.browser && options.browserTests) {
+      // The scoped parity run: only the browser test files the range changed or sits beside.
+      const tests = options.browserTests;
+      if (tests.files.length === 0) {
+        run = [];
+        note = 'no browser test file changed';
+      } else {
+        run = scopedParity(suite.browser, tests);
+        note = `${tests.solidCount} Solid test files${tests.overBudget ? `, over the ${BROWSER_TEST_BUDGET}-file budget` : ''}`;
+        if (suite.browser === 'webkit' && !options.docker) {
+          unavailable = 'Docker is not available for WebKit';
+        }
+      }
+    } else if (options.changed != null) {
       selected = !suite.heavy || Boolean(suite.vitest);
       detail = selected ? undefined : `not selected (--changed: ${suite.fullOnly})`;
       if (suite.vitest) {
@@ -314,7 +414,14 @@ export function planSuites(options) {
       selected = false;
       detail = 'not selected (--only)';
     }
-    return { ...suite, run, selected, ...(detail ? { detail } : {}) };
+    return {
+      ...suite,
+      run,
+      selected,
+      ...(detail ? { detail } : {}),
+      ...(note ? { note } : {}),
+      ...(unavailable ? { unavailable } : {}),
+    };
   });
 }
 
@@ -461,8 +568,6 @@ function changedPaths(before, after) {
   return [...lines(after)].filter((line) => !previous.has(line)).map((line) => line.slice(3));
 }
 
-const quote = (text) => `'${text.replaceAll("'", "'\\''")}'`;
-
 /**
  * The shell command for one step: under the machine lock, with a timeout, when the suite is
  * exclusive.
@@ -555,7 +660,35 @@ async function runSuite(suite, runDir) {
       };
     }
   }
-  return { status: 'pass', detail: '' };
+  return { status: 'pass', detail: suite.note ?? '' };
+}
+
+/**
+ * The scoped parity suites' inputs under `--changed`: the range's browser test files (the diff
+ * against the ref, the working tree included, plus untracked files) and whether Docker can run
+ * WebKit.
+ */
+function scopedParityInputs(ref) {
+  const git = (args) =>
+    spawnSync('git', args, { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter(Boolean);
+  const names = [
+    ...git(['diff', '--name-only', ref || 'HEAD']),
+    ...git(['ls-files', '--others', '--exclude-standard']),
+  ];
+  const base = path.join(root, baseUi);
+  const browserTests = changedBrowserTestFiles(
+    names,
+    (file) => fs.existsSync(path.join(base, file)),
+    (dir) =>
+      fs.existsSync(path.join(base, dir))
+        ? fs
+            .readdirSync(path.join(base, dir), { withFileTypes: true })
+            .filter((entry) => entry.isFile())
+            .map((entry) => `${dir}/${entry.name}`)
+        : [],
+  );
+  const docker = spawnSync('docker', ['info'], { stdio: 'ignore' }).status === 0;
+  return { browserTests, docker };
 }
 
 async function main() {
@@ -598,6 +731,9 @@ async function main() {
     light: Number(process.env.GATES_LIGHT ?? 4),
   };
   const started = Date.now();
+  if (options.changed != null) {
+    Object.assign(options, scopedParityInputs(options.changed));
+  }
   const results = await runAll(
     planSuites(options),
     async (suite) => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import {
@@ -31,7 +31,7 @@ function report(root: string, files: Record<string, Tests>) {
 }
 
 /** Writes `onDisk` test files and both reports, then runs the script on them. */
-function parity(onDisk: string[], upstream: Record<string, Tests>, solid: Record<string, Tests>) {
+function parity(onDisk: string[], upstream: Record<string, Tests>, solid: Record<string, Tests>, files?: string[]) {
 	const root = mkdtempSync(join(tmpdir(), "browser-parity-"))
 	temps.push(root)
 	for (const file of onDisk) {
@@ -40,7 +40,12 @@ function parity(onDisk: string[], upstream: Record<string, Tests>, solid: Record
 	}
 	writeFileSync(join(root, "react.json"), JSON.stringify(report(root, upstream)))
 	writeFileSync(join(root, "solid.json"), JSON.stringify(report(root, solid)))
-	return spawnSync("node", [SCRIPT, "react.json", "solid.json"], { cwd: root, encoding: "utf8" })
+	const args = [SCRIPT, "react.json", "solid.json"]
+	if (files) {
+		writeFileSync(join(root, "files.txt"), files.join("\n"))
+		args.push("--files", "files.txt")
+	}
+	return spawnSync("node", args, { cwd: root, encoding: "utf8" })
 }
 
 const A_REACT = "packages/react/src/a/A.test.tsx"
@@ -79,6 +84,31 @@ describe("browser parity", () => {
 		)
 		expect(result.status).toBe(1)
 		expect(result.stderr).toContain("Solid ran tests in 1 of 2 test files under packages/solid/src")
+	})
+
+	test("with --files, expects only the listed test files to have run", () => {
+		// A scoped run (`test:base-ui:all --changed`): B's files are on disk but not in the range.
+		const result = parity(
+			[A_REACT, B_REACT, A_SOLID, B_SOLID],
+			{ [A_REACT]: [["works", "passed"]] },
+			{ [A_SOLID]: [["works", "failed"]] },
+			[A_REACT, A_SOLID],
+		)
+		expect(result.status).toBe(1)
+		expect(result.stderr).not.toContain("the run is incomplete")
+		expect(result.stdout).toContain("Solid-only: 1")
+	})
+
+	test("with --files, fails on a listed test file that ran no test", () => {
+		const result = parity(
+			[A_REACT, B_REACT, A_SOLID, B_SOLID],
+			{ [A_REACT]: [["works", "passed"]] },
+			{ [A_SOLID]: [["works", "passed"]] },
+			[A_REACT, A_SOLID, B_SOLID],
+		)
+		expect(result.status).toBe(1)
+		expect(result.stderr).toContain("Solid ran tests in 1 of 2 test files under packages/solid/src")
+		expect(result.stderr).toContain("b/B.test.tsx")
 	})
 })
 
@@ -161,5 +191,41 @@ describe("printing a rerun result", () => {
 			" (Solid failed 0/10, upstream absent)",
 		)
 		expect(describeCounts({ upstream: "passed" })).toBe("")
+	})
+})
+
+// WebKit's scoped parity runs in Playwright's Docker image, so its confirm reruns must too:
+// `PARITY_RUNNER` names the script the reruns go through instead of `bun run`.
+describe("confirm reruns through PARITY_RUNNER", () => {
+	test("reruns each suite through the runner, which writes the JSON report", () => {
+		const root = mkdtempSync(join(tmpdir(), "browser-parity-runner-"))
+		temps.push(root)
+		for (const file of [A_REACT, A_SOLID]) {
+			mkdirSync(dirname(join(root, file)), { recursive: true })
+			writeFileSync(join(root, file), "")
+		}
+		writeFileSync(join(root, "react.json"), JSON.stringify(report(root, { [A_REACT]: [["works", "passed"]] })))
+		writeFileSync(join(root, "solid.json"), JSON.stringify(report(root, { [A_SOLID]: [["works", "failed"]] })))
+		// The runner's contract: <script> <report.json> [files...]. Solid fails, upstream passes.
+		writeFileSync(
+			join(root, "runner.sh"),
+			[
+				'echo "$1 $3" >> calls.log',
+				`case "$1" in test:solid:*) f=${A_SOLID}; s=failed;; *) f=${A_REACT}; s=passed;; esac`,
+				`printf '{"testResults":[{"name":"%s/%s","assertionResults":[{"ancestorTitles":[],"title":"works","status":"%s","failureMessages":[]}]}]}' "$PWD" "$f" "$s" > "$2"`,
+			].join("\n"),
+		)
+		const result = spawnSync("node", [SCRIPT, "react.json", "solid.json", "--confirm", "webkit"], {
+			cwd: root,
+			encoding: "utf8",
+			env: { ...process.env, PARITY_RUNNER: "runner.sh" },
+		})
+		expect(result.status).toBe(1)
+		expect(result.stdout).toContain(
+			`(Solid failed ${CONFIRM_RUNS}/${CONFIRM_RUNS}, upstream passed ${CONFIRM_RUNS}/${CONFIRM_RUNS}`,
+		)
+		const calls = readFileSync(join(root, "calls.log"), "utf8").trim().split("\n")
+		expect(calls.filter((call) => call === `test:solid:webkit ${A_SOLID}`)).toHaveLength(CONFIRM_RUNS)
+		expect(calls.filter((call) => call === `test:webkit ${A_REACT}`)).toHaveLength(CONFIRM_RUNS)
 	})
 })
