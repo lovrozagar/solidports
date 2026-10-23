@@ -4,7 +4,7 @@ import { useFloatingTree } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
-import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
 import {
   useNavigationMenuRootContext,
   useNavigationMenuTreeContext,
@@ -70,15 +70,7 @@ export function NavigationMenuLink(componentProps: NavigationMenuLink.Props) {
       render={renderProps.render}
       class={renderProps.class}
       state={state}
-      refs={[
-        (el) => {
-          if (typeof componentProps.ref === 'function') {
-            componentProps.ref(el as HTMLAnchorElement);
-          } else {
-            componentProps.ref = el as any;
-          }
-        },
-      ]}
+      refs={[componentProps.ref as UseRenderElementRef<HTMLElement>]}
       props={[defaultProps, elementProps]}
     />
   );

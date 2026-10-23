@@ -5,7 +5,7 @@ import { contains, getTarget } from '../../floating-ui-solid/utils';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
 import { live, provideContext, splitComponentProps } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
-import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import {
   useNavigationMenuRootContext,
@@ -157,15 +157,7 @@ export function NavigationMenuList(componentProps: NavigationMenuList.Props) {
             render={renderProps.render}
             class={renderProps.class}
             state={state}
-            refs={[
-              (el) => {
-                if (typeof componentProps.ref === 'function') {
-                  componentProps.ref(el as HTMLUListElement);
-                } else {
-                  componentProps.ref = el as any;
-                }
-              },
-            ]}
+            refs={[componentProps.ref as UseRenderElementRef<HTMLElement>]}
             props={props.props}
             loopFocus={false}
             orientation={orientation()}

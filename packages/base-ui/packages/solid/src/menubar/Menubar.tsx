@@ -5,7 +5,7 @@ import { FloatingNode, FloatingTree, useFloatingNodeId } from '../floating-ui-so
 import type { MenuRoot } from '../menu/root/MenuRoot';
 import { provideContext, splitComponentProps, useRef } from '../solid-helpers';
 import type { StateAttributesMapping } from '../utils/getStateAttributesProps';
-import type { BaseUIComponentProps } from '../utils/types';
+import type { BaseUIComponentProps, UseRenderElementRef } from '../utils/types';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { REASONS } from '../utils/reasons';
 import { MenubarContext } from './MenubarContext';
@@ -98,16 +98,7 @@ export function Menubar(props: Menubar.Props) {
           class={renderProps.class}
           state={state}
           stateAttributesMapping={menubarStateAttributesMapping}
-          refs={[
-            (el) => {
-              if (typeof props.ref === 'function') {
-                props.ref(el as HTMLDivElement);
-              } else {
-                props.ref = el as any;
-              }
-            },
-            setContentElement,
-          ]}
+          refs={[props.ref as UseRenderElementRef<HTMLElement>, setContentElement]}
           props={[{ role: 'menubar', id: id(), 'aria-orientation': orientation() }, elementProps]}
           orientation={orientation()}
           loopFocus={loopFocus()}
