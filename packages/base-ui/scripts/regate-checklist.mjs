@@ -71,7 +71,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const at = args.indexOf('--previous');
   const previousFile = at === -1 ? undefined : args[at + 1];
-  const files = args.filter((_, i) => i !== at && i !== at + 1);
+  // Without `--previous` (`at` is -1), every argument is a report: `at + 1` would drop the first.
+  const files = at === -1 ? args : args.filter((_, i) => i !== at && i !== at + 1);
   if (files.length === 0) {
     console.error('usage: regate-checklist.mjs <report.json>... [--previous <checklist.json>]');
     process.exit(1);

@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test"
+import { spawnSync } from "node:child_process"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { regateChecklist } from "../packages/base-ui/scripts/regate-checklist.mjs"
 
 // D28: the regate checklist is generated from the reports, so a flagged row cannot drop out
@@ -53,5 +57,27 @@ describe("the generated regate checklist", () => {
 		expect(regateChecklist([r], previous).rows).toEqual([
 			{ key: "menu/500 › open", metric: "sync", status: "regressed" },
 		])
+	})
+})
+
+describe("the regate checklist command", () => {
+	const SCRIPT = join(import.meta.dir, "../packages/base-ui/scripts/regate-checklist.mjs")
+
+	test("reads every report it is given, without --previous", () => {
+		const dir = mkdtempSync(join(tmpdir(), "regate-checklist-"))
+		try {
+			const files = ["menu/500 › open", "select/1000 › close"].map((key, i) => {
+				const file = join(dir, `chunk-${i}.json`)
+				const failing = [row(key, "sync", "regressed")]
+				writeFileSync(file, JSON.stringify(report({ regressions: { failing, allowed: [], generated: [] } })))
+				return file
+			})
+			const result = spawnSync("node", [SCRIPT, ...files], { encoding: "utf8" })
+			expect(result.status).toBe(0)
+			const list = JSON.parse(readFileSync(join(dir, "chunk-0-checklist.json"), "utf8"))
+			expect(list.rows.map((r: { key: string }) => r.key).sort()).toEqual(["menu/500 › open", "select/1000 › close"])
+		} finally {
+			rmSync(dir, { recursive: true, force: true })
+		}
 	})
 })
