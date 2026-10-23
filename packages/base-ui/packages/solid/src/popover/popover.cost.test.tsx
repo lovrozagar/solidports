@@ -12,6 +12,7 @@ import { fireEvent, screen } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 import { renderPathOf } from '../utils/renderPath';
+import { handleTreeCost } from '../../test/handleTriggerCost';
 import { normalizeTree } from '../../test/parityHarness';
 import { FloorPopoverRoot, FloorPopoverTrigger } from '../../test/floor/popover';
 
@@ -93,57 +94,43 @@ describe('popover cost against the hand-written floor', () => {
 });
 
 /**
- * A detached-handle trigger renders on the slow path, which builds its hover and click
- * interactions at mount, as before D32 (regate c: deferring them to the first intent saved 12 nodes
- * per handle trigger at mount and cost 3 more per first switch, so popover/handle-20's switches
- * slowed by 1.3 ms and kept 136 KB more). Its mount plus its first switch stays at base's.
+ * Detached-handle triggers render on the slow path. The whole tree (the root and five triggers
+ * sharing its handle) costs at most base's (44260fef, before D32's native Popover.Trigger) at mount
+ * and after the last trigger's first press (regate c): a per-trigger count missed work moving
+ * between the root and its triggers.
  */
-const HANDLE_TRIGGER_BUDGET = 49;
+const HANDLE_TREE_BUDGET = { mount: 281, total: 526 };
 
-describe('a detached-handle Popover.Trigger', () => {
-  const { render } = createRenderer();
-
-  /** Nodes at mount for `n` handle triggers, and per first switch to each after the first. */
-  async function handleTriggers(n: number) {
-    count = 0;
-    hooks.onOwner = counting;
-    const handle = Popover.createHandle();
-    const view = render(() => (
-      <div>
-        <For each={Array.from({ length: n }, (_, i) => i)}>
-          {(i) => (
-            <Popover.Trigger data-testid="handle-trigger" handle={handle}>
-              Trigger {i}
-            </Popover.Trigger>
-          )}
-        </For>
-        <Popover.Root handle={handle}>
-          <Popover.Portal>
+function handleTree() {
+  const handle = Popover.createHandle();
+  return () => (
+    <div>
+      <For each={[0, 1, 2, 3, 4]}>
+        {(i) => (
+          <Popover.Trigger data-testid="handle-trigger" handle={handle}>
+            Trigger {i}
+          </Popover.Trigger>
+        )}
+      </For>
+      <Popover.Root handle={handle}>
+        <Popover.Portal>
             <Popover.Positioner>
               <Popover.Popup>Popup</Popover.Popup>
             </Popover.Positioner>
           </Popover.Portal>
-        </Popover.Root>
-      </div>
-    ));
-    flush();
-    const mount = count;
-    const switches: number[] = [];
-    for (const trigger of screen.getAllByTestId('handle-trigger')) {
-      const before = count;
-      fireEvent.pointerDown(trigger, { pointerType: 'mouse' });
-      fireEvent.mouseDown(trigger);
-      fireEvent.click(trigger);
-      // eslint-disable-next-line no-await-in-loop -- one switch at a time, as a user switches
-      await Promise.resolve();
-      flush();
-      switches.push(count - before);
-    }
-    hooks.onOwner = undefined;
-    view.unmount();
-    // The first switch also opens the popup; the rest switch it.
-    return { mount, switch: switches[switches.length - 1] };
-  }
+      </Popover.Root>
+    </div>
+  );
+}
+
+function firstIntent(trigger: HTMLElement) {
+  fireEvent.pointerDown(trigger, { pointerType: 'mouse' });
+  fireEvent.mouseDown(trigger);
+  fireEvent.click(trigger);
+}
+
+describe('detached-handle Popover.Trigger cost', () => {
+  const { render } = createRenderer();
 
   it('renders on the slow path', () => {
     const handle = Popover.createHandle();
@@ -157,12 +144,11 @@ describe('a detached-handle Popover.Trigger', () => {
     view.unmount();
   });
 
-  it('costs at most base at mount plus its first switch', async () => {
-    const five = await handleTriggers(5);
-    const four = await handleTriggers(4);
-    const cost = five.mount - four.mount + five.switch;
-    expect(cost, `mount ${five.mount - four.mount} + first switch ${five.switch}`).toBeLessThanOrEqual(
-      HANDLE_TRIGGER_BUDGET,
+  it('costs at most base at mount and after the first press, as a whole tree', async () => {
+    const cost = await handleTreeCost(render, handleTree(), firstIntent);
+    expect(cost.mount, `mount ${cost.mount}`).toBeLessThanOrEqual(HANDLE_TREE_BUDGET.mount);
+    expect(cost.total, `after the first press ${cost.total}`).toBeLessThanOrEqual(
+      HANDLE_TREE_BUDGET.total,
     );
   });
 });
