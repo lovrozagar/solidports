@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { expect, vi, describe, it } from 'vitest';
+import { expect, vi, describe, it, onTestFinished } from 'vitest';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';
 import { act, createRenderer, describeConformance, isJSDOM, wait } from '#test-utils';
@@ -543,26 +543,27 @@ describe('<NumberField.ScrubArea />', () => {
   // Solid: `Activity` (test/activity.tsx) hides its content as React's does in the DOM; Solid
   // keeps the hidden subtree's effects, where React tears them down.
   describe('React.Activity', () => {
-    it('does not resume scrubbing when a hidden scrub area is revealed again', async () => {
+    /**
+     * Mounts a number field under `Activity`, starts a scrub, hides the area mid-scrub, waits until
+     * the scrub has ended and reveals it again; resolves the value the scrub left behind.
+     */
+    async function scrubThenHideAndReveal() {
       const [visible, setVisible] = createSignal(true);
 
-      function App() {
-        return (
-          <Activity mode={visible() ? 'visible' : 'hidden'}>
-            <NumberField.Root defaultValue={0}>
-              <NumberField.Input />
-              <NumberField.ScrubArea data-testid="scrub-area">
-                <NumberField.ScrubAreaCursor />
-              </NumberField.ScrubArea>
-            </NumberField.Root>
-          </Activity>
-        );
-      }
-
-      render(() => <App />);
+      render(() => (
+        <Activity mode={visible() ? 'visible' : 'hidden'}>
+          <NumberField.Root defaultValue={0} data-testid="root">
+            <NumberField.Input />
+            <NumberField.ScrubArea data-testid="scrub-area">
+              <NumberField.ScrubAreaCursor />
+            </NumberField.ScrubArea>
+          </NumberField.Root>
+        </Activity>
+      ));
 
       const scrubArea = screen.getByTestId('scrub-area');
-      const input = screen.getByRole('textbox');
+      // Hidden, the input leaves the accessibility tree, so it is read through this reference.
+      const input = screen.getByRole<HTMLInputElement>('textbox');
 
       await act(async () => {
         scrubArea.dispatchEvent(createPointerDownEvent(scrubArea));
@@ -570,22 +571,74 @@ describe('<NumberField.ScrubArea />', () => {
       });
 
       expect(input).toHaveValue('10');
+      expect(screen.getByTestId('root')).toHaveAttribute('data-scrubbing');
 
-      // Hiding tears the effects down mid-scrub without unmounting; revealing re-runs them.
+      // The hide makes the area display: none mid-scrub, and its ResizeObserver ends the scrub once
+      // it reports the area hidden, a frame or more later on a loaded runner. React instead tears
+      // the effects down as it commits the hide.
       await act(async () => setVisible(false));
-      // Solid: React commits the hide at once and tears the effects down; here the scrub area sees
-      // the hide once it is rendered.
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      // Chromium's layout-driven mouse move can scrub in between: its movement is measured from
+      // the harness's real cursor, which these synthetic events never move (movementX -166 in CI
+      // run 39884436544), so the value the scrub leaves is read once it has ended.
+      await waitFor(() => {
+        expect(screen.getByTestId('root')).not.toHaveAttribute('data-scrubbing');
       });
+      const value = input.value;
       await act(async () => setVisible(true));
+      return value;
+    }
+
+    it('does not resume scrubbing when a hidden scrub area is revealed again', async () => {
+      const value = await scrubThenHideAndReveal();
 
       // No pointer is down anymore, so a bare mouse move must not change the value.
       await act(async () => {
         window.dispatchEvent(createPointerMoveEvent({ movementX: 10 }));
       });
 
-      expect(screen.getByRole('textbox')).toHaveValue('10');
+      expect(screen.getByRole('textbox')).toHaveValue(value);
+    });
+
+    it('does not resume scrubbing when the hide reaches the scrub area frames late', async () => {
+      // A renderer that delivers ResizeObserver three frames late, as the loaded CI runner did.
+      const NativeResizeObserver = window.ResizeObserver;
+      window.ResizeObserver = class {
+        observer: ResizeObserver;
+        constructor(callback: ResizeObserverCallback) {
+          this.observer = new NativeResizeObserver((entries, observer) => {
+            let frames = 3;
+            const step = () => {
+              frames -= 1;
+              if (frames > 0) {
+                requestAnimationFrame(step);
+              } else {
+                callback(entries, observer);
+              }
+            };
+            requestAnimationFrame(step);
+          });
+        }
+        observe(target: Element) {
+          this.observer.observe(target);
+        }
+        unobserve(target: Element) {
+          this.observer.unobserve(target);
+        }
+        disconnect() {
+          this.observer.disconnect();
+        }
+      } as unknown as typeof ResizeObserver;
+      onTestFinished(() => {
+        window.ResizeObserver = NativeResizeObserver;
+      });
+
+      const value = await scrubThenHideAndReveal();
+
+      await act(async () => {
+        window.dispatchEvent(createPointerMoveEvent({ movementX: 10 }));
+      });
+
+      expect(screen.getByRole('textbox')).toHaveValue(value);
     });
   });
 
