@@ -2,6 +2,8 @@ import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js'
 import type { JSX } from '@solidjs/web';
 import { closest } from '../../utils/shadowDom';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
+import { useCompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
+import type { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import {
   safePolygon,
   useClick,
@@ -44,13 +46,26 @@ import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { FocusGuard } from '../../utils/FocusGuard';
 import { getCssDimensions } from '../../utils/getCssDimensions';
 import { ownerWindow } from '../../utils/owner';
-import { pressableTriggerOpenStateMapping } from '../../utils/popupStateMapping';
+import {
+  CommonTriggerDataAttributes,
+  pressableTriggerOpenStateMapping,
+} from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import { TransitionStatusDataAttributes } from '../../utils/stateAttributesMapping';
 import { addEventListener } from '../../utils/addEventListener';
 import { useAnimationsFinished } from '../../utils/useAnimationsFinished';
+import { canRenderNative, partHandler, readHandler } from '../../utils/native';
+import type { Dispatch } from '../../utils/native';
+import {
+  compositeButtonKeyDownAfterConsumer,
+  compositeButtonKeyUp,
+} from '../../utils/native/compositeButton';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
+import { createNativeListItem } from '../../utils/native/listItem';
 import type {
   BaseUIComponentProps,
+  BaseUIEvent,
   HTMLProps,
   NativeButtonProps,
   UseRenderElementRef,
@@ -65,6 +80,7 @@ import {
   useNavigationMenuRootContext,
   useNavigationMenuTreeContext,
 } from '../root/NavigationMenuRootContext';
+import type { NavigationMenuRootContext } from '../root/NavigationMenuRootContext';
 import * as NavigationMenuPopupCssVars from '../popup/NavigationMenuPopupCssVars';
 import * as NavigationMenuPositionerCssVars from '../positioner/NavigationMenuPositionerCssVars';
 import { NAVIGATION_MENU_TRIGGER_IDENTIFIER } from '../utils/constants';
@@ -72,6 +88,164 @@ import { isOutsideMenuEvent } from '../utils/isOutsideMenuEvent';
 import { setSharedFixedSize } from '../utils/setSharedFixedSize';
 
 const DEFAULT_SIZE = { width: 0, height: 0 };
+
+/** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
+const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'nativeButton']);
+const TRIGGER_LITERALS: Record<string, unknown> = {
+  [NAVIGATION_MENU_TRIGGER_IDENTIFIER as string]: '',
+  // The trigger's own `tabindex`, which overrides the composite item's roving one.
+  tabindex: 0,
+};
+
+/**
+ * A native trigger's model: the target of its module-level handlers and attribute write, and its
+ * state. Its handler sources in the slow path's `mergeProps` order below the consumer's: the
+ * trigger's own props, the list's dismiss props, then hover and click once the interactions exist;
+ * the composite item's focus and hover highlight run last (`useCompositeItem` inlined). One object
+ * per trigger.
+ */
+class NativeNavigationMenuTriggerModel implements NavigationMenuTrigger.State {
+  declare private readonly disabledAccessor: () => boolean;
+  declare readonly isActive: () => boolean;
+  declare readonly root: NavigationMenuRootContext;
+  declare private readonly composite: CompositeRootContext;
+  declare private readonly index: () => number;
+  declare private readonly elementRef: { current: HTMLElement | null };
+  declare private readonly sources: ReadonlyArray<() => object | undefined>;
+
+  constructor(
+    disabled: () => boolean,
+    isActive: () => boolean,
+    root: NavigationMenuRootContext,
+    composite: CompositeRootContext,
+    index: () => number,
+    elementRef: { current: HTMLElement | null },
+    sources: ReadonlyArray<() => object | undefined>,
+  ) {
+    this.disabledAccessor = disabled;
+    this.isActive = isActive;
+    this.root = root;
+    this.composite = composite;
+    this.index = index;
+    this.elementRef = elementRef;
+    this.sources = sources;
+  }
+
+  get disabled() {
+    return this.disabledAccessor();
+  }
+
+  get open() {
+    return this.isActive();
+  }
+
+  /** Calls each source's handler for `key` until one prevents the rest (`mergeProps` order). */
+  dispatch(key: string, event: BaseUIEvent<Event>) {
+    for (const source of this.sources) {
+      if (event.baseUIHandlerPrevented) {
+        return;
+      }
+      const props = source();
+      const handler = props ? readHandler(props, key) : undefined;
+      if (handler) {
+        handler(event);
+      }
+    }
+  }
+
+  /** `useCompositeItem`'s focus: the composite highlights this trigger. */
+  focus() {
+    this.composite.onHighlightedIndexChange(this.index());
+  }
+
+  /** `useCompositeItem`'s hover highlight: focus the trigger when the composite highlights on hover. */
+  mouseMove() {
+    const el = this.elementRef.current;
+    if (!this.composite.highlightItemOnHover() || !el) {
+      return;
+    }
+    const disabled = el.hasAttribute('disabled') || el.ariaDisabled === 'true';
+    if (!this.composite.isHighlighted(this.index()) && !disabled) {
+      el.focus();
+    }
+  }
+}
+
+type TriggerModel = NativeNavigationMenuTriggerModel;
+
+/** A disabled trigger cancels the event and runs no handler (`useButton`'s click and pointerdown). */
+function preventWhileDisabled(trigger: TriggerModel, event: Event) {
+  if (trigger.disabled) {
+    event.preventDefault();
+    return false;
+  }
+  return true;
+}
+
+const runWhileEnabled = (trigger: TriggerModel) => !trigger.disabled;
+
+const dispatchSources = (key: string) => (trigger: TriggerModel, event: Event) =>
+  trigger.dispatch(key, event as BaseUIEvent<Event>);
+
+/**
+ * A native trigger's handlers, created once: `useButton`'s gates for a focusable-when-disabled
+ * native composite button, then the consumer's handler, then the trigger's sources (`dispatch`)
+ * and the composite item's.
+ */
+const TRIGGER_HANDLERS: Readonly<Record<string, Dispatch<TriggerModel>>> = {
+  onClick: partHandler('onClick', dispatchSources('onClick'), preventWhileDisabled),
+  onPointerDown: partHandler(
+    'onPointerDown',
+    dispatchSources('onPointerDown'),
+    preventWhileDisabled,
+  ),
+  onMouseDown: partHandler('onMouseDown', dispatchSources('onMouseDown'), runWhileEnabled),
+  onKeyDown: partHandler<TriggerModel, KeyboardEvent>(
+    'onKeyDown',
+    (trigger, event) => {
+      trigger.dispatch('onKeyDown', event);
+      compositeButtonKeyDownAfterConsumer(event);
+    },
+    (trigger, event) => {
+      // Allow Tabbing away from the focusable-when-disabled button; block every other key.
+      if (trigger.disabled && event.key !== 'Tab') {
+        event.preventDefault();
+      }
+      return !trigger.disabled;
+    },
+  ),
+  onKeyUp: compositeButtonKeyUp<TriggerModel>((trigger) => trigger.disabled),
+  onFocus: partHandler('onFocus', (trigger: TriggerModel, event) => {
+    trigger.dispatch('onFocus', event);
+    trigger.focus();
+  }),
+  onBlur: partHandler('onBlur', dispatchSources('onBlur')),
+  onMouseEnter: partHandler('onMouseEnter', dispatchSources('onMouseEnter')),
+  onMouseLeave: partHandler('onMouseLeave', dispatchSources('onMouseLeave')),
+  onMouseMove: partHandler('onMouseMove', (trigger: TriggerModel, event) => {
+    trigger.dispatch('onMouseMove', event);
+    trigger.mouseMove();
+  }),
+  onPointerEnter: partHandler('onPointerEnter', dispatchSources('onPointerEnter')),
+};
+
+const writeTriggerState = compileStateWriter(['disabled'], undefined);
+
+/** The trigger's own attributes below the consumer's: one write per pass. */
+function writeTriggerAttributes(w: SetAttribute, trigger: TriggerModel) {
+  const open = trigger.open;
+  w.set('aria-expanded', open ? 'true' : 'false');
+  w.set('aria-controls', open ? trigger.root.popupElement()?.id : undefined);
+  // `useFocusableWhenDisabled` for a focusable-when-disabled native composite button.
+  w.set('aria-disabled', trigger.disabled ? 'true' : 'false');
+  // `pressableTriggerOpenStateMapping`.
+  w.set(CommonTriggerDataAttributes.popupOpen, open ? '' : undefined);
+  w.set(CommonTriggerDataAttributes.pressed, open ? '' : undefined);
+}
+
+const triggerState = (trigger: TriggerModel) => trigger;
 
 /**
  * Opens the navigation menu popup when hovered or clicked, revealing the
@@ -81,15 +255,15 @@ const DEFAULT_SIZE = { width: 0, height: 0 };
  * Documentation: [Base UI Navigation Menu](https://base-ui.com/react/components/navigation-menu)
  */
 export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Props): JSX.Element {
-  const [renderProps, local, elementProps] = splitComponentProps(componentProps, [
-    'style',
-    'ref',
-    'nativeButton',
-    'disabled',
-  ]);
-  const nativeButton = () => local.nativeButton ?? true;
-  const disabled = () => local.disabled ?? false;
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain `<button>` trigger
+  // renders with direct JSX and registers with its list's composite; `useButton` and
+  // `useCompositeItem` inlined (D32). The server and hydration keep the slow path.
+  const native =
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    untrack(() => componentProps.nativeButton ?? true);
+  const disabled = () => componentProps.disabled ?? false;
 
+  const rootContext = useNavigationMenuRootContext();
   const {
     value,
     setValue,
@@ -114,7 +288,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     orientation,
     setViewportInert,
     nested,
-  } = useNavigationMenuRootContext();
+  } = rootContext;
   const { value: itemValue } = useNavigationMenuItemContext();
   const nodeId = useNavigationMenuTreeContext();
   const tree = useFloatingTree();
@@ -602,20 +776,24 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
           },
         },
       });
-      // Solid: `useInteractions` merges the interaction props, as React's `mergeProps` call.
-      return useInteractions(
-        [
-          hoverProps ? { reference: hoverProps as JSX.HTMLAttributes<Element> } : null,
-          click,
-        ].filter(Boolean) as ElementProps[],
-      );
+      // Solid: `useInteractions` merges the interaction props, as React's `mergeProps` call; the
+      // native path dispatches to each instead.
+      const merged = native
+        ? undefined
+        : useInteractions(
+            [
+              hoverProps ? { reference: hoverProps as JSX.HTMLAttributes<Element> } : null,
+              click,
+            ].filter(Boolean) as ElementProps[],
+          );
+      return { hover: hoverProps, click, merged };
     },
     triggerElement,
     isActiveItem,
   );
   // The merged reference props once the interactions exist; until then the props pass through.
   const getReferenceProps = (userProps?: JSX.HTMLAttributes<Element>) =>
-    interactions()?.getReferenceProps(userProps) ?? userProps ?? EMPTY_OBJECT;
+    interactions()?.merged?.getReferenceProps(userProps) ?? userProps ?? EMPTY_OBJECT;
 
   // The root derives its floating context from the active trigger; this remembers the element.
   registerTriggerFloatingContext({ active: isActiveItem, context });
@@ -807,16 +985,55 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     },
   };
 
-  const { buttonSources, buttonRef } = useButton({
-    disabled,
-    focusableWhenDisabled: true,
-    native: nativeButton,
-  });
+  // The element is created once, here, under the trigger's owner.
+  const element = native ? nativeElement() : slowElement();
 
-  const referenceElement = hoverFloatingElement;
+  function nativeElement() {
+    const listItem = createNativeListItem<null>(null);
+    const model = new NativeNavigationMenuTriggerModel(
+      disabled,
+      isActiveItem,
+      rootContext,
+      useCompositeRootContext(),
+      listItem.index,
+      triggerElementRef,
+      [
+        () => defaultProps,
+        () => dismissProps?.()?.reference,
+        () => interactions()?.hover,
+        () => interactions()?.click.reference,
+      ],
+    );
+    // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
+    const el = (<button type="button" />) as unknown as HTMLButtonElement;
+    return renderNativeElement(el, componentProps, {
+      own: OWN_KEYS,
+      state: triggerState,
+      stateWriter: writeTriggerState,
+      stateView: model,
+      reactive: true,
+      literal: TRIGGER_LITERALS,
+      attributes: writeTriggerAttributes,
+      handlers: TRIGGER_HANDLERS,
+      handlerTarget: model,
+      refs: [handleTriggerElement, listItem.setRef],
+    }) as unknown as JSX.Element;
+  }
 
-  return (
-    <>
+  function slowElement() {
+    const [renderProps, local, elementProps] = splitComponentProps(componentProps, [
+      'style',
+      'ref',
+      'nativeButton',
+      'disabled',
+    ]);
+    const { buttonSources, buttonRef } = useButton({
+      disabled,
+      focusableWhenDisabled: true,
+      native: () => local.nativeButton ?? true,
+    });
+
+    return (
       <CompositeItem
         tag="button"
         render={renderProps.render}
@@ -834,6 +1051,14 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
           buttonSources.handlers,
         ]}
       />
+    );
+  }
+
+  const referenceElement = hoverFloatingElement;
+
+  return (
+    <>
+      {element}
       <Show when={isActiveItem()}>
         <FocusGuard
           ref={(el) => {

@@ -5,16 +5,18 @@ import { useCompositeItem } from '../../internals/composite/item/useCompositeIte
 import { useCompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
-import { makeEventPreventable } from '../../merge-props/mergeProps';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
-import { canRenderNative, partHandler, readHandler } from '../../utils/native';
+import { canRenderNative, partHandler } from '../../utils/native';
+import {
+  compositeButtonKeyDownAfterConsumer,
+  compositeButtonKeyUp,
+} from '../../utils/native/compositeButton';
 import type { Dispatch } from '../../utils/native';
 import { renderNativeElement } from '../../utils/native/element';
 import { createNativeListItem } from '../../utils/native/listItem';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
-import type { BaseUIComponentProps, BaseUIEvent, NativeButtonProps } from '../../utils/types';
+import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTabsListContext } from '../list/TabsListContext';
@@ -55,13 +57,8 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
   const value = () => local.value;
   const nativeButton = () => local.nativeButton ?? true;
 
-  const {
-    isActive,
-    getTabPanelIdByValue,
-    onValueChange,
-    orientation,
-    tabActivationDirection,
-  } = useTabsRootContext();
+  const { isActive, getTabPanelIdByValue, onValueChange, orientation, tabActivationDirection } =
+    useTabsRootContext();
 
   const { activateOnFocus, registerTabResizeObserverElement } = useTabsListContext();
 
@@ -217,32 +214,6 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
   return element();
 }
 
-type TabEvent<T extends Event> = BaseUIEvent<T>;
-
-/**
- * `useButton`'s keyboard logic after the consumer's handler for a native `<button>` that is a
- * composite item (`handleKeyDownAfterConsumer`): Space activates the item on keydown so the
- * composite root's navigation and the click stay in order. Enter is left to the browser.
- */
-function compositeButtonKeyDownAfterConsumer(event: TabEvent<KeyboardEvent>) {
-  if (event.baseUIHandlerPrevented || event.target !== event.currentTarget || event.key !== ' ') {
-    return;
-  }
-  event.preventDefault();
-  event.preventBaseUIHandler();
-  dispatchClickWithModifiers(event.currentTarget as Element, event);
-}
-
-/**
- * `handleKeyUpAfterConsumer`: a composite native button cancels Space's keyup activation (the
- * keydown already dispatched the click), before and regardless of `preventBaseUIHandler`.
- */
-function compositeButtonKeyUpAfterConsumer(event: TabEvent<KeyboardEvent>) {
-  if (event.target === event.currentTarget && event.key === ' ') {
-    event.preventDefault();
-  }
-}
-
 /** What a native tab's handlers act on: its `disabled` accessor and its own handlers. */
 interface TabHandlerTarget {
   disabled(): boolean;
@@ -259,23 +230,6 @@ function preventWhileDisabled(tab: TabHandlerTarget, event: Event) {
   }
   return true;
 }
-
-/**
- * `useButton`'s composite keyup: a composite native button cancels Space's keyup activation even
- * when the consumer prevented the Base UI handler, so this runs outside `partHandler`'s gate.
- */
-const tabKeyUp: Dispatch<TabHandlerTarget> = (record, nativeEvent) => {
-  const event = makeEventPreventable(nativeEvent as TabEvent<KeyboardEvent>);
-  return untrack(() => {
-    if (record.target.disabled()) {
-      return undefined;
-    }
-    const consumer = readHandler(record.props, 'onKeyUp');
-    const result = consumer ? consumer(event) : undefined;
-    compositeButtonKeyUpAfterConsumer(event);
-    return result;
-  });
-};
 
 /** A native tab's handlers, in `useButton` and the tab's own order, created once. */
 const TAB_HANDLERS: Readonly<Record<string, Dispatch<TabHandlerTarget>>> = {
@@ -301,7 +255,7 @@ const TAB_HANDLERS: Readonly<Record<string, Dispatch<TabHandlerTarget>>> = {
       return !tab.disabled();
     },
   ),
-  onKeyUp: tabKeyUp,
+  onKeyUp: compositeButtonKeyUp<TabHandlerTarget>((tab) => tab.disabled()),
 };
 
 /** Bound only when the consumer passes them: the gate on `onMouseDown`, and `onMouseMove`. */
@@ -315,13 +269,8 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
   const disabled = () => props.disabled ?? false;
   const value = () => props.value;
 
-  const {
-    isActive,
-    getTabPanelIdByValue,
-    onValueChange,
-    orientation,
-    tabActivationDirection,
-  } = useTabsRootContext();
+  const { isActive, getTabPanelIdByValue, onValueChange, orientation, tabActivationDirection } =
+    useTabsRootContext();
 
   const { activateOnFocus, registerTabResizeObserverElement } = useTabsListContext();
 
