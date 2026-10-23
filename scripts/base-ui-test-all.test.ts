@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path"
 import {
 	changedBrowserTestFiles,
 	commandFor,
+	failureDetail,
 	EXCLUSIVE_LOCK,
 	planSuites,
 	suites,
@@ -45,6 +46,15 @@ describe("test:base-ui:all machine lock", () => {
 		)
 		expect(wrapped).toContain("flock -n '/tmp/l.lock' true || echo")
 		expect(commandFor(exclusive, "echo 'it''s'", "/tmp/l.lock")).toContain(`sh -c 'echo '\\''it'\\'''\\''s'\\'''`)
+	})
+
+	test("a failed command names its last step, or the timeout that killed it", () => {
+		expect(failureDetail({}, "bun run lint", 1)).toBe("`bun run lint` failed")
+		expect(failureDetail({ exclusive: true }, "bun run a\nnode check.mjs", 1)).toBe("`node check.mjs` failed")
+		expect(failureDetail({ exclusive: true, timeoutSeconds: 60 }, "bun run a\nnode check.mjs", 124)).toBe(
+			"timed out after 60 s",
+		)
+		expect(failureDetail({}, "bun run lint", 124)).toBe("`bun run lint` failed")
 	})
 
 	test("two exclusive commands on one lock never overlap", async () => {
