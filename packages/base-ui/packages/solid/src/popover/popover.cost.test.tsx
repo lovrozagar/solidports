@@ -99,7 +99,8 @@ describe('popover cost against the hand-written floor', () => {
  * and after the last trigger's first press (regate c): a per-trigger count missed work moving
  * between the root and its triggers.
  */
-const HANDLE_TREE_BUDGET = { mount: 281, total: 526 };
+/** Ratcheted to the count after D32's sweep; D32's bar is base's 281 / 526. */
+const HANDLE_TREE_BUDGET = { mount: 269, total: 517 };
 
 function handleTree() {
   const handle = Popover.createHandle();

@@ -99,7 +99,8 @@ describe('tooltip cost against the hand-written floor', () => {
  * and after the last trigger's first hover (regate c): a per-trigger count missed work moving
  * between the root and its triggers.
  */
-const HANDLE_TREE_BUDGET = { mount: 208, total: 375 };
+/** Ratcheted to the count after D32's sweep; D32's bar is base's 208 / 375. */
+const HANDLE_TREE_BUDGET = { mount: 198, total: 368 };
 
 function handleTree() {
   const handle = Tooltip.createHandle();
