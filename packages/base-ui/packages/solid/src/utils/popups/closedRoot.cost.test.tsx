@@ -212,8 +212,8 @@ describe('closed popup root cost', () => {
       // context stays, since the root derives its context from the triggers' registered ones. Its
       // list's CompositeList keeps a JSX provider, two nodes more, for its items' effect order
       // (GOTCHA-019).
-      'NavigationMenu', // before: 187
-      182,
+      'NavigationMenu', // before: 187, then 182, 173 with the slow trigger (D32's native trigger)
+      146,
       () => (
         <NavigationMenu.Root>
           <NavigationMenu.List>

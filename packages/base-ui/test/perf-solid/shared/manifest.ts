@@ -284,6 +284,9 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'navigation menu cost against the hand-written floor > a item stays within its native budget',
     'navigation menu cost against the hand-written floor > a icon stays within its native budget',
     'navigation menu cost against the hand-written floor > a link stays within its native budget',
+    'navigation menu cost against the hand-written floor > the floor renders the same trigger DOM',
+    'navigation menu cost against the hand-written floor > a plain trigger renders on the native path',
+    'navigation menu cost against the hand-written floor > a trigger stays within its native budget',
   ],
   'number-field': [
     'number field cost against the hand-written floor > the floor renders the same DOM as a number field',

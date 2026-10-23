@@ -1,5 +1,5 @@
 /*
- * NavigationMenu's Item, Icon and Link against the hand-written floor
+ * NavigationMenu's Item, Icon, Link and Trigger against the hand-written floor
  * (`test/floor/navigationMenu.tsx`, D32's sweep): each renders the floor's DOM on the native path,
  * and the dev runtime's reactive nodes one more copy adds stay at its native budget.
  */
@@ -14,6 +14,7 @@ import {
   FloorNavigationMenuIcon,
   FloorNavigationMenuItem,
   FloorNavigationMenuLink,
+  FloorNavigationMenuTrigger,
 } from '../../test/floor/navigationMenu';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
@@ -33,6 +34,9 @@ const BUDGET = {
   item: 2, // slow 12, floor 3
   icon: 3, // slow 11, floor 3
   link: 2, // slow 20, floor 5
+  // Its floating root context, hover state and sizing effects stay: the root derives its context
+  // from the triggers' registered ones.
+  trigger: 27, // slow 54, floor 4
 };
 
 const never = () => false;
@@ -89,22 +93,55 @@ describe('navigation menu cost against the hand-written floor', () => {
 
   const library = {
     item: (n: number) => () => (
-      <ClosedRoot>{copies(n, () => <NavigationMenu.Item />)}</ClosedRoot>
+      <ClosedRoot>
+        {copies(n, () => (
+          <NavigationMenu.Item />
+        ))}
+      </ClosedRoot>
     ),
     icon: (n: number) => () => (
       <ClosedRoot>
         <NavigationMenu.Item>
-          <NavigationMenu.Trigger>{copies(n, () => <NavigationMenu.Icon />)}</NavigationMenu.Trigger>
+          <NavigationMenu.Trigger>
+            {copies(n, () => (
+              <NavigationMenu.Icon />
+            ))}
+          </NavigationMenu.Trigger>
         </NavigationMenu.Item>
       </ClosedRoot>
     ),
     link: (n: number) => () => (
-      <OpenRoot>{copies(n, () => <NavigationMenu.Link href="#a">Link</NavigationMenu.Link>)}</OpenRoot>
+      <OpenRoot>
+        {copies(n, () => (
+          <NavigationMenu.Link href="#a">Link</NavigationMenu.Link>
+        ))}
+      </OpenRoot>
+    ),
+    trigger: (n: number) => () => (
+      <ClosedRoot>
+        <NavigationMenu.Item>
+          {copies(n, () => (
+            <NavigationMenu.Trigger>Trigger</NavigationMenu.Trigger>
+          ))}
+        </NavigationMenu.Item>
+      </ClosedRoot>
     ),
   };
   const floor = {
-    item: (n: number) => () => <ul>{copies(n, () => <FloorNavigationMenuItem />)}</ul>,
-    icon: (n: number) => () => <div>{copies(n, () => <FloorNavigationMenuIcon open={never} />)}</div>,
+    item: (n: number) => () => (
+      <ul>
+        {copies(n, () => (
+          <FloorNavigationMenuItem />
+        ))}
+      </ul>
+    ),
+    icon: (n: number) => () => (
+      <div>
+        {copies(n, () => (
+          <FloorNavigationMenuIcon open={never} />
+        ))}
+      </div>
+    ),
     link: (n: number) => () => (
       <div>
         {copies(n, () => (
@@ -113,6 +150,15 @@ describe('navigation menu cost against the hand-written floor', () => {
           </FloorNavigationMenuLink>
         ))}
       </div>
+    ),
+    trigger: (n: number) => () => (
+      <li>
+        {copies(n, () => (
+          <FloorNavigationMenuTrigger open={never} onActivate={noop}>
+            Trigger
+          </FloorNavigationMenuTrigger>
+        ))}
+      </li>
     ),
   };
 
@@ -134,6 +180,7 @@ describe('navigation menu cost against the hand-written floor', () => {
     ['item', 'li'],
     ['icon', 'span[aria-hidden]'],
     ['link', 'a'],
+    ['trigger', 'button'],
   ] as const)('the floor renders the same %s DOM', (name, selector) => {
     expect(parts(floor[name](2), selector).html).toEqual(parts(library[name](2), selector).html);
   });
@@ -142,6 +189,7 @@ describe('navigation menu cost against the hand-written floor', () => {
     ['item', 'li'],
     ['icon', 'span[aria-hidden]'],
     ['link', 'a'],
+    ['trigger', 'button'],
   ] as const)('a plain %s renders on the native path', (name, selector) => {
     expect(parts(library[name](2), selector).paths).toEqual(['native', 'native']);
   });
