@@ -31,6 +31,7 @@ import {
 import { reactCacheFrom, resolveReact } from '../test/perf-solid/shared/react-cache.mjs';
 import { judgeRun, unmeasuredPairs, variantPairs } from '../test/perf-solid/shared/report.mjs';
 import { EXCLUSIVE_LOCK, LOCK_TIMEOUT_SECONDS } from './test-all.mjs';
+import { repoEnv } from './repoEnv.mjs';
 import { EXIT_BAR, exitBar, FDR_Q, GATED, median } from '../test/perf-solid/shared/regression.mjs';
 
 // TypeScript reads tsconfig's JSONC; loaded only when a baseline is archived.
@@ -181,14 +182,6 @@ export function costPattern(names) {
   const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return `^(?:${names.map((name) => escape(vitestName(name))).join('|')})$`;
 }
-
-/**
- * The environment for git commands aimed at the repo in `cwd`: without git's own variables
- * (`GIT_DIR`, `GIT_INDEX_FILE` and the rest), which a process started under a git hook inherits
- * and which would aim the command at another repo.
- */
-const repoEnv = () =>
-  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
 
 function git(cwd, args, encoding = 'utf8') {
   const result = spawnSync('git', args, { cwd, encoding, env: repoEnv(), maxBuffer: 1 << 30 });
