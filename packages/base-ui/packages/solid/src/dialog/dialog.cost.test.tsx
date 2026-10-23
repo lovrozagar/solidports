@@ -99,7 +99,8 @@ describe('dialog cost against the hand-written floor', () => {
  * and after the last trigger's first press (regate c): a per-trigger count missed work moving
  * between the root and its triggers.
  */
-const HANDLE_TREE_BUDGET = { mount: 230, total: 232 };
+/** Ratcheted to the count after D32's sweep; D32's bar is base's 230 / 232. */
+const HANDLE_TREE_BUDGET = { mount: 221, total: 223 };
 
 function handleTree() {
   const handle = Dialog.createHandle();

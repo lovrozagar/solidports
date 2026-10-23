@@ -99,7 +99,8 @@ describe('preview card cost against the hand-written floor', () => {
  * and after the last trigger's first hover (regate c): a per-trigger count missed work moving
  * between the root and its triggers.
  */
-const HANDLE_TREE_BUDGET = { mount: 215, total: 223 };
+/** Ratcheted to the count after D32's sweep; D32's bar is base's 215 / 223. */
+const HANDLE_TREE_BUDGET = { mount: 204, total: 212 };
 
 function handleTree() {
   const handle = PreviewCard.createHandle();
