@@ -25,6 +25,16 @@ fi
 mkdir -p "$(dirname "$report")"
 reportDir=$(cd "$(dirname "$report")" && pwd)
 report="$reportDir/$(basename "$report")"
+# The overlay's mount options split on commas and its lower layers on colons, and the --mount value
+# quotes them in double quotes, so a path with any of these would mount the wrong layers.
+for path in "$tree" "$reportDir"; do
+  case "$path" in
+    *[,:\"]*)
+      echo "webkit-docker: the overlay cannot mount $path (a comma, colon or double quote)" >&2
+      exit 2
+      ;;
+  esac
+done
 version=$(node -p "require('playwright-core/package.json').version") || exit 1
 bun=$(readlink -f "$(command -v bun)") || exit 1
 out=$(mktemp -d "$reportDir/webkit-docker.XXXXXX") || exit 1
