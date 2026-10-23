@@ -17,4 +17,9 @@ describe("the CPU profiler", () => {
 			expect(source).toContain("window.bench.debug.")
 		}
 	})
+
+	test("has a cold mode that profiles a fresh page's first mount, as the bench's mount step runs", () => {
+		expect(profile).toContain("process.env.PROFILE_COLD")
+		expect(profile).toMatch(/newPage\(\)[\s\S]*Profiler\.start[\s\S]*window\.bench\.debug\.mount/)
+	})
 })
