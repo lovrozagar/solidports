@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { knownDifference } from "../packages/base-ui/test/perf-solid/shared/known.mjs"
+import { knownDifference, summariesMatch } from "../packages/base-ui/test/perf-solid/shared/known.mjs"
 
 const KNOWN = JSON.parse(
 	readFileSync(join(import.meta.dir, "../packages/base-ui/test/perf-solid/known-differences.json"), "utf8"),
@@ -40,5 +40,23 @@ describe("known React/Solid DOM differences", () => {
 		const solid = JSON.stringify({ nodes: 1002, expanded: 0, checkboxes: 0, dialog: 0, tabsSelected: 0, labelled: 0 })
 		expect(knownDifference(KNOWN["popover/page"]?.hydrate, react, solid)).toBe(true)
 		expect(KNOWN["popover/page"].hydrate.reason).toContain("TriggerFocusGuards")
+	})
+})
+
+describe("an SSR variant's hydrated summary against the reference variant's", () => {
+	// The SSR bench's reference is the first variant, React in the forward order and Solid's `cur`
+	// in the swapped one: a known difference is Solid minus React in either order (regate c, both
+	// popover/page and menu/page failed only in the swapped pass).
+	const known = { nodesDelta: 500, reason: "r" }
+
+	test("a known difference holds with React as the reference or as the compared variant", () => {
+		expect(summariesMatch(known, summary(502), summary(1002), "react", "solid")).toBe(true)
+		expect(summariesMatch(known, summary(1002), summary(502), "solid", "react")).toBe(true)
+	})
+
+	test("the delta's sign still matters, and two Solid variants must match exactly", () => {
+		expect(summariesMatch(known, summary(1002), summary(1502), "solid", "react")).toBe(false)
+		expect(summariesMatch(known, summary(1002), summary(1002), "solid", "solid")).toBe(true)
+		expect(summariesMatch(known, summary(1002), summary(502), "solid", "solid")).toBe(false)
 	})
 })

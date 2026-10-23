@@ -26,3 +26,26 @@ export function knownDifference(known, expected, actual) {
     known.nodesDelta === undefined || nodes(actual) - nodes(expected) === known.nodesDelta;
   return nodesOk && without(actual) === without(expected);
 }
+
+/**
+ * Whether a variant's summary matches the reference variant's: equal, or, across React and Solid,
+ * different only as `known` allows. `knownDifference` takes React's summary first whichever variant
+ * is the reference: the SSR bench's reference is its first variant, React in the forward order and
+ * Solid in the swapped one, and a known node delta is Solid minus React.
+ * @param {{ nodesDelta?: number, fields?: string[], reason: string } | undefined} known
+ * @param {string | undefined} reference
+ * @param {string | undefined} compared
+ * @param {string} referenceLib
+ * @param {string} comparedLib
+ */
+export function summariesMatch(known, reference, compared, referenceLib, comparedLib) {
+  if (reference === compared) {
+    return true;
+  }
+  if (referenceLib === comparedLib) {
+    return false;
+  }
+  return referenceLib === 'react'
+    ? knownDifference(known, reference, compared)
+    : knownDifference(known, compared, reference);
+}
