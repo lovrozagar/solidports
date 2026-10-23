@@ -230,12 +230,13 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
   const isTouchPressOpen = () => currentStore().select('isTouchPressOpen', openOnHover());
   const hasFocusGuards = () => currentStore().select('hasTriggerFocusGuards', thisTriggerId);
 
-  // A closed trigger renders handlers only: hover and click are created on the trigger's first
-  // intent (pointerenter, focus, pointerdown and the rest, in the capture phase before its own
-  // listeners, so a click finds them ready), or once this trigger opens or mounts the popup, and
-  // are kept afterwards (D32, as Tooltip, Select and Combobox do). React mounts them up front.
-  const interactions = useTriggerInteractions(
-    () => {
+  // A closed native trigger renders handlers only: hover and click are created on the trigger's
+  // first intent (pointerenter, focus, pointerdown and the rest, in the capture phase before its
+  // own listeners, so a click finds them ready), or once this trigger opens or mounts the popup,
+  // and are kept afterwards (D32, as Tooltip, Select and Combobox do). A slow-path trigger (a
+  // detached handle, a reactive render) creates them up front, as React does: deferring saved it no
+  // nodes at mount and cost each first intent more (regate c, popover/handle-20).
+  const createInteractions = () => {
       const hover = useHoverReferenceInteraction({
         get context() {
           return floatingContext();
@@ -272,10 +273,14 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
         },
       });
       return { hover, click };
-    },
-    triggerElement,
-    () => isOpenedByThisTrigger() || isMountedByThisTrigger(),
-  );
+  };
+  const interactions = native
+    ? useTriggerInteractions(
+        createInteractions,
+        triggerElement,
+        () => isOpenedByThisTrigger() || isMountedByThisTrigger(),
+      )
+    : constant(createInteractions());
   const interactionTypeProps = useOpenMethodTriggerProps(
     () => currentStore().select('open'),
     (interactionType) => {
@@ -339,6 +344,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
   }
 
   function slowElement() {
+    const slowInteractions = untrack(interactions)!;
     const elementProps = omitComponentProps(componentProps, [
       'disabled',
       'nativeButton',
@@ -381,8 +387,9 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
       },
       props: [
         ...buttonSources.attributes,
-        propsSourceAccessor(() => interactions()?.click.reference),
-        propsSourceAccessor(() => interactions()?.hover),
+        // The slow path creates its interactions up front: the hover props pass as they are.
+        propsSourceAccessor(() => slowInteractions.click.reference),
+        slowInteractions.hover,
         rootTriggerProps,
         interactionTypeProps,
         {

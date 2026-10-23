@@ -5,10 +5,10 @@
  * the exit bar's target (D32 puts it after the sweep): what remains is the trigger's shared popup
  * machinery (data forwarding, focus guards, deferred interactions) and Popover.Root's store.
  */
-import { DEV, flush } from 'solid-js';
+import { DEV, flush, For } from 'solid-js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Popover } from '@solidports/base-ui/popover';
-import { screen } from '@solidjs/testing-library';
+import { fireEvent, screen } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 import { renderPathOf } from '../utils/renderPath';
@@ -88,6 +88,81 @@ describe('popover cost against the hand-written floor', () => {
     const floorCost = perCopy(floor.rootTrigger) - perCopy(floor.root);
     expect(cost, `closed Popover.Trigger ${cost} nodes, floor ${floorCost}`).toBeLessThanOrEqual(
       TRIGGER_BUDGET,
+    );
+  });
+});
+
+/**
+ * A detached-handle trigger renders on the slow path, which builds its hover and click
+ * interactions at mount, as before D32 (regate c: deferring them to the first intent saved 12 nodes
+ * per handle trigger at mount and cost 3 more per first switch, so popover/handle-20's switches
+ * slowed by 1.3 ms and kept 136 KB more). Its mount plus its first switch stays at base's.
+ */
+const HANDLE_TRIGGER_BUDGET = 49;
+
+describe('a detached-handle Popover.Trigger', () => {
+  const { render } = createRenderer();
+
+  /** Nodes at mount for `n` handle triggers, and per first switch to each after the first. */
+  async function handleTriggers(n: number) {
+    count = 0;
+    hooks.onOwner = counting;
+    const handle = Popover.createHandle();
+    const view = render(() => (
+      <div>
+        <For each={Array.from({ length: n }, (_, i) => i)}>
+          {(i) => (
+            <Popover.Trigger data-testid="handle-trigger" handle={handle}>
+              Trigger {i}
+            </Popover.Trigger>
+          )}
+        </For>
+        <Popover.Root handle={handle}>
+          <Popover.Portal>
+            <Popover.Positioner>
+              <Popover.Popup>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      </div>
+    ));
+    flush();
+    const mount = count;
+    const switches: number[] = [];
+    for (const trigger of screen.getAllByTestId('handle-trigger')) {
+      const before = count;
+      fireEvent.pointerDown(trigger, { pointerType: 'mouse' });
+      fireEvent.mouseDown(trigger);
+      fireEvent.click(trigger);
+      // eslint-disable-next-line no-await-in-loop -- one switch at a time, as a user switches
+      await Promise.resolve();
+      flush();
+      switches.push(count - before);
+    }
+    hooks.onOwner = undefined;
+    view.unmount();
+    // The first switch also opens the popup; the rest switch it.
+    return { mount, switch: switches[switches.length - 1] };
+  }
+
+  it('renders on the slow path', () => {
+    const handle = Popover.createHandle();
+    const view = render(() => (
+      <Popover.Trigger data-testid="handle-trigger" handle={handle}>
+        Trigger
+      </Popover.Trigger>
+    ));
+    flush();
+    expect(renderPathOf(screen.getByTestId('handle-trigger'))).toBe('slow');
+    view.unmount();
+  });
+
+  it('costs at most base at mount plus its first switch', async () => {
+    const five = await handleTriggers(5);
+    const four = await handleTriggers(4);
+    const cost = five.mount - four.mount + five.switch;
+    expect(cost, `mount ${five.mount - four.mount} + first switch ${five.switch}`).toBeLessThanOrEqual(
+      HANDLE_TRIGGER_BUDGET,
     );
   });
 });

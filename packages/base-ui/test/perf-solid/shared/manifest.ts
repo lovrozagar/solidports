@@ -300,6 +300,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'popover cost against the hand-written floor > the floor renders the same DOM as a closed Popover.Trigger',
     'popover cost against the hand-written floor > a closed Popover.Trigger renders on the native path',
     'popover cost against the hand-written floor > a closed Popover.Trigger costs at most the native trigger budget',
+    'a detached-handle Popover.Trigger > renders on the slow path',
+    'a detached-handle Popover.Trigger > costs at most base at mount plus its first switch',
   ],
   'preview-card': [
     closedRoot('PreviewCard'),
