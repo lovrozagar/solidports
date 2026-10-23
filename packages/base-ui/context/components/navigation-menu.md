@@ -1,12 +1,12 @@
 ---
 tags: [navigation-menu, popup, floating, perf]
-sources: [packages/base-ui/packages/solid/src/navigation-menu, packages/base-ui/packages/solid/src/navigation-menu/trigger/NavigationMenuTrigger.tsx, packages/base-ui/packages/solid/src/navigation-menu/root/NavigationMenuRoot.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
-verified: 2026-10-22
+sources: [packages/base-ui/packages/solid/src/navigation-menu, packages/base-ui/packages/solid/src/navigation-menu/trigger/NavigationMenuTrigger.tsx, packages/base-ui/packages/solid/src/navigation-menu/root/NavigationMenuRoot.tsx, packages/base-ui/packages/solid/src/navigation-menu/navigationMenu.cost.test.tsx, packages/base-ui/packages/solid/test/floor/navigationMenu.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
+verified: 2026-10-23
 ---
 
 # Navigation menu
 
-NavigationMenu is fully ported and is the costliest closed popup root (182-node budget); its triggers create their hover and click interactions on the first intent (D32), but each still builds a floating root context up front. It has no native fast path.
+NavigationMenu is fully ported and is the costliest closed popup root; its triggers create their hover and click interactions on the first intent (D32), but each still builds a floating root context up front. Item, Icon and Link render natively with plain props (D32's sweep, unit A); Root, List, Trigger and the popup parts stay on the slow path.
 
 ## Status
 
@@ -27,7 +27,13 @@ All under `packages/base-ui/packages/solid/src/navigation-menu/`.
 
 ## Native fast path
 
-No. No NavigationMenu file imports `utils/native`.
+Item, Icon and Link, on the client, the server and while hydrating (`canRenderNative(props, undefined, true)`):
+
+- Item: a plain `<li>` that provides its value through `provideNativeContext`; a static `value` is read once, and the generated fallback id is taken either way, so hydration ids stay aligned with the slow path.
+- Icon: a `<span aria-hidden>` with its open state (`data-popup-open`) and the default `▼` unless the consumer passes children.
+- Link: an `<a>` registered with the content's composite list through `createNativeListItem`, `useCompositeItem` inlined: the composite's focus highlight and hover focus, the link's blur-out close and `closeOnClick`, `aria-current="page"` and `data-active` while active. A static `render` in the tag, config or function form stays native (`isNativeRender`); a member expression compiles to a getter and takes the slow path.
+
+Trigger (it renders through `CompositeItem`, with its floating context) is the sweep's unit B; List keeps `CompositeRoot`'s JSX provider for its items' effect order (GOTCHA-019).
 
 ## Reactive cost
 
@@ -35,6 +41,18 @@ No. No NavigationMenu file imports `utils/native`.
 | :--- | ---: |
 | Closed root, one item (dev probe 2026-10-14, rc.13) | 227 |
 | Closed-root budget, `closedRoot.cost.test.tsx` | 182 (before: 230, then 187) |
+
+Per part, dev owner nodes one more copy adds (jsdom probe, 2026-10-23, before D32's unit A; `navigationMenu.cost.test.tsx` after it, against `test/floor/navigationMenu.tsx`):
+
+| Part | Before | After | Floor |
+| :--- | ---: | ---: | ---: |
+| Root, alone | 37 | 37 | – |
+| List, in a root | 52 | 52 | – |
+| Item | 12 | 2 | 3 |
+| Trigger, in an item | 55 | 55 | – |
+| Icon, in a trigger | 11 | 3 | 3 |
+| Content, closed, in an item | 19 | 19 | – |
+| Link, in open content | 20 | 2 | 5 |
 
 There is no open-root budget.
 
@@ -55,6 +73,18 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync time in ms, `navigation-m
 Heap after mount: 472 KB versus React's 392 KB.
 
 D32's deferred trigger interactions, local Chromium heap diff (`navigation-menu/8x100` mount, objects kept, 2026-10-22): React 1,185 KB; Solid before 1,365 KB, after 1,194 KB (53k to 49k objects).
+
+D32's native Item, Icon and Link (unit A), local Linux Chromium `bench:component navigation-menu --compare` against f1b90217, `--runs 5`, 2026-10-23 (React, before, after):
+
+| Step | Metric | React | Before | After |
+| :--- | :--- | ---: | ---: | ---: |
+| mount | heap after mount | 436.8 KB | 435.6 KB | 388.9 KB |
+| hover open | open budget | 1,016 KB | 1,987 KB | 892 KB |
+| hover open | retained | 579 KB | 1,551 KB | 503 KB |
+| keyboard into content | retained | 596 KB | 1,522 KB | 474 KB |
+| hover open | script | 5.2 ms | 9.2 ms | 4.9 ms |
+| move across 8 triggers | script | 24.3 ms | 39.7 ms | 21.7 ms |
+| escape | sync | – | 1.10 ms | 1.40 ms (regressed, +0.3 ms; the Mac regate after the unit judges it) |
 
 ## Hot spots
 

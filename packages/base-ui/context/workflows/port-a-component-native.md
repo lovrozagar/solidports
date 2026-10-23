@@ -1,7 +1,7 @@
 ---
 tags: [porting, native, perf, workflow, playbook]
 sources: [packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/native/static.cost.test.tsx, packages/base-ui/packages/solid/test/parityHarness.tsx, packages/base-ui/packages/solid/test/defineSsrFixtures.ts, packages/base-ui/scripts/bench-component.mjs, packages/base-ui/scripts/remote-mac.mjs]
-verified: 2026-10-22
+verified: 2026-10-23
 ---
 
 # Port a component to the native path
@@ -88,3 +88,4 @@ One row per unit. A shared-core unit fills Expected with the profiling pass's es
 | 2026-10-22 | D32 sweep, forms: native NumberField Root, ScrubArea, Group, Input, Increment and Decrement | 2 h | – | the six parts 142 to 40 dev nodes (floor 33); number-field/100 mount heap 9,420 to 4,025 KB kept (React 4,173). The steppers inline `useButton`'s focusable-when-disabled gates (27 to 4 nodes each); the Root keeps its JSX provider (GOTCHA-019) and builds its native element inside it, once |
 | 2026-10-22 | D32 sweep, forms: native Slider Root, Label, Value, Control, Track, Indicator and Thumb | 1.5 h | – | the seven parts 185 to 57 dev nodes (floor 34); slider/100 mount heap 8,936 to 4,319 KB kept (React 4,929). Client renders only (the prehydration script positions inset parts while hydrating); the Thumb's range input still spreads its props |
 | 2026-10-22 | D32 sweep, forms: native OTPField Root and Input | 1 h | – | a slot 36 to 8 dev nodes (floor 4), the root 36 to 24 (floor 11); otp-field/12 mount heap 901 to 595 KB kept (React 667). Client renders only; a browser paste needs an `Event` with a stubbed `clipboardData`, as `ClipboardEvent` takes only a real `DataTransfer` |
+| 2026-10-23 | D32 sweep, NavigationMenu unit A: native Item, Icon and Link | 4 h (a parity harness bug found first: a getter-only `ref`, fixed in 638278a9) | – | per copy Item 12 to 2 dev nodes (floor 3), Icon 11 to 3 (floor 3), Link 20 to 2 (floor 5); navigation-menu/8x100 hover open budget 1,987 to 892 KB (React 1,016), keyboard into content retained 1,522 to 474 KB (React 596), mount heap 435.6 to 388.9 KB (React 436.8). Keyboard order across native list items needs `user.keyboard` in a parity test: a synchronous `fireEvent.keyDown` moved focus on neither path |
