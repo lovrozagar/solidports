@@ -354,7 +354,8 @@ export function parseArgs(argv) {
  * A parity suite's commands on `browserTests` alone (`changedBrowserTestFiles`): both suites run
  * only the selected files (an empty report stands in for a suite with none), and the check covers
  * only them. WebKit runs, reruns included, in Playwright's Docker image: local WebKit lacks the
- * host's libraries.
+ * host's libraries. The steps form one command, so the suite queues for the heavy lock once: a lock
+ * per step queued each step behind every other gate (36 minutes for one test file on a busy lock).
  */
 function scopedParity(browser, browserTests) {
   const report = (suite) => `"$TEST_ALL_RUN_DIR/${suite}-${browser}.json"`;
@@ -393,7 +394,7 @@ export function planSuites(options) {
         run = [];
         note = 'no browser test file changed';
       } else {
-        run = scopedParity(suite.browser, tests);
+        run = [scopedParity(suite.browser, tests).join('\n')];
         note = `${tests.solidCount} Solid test files${tests.overBudget ? `, over the ${BROWSER_TEST_BUDGET}-file budget` : ''}`;
         if (suite.browser === 'webkit' && !options.docker) {
           unavailable = 'Docker is not available for WebKit';
@@ -639,7 +640,8 @@ async function runSuite(suite, runDir) {
   for (const command of suite.run) {
     // eslint-disable-next-line no-await-in-loop -- a suite's commands run in order
     if (!(await runCommand(commandFor(suite, command), suite.cwd, log, runDir))) {
-      return { status: 'fail', detail: `\`${command}\` failed` };
+      // A multi-step command (scoped parity) fails with its last step's status.
+      return { status: 'fail', detail: `\`${command.split('\n').at(-1)}\` failed` };
     }
   }
   if (suite.vitest) {

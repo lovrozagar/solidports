@@ -298,6 +298,8 @@ describe("the browser test files a range changed", () => {
 /** The planned parity suite for `browser`. */
 const parity = (planned: ReturnType<typeof planSuites>, browser: string) =>
 	planned.find((suite) => suite.name === `parity-${browser}`)!
+/** The steps of a scoped parity suite's one command. */
+const steps = (suite: ReturnType<typeof parity>) => suite.run.flatMap((command) => command.split("\n"))
 
 describe("scoped browser parity under --changed", () => {
 	const browserTests = {
@@ -316,32 +318,40 @@ describe("scoped browser parity under --changed", () => {
 		for (const browser of ["firefox", "webkit"]) {
 			const suite = parity(plan(), browser)
 			expect(suite.selected).toBe(true)
-			const react = suite.run.find(
+			const react = steps(suite).find(
 				(command) => command.includes(`react-${browser}.json`) && !command.startsWith("node"),
 			)!
-			const solid = suite.run.find(
+			const solid = steps(suite).find(
 				(command) => command.includes(`solid-${browser}.json`) && !command.startsWith("node"),
 			)!
 			expect(react).toContain("'packages/react/src/a/A.test.tsx'")
 			expect(react).not.toContain("packages/solid/src")
 			expect(solid).toContain("'packages/solid/src/a/A.test.tsx'")
 			expect(solid).toContain("'packages/solid/src/b/BSolid.test.tsx'")
-			const check = suite.run.at(-1)!
+			const check = steps(suite).at(-1)!
 			expect(check).toContain(`--confirm ${browser}`)
 			expect(check).toContain("--files")
 		}
 	})
 
+	test("queues for the heavy lock once: the steps form one command", () => {
+		for (const browser of ["firefox", "webkit"]) {
+			const suite = parity(plan(), browser)
+			expect(suite.run).toHaveLength(1)
+			expect(commandFor(suite, suite.run[0], "/tmp/l.lock").match(/flock '\/tmp\/l\.lock' timeout/g)).toHaveLength(1)
+		}
+	})
+
 	test("runs Firefox locally and WebKit, with its reruns, in the Docker image", () => {
 		expect(parity(plan(), "firefox").run.join("\n")).not.toContain("webkit-docker.sh")
-		const webkit = parity(plan(), "webkit").run
+		const webkit = steps(parity(plan(), "webkit"))
 		expect(webkit.filter((command) => command.includes("bash scripts/webkit-docker.sh"))).toHaveLength(2)
 		expect(webkit.at(-1)).toContain("PARITY_RUNNER=scripts/webkit-docker.sh")
 	})
 
 	test("an upstream with none of the files gets an empty report instead of a whole-suite run", () => {
 		const solidOnly = { files: ["packages/solid/src/b/BSolid.test.tsx"], solidCount: 1, overBudget: false }
-		const firefox = parity(plan({ browserTests: solidOnly }), "firefox").run
+		const firefox = steps(parity(plan({ browserTests: solidOnly }), "firefox"))
 		expect(firefox.join("\n")).not.toContain("bun run test:firefox")
 		expect(
 			firefox.some((command) => command.includes('{"testResults":[]}') && command.includes("react-firefox.json")),
