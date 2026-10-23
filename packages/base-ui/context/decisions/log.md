@@ -362,3 +362,12 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
 - The Mac runs one full regate per batch of two or three families, or nightly; a row slower there is fixed in the next batch.
 - Suspended during the sweep: D15's rule of one family to the full exit bar before the next, per-commit Mac A/Bs, and hand-written allowances for rows under 1 ms. Exit-bar polish, the rest to 1.25x the floor and below React everywhere, follows the sweep.
 - Harness and infrastructure threads (the worker-kill canary, the TTI per-sample sizing) take no session time unless they block a push.
+
+### D33 — The native sweep gates per batch, not per part (2026-10-23)
+
+- Supersedes D32's per-family gate for the rest of the sweep. One gate-plus-bench cycle took about 75 minutes on 2026-10-23 (15:20 to 16:35) on a machine shared with other projects; run per part, it was the bottleneck.
+- Per part: a red test first (a deterministic jsdom owner or node count, or an allocation-count budget), then the port, green, and the part's own unit files. Each part is its own commit with a verify stamp; no full gate and no bench per part.
+- Per batch (one queue segment, such as Menu's CheckboxItem, RadioItem, LinkItem, SubmenuTrigger and indicators): one `bun run test:base-ui:all --changed <batch base>`, then one bench run alone against the batch base, judged on heap rows only, then the push. A heap row that moves is bisected across the batch's per-part commits.
+- No alternated timing rounds during the sweep. Timing goes to the Mac's nightly regate when the Mac is idle; a row slower there is fixed in the next batch, as D32 has it.
+- Open infrastructure item, found while gating the ElementWriter diff: twice on 2026-10-23, the full jsdom suite ended with "Worker exited unexpectedly" from a vitest forks worker, at a shared load of about 30 and then 16, with no V8 fatal, no OOM kill in the journal and no coredump. The file each worker held passed when run alone, and four alternated full runs on the base and the change then passed with no crash. Treated as infrastructure under the rerun-once rule; a third occurrence is diagnosed, not rerun.
+- Queued after the sweep: migrating plan 3 to the current plan format (the plan-format hook refuses edits to it as it stands).
