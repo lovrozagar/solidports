@@ -580,6 +580,19 @@ export function commandFor(suite, command, lock = EXCLUSIVE_LOCK) {
   return `mkdir -p ${quote(path.dirname(lock))}; flock -n ${l} true || echo "test-all: waiting for ${lock} (another gate holds it)"; flock ${l} timeout -k 30 ${seconds} sh -c ${quote(command)}`;
 }
 
+/**
+ * Why `command` failed with exit `code`: the timeout that killed an exclusive suite's command
+ * (`timeout` exits 124), or the command's last step, whose status a multi-step command (scoped
+ * parity) returns.
+ */
+export function failureDetail(suite, command, code) {
+  if (suite.exclusive && code === 124) {
+    return `timed out after ${suite.timeoutSeconds ?? LOCK_TIMEOUT_SECONDS} s`;
+  }
+  return `\`${command.split('\n').at(-1)}\` failed`;
+}
+
+/** Runs `command`, appending its output to `log`; resolves its exit code. */
 function runCommand(command, cwd, log, runDir) {
   fs.appendFileSync(log, `\n$ ${command}\n`);
   const fd = fs.openSync(log, 'a');
@@ -592,7 +605,7 @@ function runCommand(command, cwd, log, runDir) {
     });
     child.on('close', (code) => {
       fs.closeSync(fd);
-      resolve(code === 0);
+      resolve(code);
     });
   });
 }
@@ -639,9 +652,9 @@ async function runSuite(suite, runDir) {
   const before = suite.generated ? treeState(suite.generated) : null;
   for (const command of suite.run) {
     // eslint-disable-next-line no-await-in-loop -- a suite's commands run in order
-    if (!(await runCommand(commandFor(suite, command), suite.cwd, log, runDir))) {
-      // A multi-step command (scoped parity) fails with its last step's status.
-      return { status: 'fail', detail: `\`${command.split('\n').at(-1)}\` failed` };
+    const code = await runCommand(commandFor(suite, command), suite.cwd, log, runDir);
+    if (code !== 0) {
+      return { status: 'fail', detail: failureDetail(suite, command, code) };
     }
   }
   if (suite.vitest) {
