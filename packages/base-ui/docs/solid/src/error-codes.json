@@ -106,5 +106,6 @@
   "107": "Base UI: SolidStore.observe with key selector requires selectors.",
   "108": "Base UI: a native part rendered on the server needs an element template ({ tag, create }), not an element. Pass a template so the server can render the tag.",
   "109": "Base UI: An element was hydrated inside a lazy scope (`runInLazyScope`). A scope's hydration ids differ between the server and the client, so the element cannot be claimed and the server markup stays inert. Render the element outside the scope: a scope only hosts reactive machinery.",
-  "110": "Base UI: A native part passed a class instance as its state without a `stateWriter`. The default writer maps the state's own keys to `data-*` attributes, which for a class instance are its fields, not its state. Pass the part's `compileStateWriter(keys)` as `stateWriter` with the instance as `stateView`."
+  "110": "Base UI: A native part passed a class instance as its state without a `stateWriter`. The default writer maps the state's own keys to `data-*` attributes, which for a class instance are its fields, not its state. Pass the part's `compileStateWriter(keys)` as `stateWriter` with the instance as `stateView`.",
+  "111": "Base UI: a native element wrote its attributes while another element was writing. The diffing write keeps its run at module level and needs one run at a time."
 }
