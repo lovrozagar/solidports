@@ -21,6 +21,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { repoEnv } from './repoEnv.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const HOST = process.env.REMOTE_MAC_HOST ?? 'mac';
@@ -302,8 +303,9 @@ export async function withLink(
 const probeLink = async () =>
   spawnSync('ssh', ['-o', 'ConnectTimeout=10', '-o', 'BatchMode=yes', HOST, 'true']).status === 0;
 
-function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { cwd: root, encoding: 'utf8', ...options });
+export function run(command, args, options = {}) {
+  // Without a git hook's repo variables, which would aim each git command at the hook's repo.
+  const result = spawnSync(command, args, { cwd: root, encoding: 'utf8', env: repoEnv(), ...options });
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(' ')} exited ${result.status}: ${result.stderr}`);
   }

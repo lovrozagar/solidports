@@ -13,8 +13,9 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { repoEnv } from '../repoEnv.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FORK = join(HERE, '../..');
@@ -33,8 +34,9 @@ const DOCS_INFRA_COMMIT = '73b01ccc61d2096ec1bac12c735482f8d056c917';
 const DOCS_INFRA_DEST = join(FORK, 'docs/docs-infra');
 const DOCS_INFRA_CACHE = `/tmp/mui-public-${DOCS_INFRA_COMMIT.slice(0, 10)}`;
 
-function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { stdio: 'inherit', ...opts });
+export function run(cmd, args, opts = {}) {
+  // Without a git hook's repo variables, which would aim each git command at the hook's repo.
+  const r = spawnSync(cmd, args, { stdio: 'inherit', env: repoEnv(), ...opts });
   if (r.status !== 0) {
     process.exit(r.status ?? 1);
   }
@@ -165,31 +167,37 @@ function syncDocsInfra() {
   );
 }
 
-ensureUpstream();
-const src = join(CACHE, 'docs');
-if (!existsSync(join(src, 'src'))) {
-  console.error(`upstream docs/src missing at ${src}`);
-  process.exit(1);
+function main() {
+  ensureUpstream();
+  const src = join(CACHE, 'docs');
+  if (!existsSync(join(src, 'src'))) {
+    console.error(`upstream docs/src missing at ${src}`);
+    process.exit(1);
+  }
+
+  console.log(`copy ${src} → ${DEST} (full docs tree)`);
+  rsyncDir(src, DEST, [
+    'node_modules',
+    '.next',
+    'export',
+    // Written by `next dev` (not upstream files): leave them to Next.
+    '/AGENTS.md',
+    '/CLAUDE.md',
+    '/next-env.d.ts',
+  ]);
+  overlayNextConfig();
+  overlayTsconfig();
+  overlayVitestConfig();
+  overlayPackageJson();
+  writeFileSync(join(DEST, '.upstream-tag'), `${TAG}\n`);
+  syncDocsInfra();
+  // The copy brings upstream's `error-codes.json`; the fork's lists the Solid package's errors.
+  console.log('extract-error-codes → docs/react/src/error-codes.json');
+  run('bun', ['run', 'extract-error-codes'], { cwd: FORK });
+  console.log(`docs/react is mui/base-ui@${TAG} docs + path overlay`);
+  console.log('next: bun install && bun run docs:generate');
 }
 
-console.log(`copy ${src} → ${DEST} (full docs tree)`);
-rsyncDir(src, DEST, [
-  'node_modules',
-  '.next',
-  'export',
-  // Written by `next dev` (not upstream files): leave them to Next.
-  '/AGENTS.md',
-  '/CLAUDE.md',
-  '/next-env.d.ts',
-]);
-overlayNextConfig();
-overlayTsconfig();
-overlayVitestConfig();
-overlayPackageJson();
-writeFileSync(join(DEST, '.upstream-tag'), `${TAG}\n`);
-syncDocsInfra();
-// The copy brings upstream's `error-codes.json`; the fork's lists the Solid package's errors.
-console.log('extract-error-codes → docs/react/src/error-codes.json');
-run('bun', ['run', 'extract-error-codes'], { cwd: FORK });
-console.log(`docs/react is mui/base-ui@${TAG} docs + path overlay`);
-console.log('next: bun install && bun run docs:generate');
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  main();
+}
