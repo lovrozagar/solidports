@@ -245,8 +245,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'dialog cost against the hand-written floor > the floor renders the same DOM as a closed Dialog.Trigger',
     'dialog cost against the hand-written floor > a closed Dialog.Trigger renders on the native path',
     'dialog cost against the hand-written floor > a closed Dialog.Trigger costs at most the native trigger budget',
-    'a detached-handle Dialog.Trigger > renders on the slow path',
-    'a detached-handle Dialog.Trigger > costs at most base at mount plus its first press',
+    'detached-handle Dialog.Trigger cost > renders on the slow path',
+    'detached-handle Dialog.Trigger cost > costs at most base at mount and after the first press, as a whole tree',
   ],
   drawer: [closedRoot('Drawer'), bareRoot('Drawer')],
   field: [
@@ -302,8 +302,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'popover cost against the hand-written floor > the floor renders the same DOM as a closed Popover.Trigger',
     'popover cost against the hand-written floor > a closed Popover.Trigger renders on the native path',
     'popover cost against the hand-written floor > a closed Popover.Trigger costs at most the native trigger budget',
-    'a detached-handle Popover.Trigger > renders on the slow path',
-    'a detached-handle Popover.Trigger > costs at most base at mount plus its first switch',
+    'detached-handle Popover.Trigger cost > renders on the slow path',
+    'detached-handle Popover.Trigger cost > costs at most base at mount and after the first press, as a whole tree',
   ],
   'preview-card': [
     closedRoot('PreviewCard'),
@@ -313,6 +313,9 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'preview card cost against the hand-written floor > a closed PreviewCard.Trigger costs at most the native trigger budget',
     '<PreviewCard.Trigger /> cost > builds its inline-rect props once, whatever its card and the active trigger do',
     '<PreviewCard.Trigger /> cost > records the pointer while its card is closed and keeps it while the card is open',
+
+    'detached-handle PreviewCard.Trigger cost > renders on the slow path',
+    'detached-handle PreviewCard.Trigger cost > costs at most base at mount and after the first hover, as a whole tree',
   ],
   progress: [
     staticPart('a Progress.Track costs at most 2 nodes'),
@@ -357,6 +360,9 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'tooltip cost against the hand-written floor > the floor renders the same DOM as a closed Tooltip.Trigger',
     'tooltip cost against the hand-written floor > a closed Tooltip.Trigger renders on the native path',
     'tooltip cost against the hand-written floor > a closed Tooltip.Trigger costs at most the native trigger budget',
+
+    'detached-handle Tooltip.Trigger cost > renders on the slow path',
+    'detached-handle Tooltip.Trigger cost > costs at most base at mount and after the first hover, as a whole tree',
   ],
 };
 

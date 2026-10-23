@@ -12,6 +12,7 @@ import { fireEvent, screen } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 import { renderPathOf } from '../utils/renderPath';
+import { handleTreeCost } from '../../test/handleTriggerCost';
 import { normalizeTree } from '../../test/parityHarness';
 import { FloorDialogRoot, FloorDialogTrigger } from '../../test/floor/dialog';
 
@@ -93,50 +94,42 @@ describe('dialog cost against the hand-written floor', () => {
 });
 
 /**
- * A detached-handle trigger renders on the slow path, which creates its click interaction at mount,
- * as before D32: deferring it to the first intent cost the slow trigger 2 nodes at mount and saved
- * none at its first press (regate c). Its mount plus its first press stays at base's.
+ * Detached-handle triggers render on the slow path. The whole tree (the root and five triggers
+ * sharing its handle) costs at most base's (44260fef, before D32's native Dialog.Trigger) at mount
+ * and after the last trigger's first press (regate c): a per-trigger count missed work moving
+ * between the root and its triggers.
  */
-const HANDLE_TRIGGER_BUDGET = 31;
+const HANDLE_TREE_BUDGET = { mount: 230, total: 232 };
 
-describe('a detached-handle Dialog.Trigger', () => {
-  const { render } = createRenderer();
-
-  /** Nodes at mount for `n` handle triggers, and for the last one's first press. */
-  async function handleTriggers(n: number) {
-    count = 0;
-    hooks.onOwner = counting;
-    const handle = Dialog.createHandle();
-    const view = render(() => (
-      <div>
-        <For each={Array.from({ length: n }, (_, i) => i)}>
-          {(i) => (
-            <Dialog.Trigger data-testid="handle-trigger" handle={handle}>
-              Trigger {i}
-            </Dialog.Trigger>
-          )}
-        </For>
-        <Dialog.Root handle={handle}>
-          <Dialog.Portal>
+function handleTree() {
+  const handle = Dialog.createHandle();
+  return () => (
+    <div>
+      <For each={[0, 1, 2, 3, 4]}>
+        {(i) => (
+          <Dialog.Trigger data-testid="handle-trigger" handle={handle}>
+            Trigger {i}
+          </Dialog.Trigger>
+        )}
+      </For>
+      <Dialog.Root handle={handle}>
+        <Dialog.Portal>
             <Dialog.Popup>Dialog</Dialog.Popup>
           </Dialog.Portal>
-        </Dialog.Root>
-      </div>
-    ));
-    flush();
-    const mount = count;
-    const triggers = screen.getAllByTestId('handle-trigger');
-    const last = triggers[triggers.length - 1];
-    fireEvent.pointerDown(last, { pointerType: 'mouse' });
-    fireEvent.mouseDown(last);
-    fireEvent.focus(last);
-    await Promise.resolve();
-    flush();
-    const press = count - mount;
-    hooks.onOwner = undefined;
-    view.unmount();
-    return { mount, press };
-  }
+      </Dialog.Root>
+    </div>
+  );
+}
+
+/** The press's first intent: the click interaction is created; the dialog does not open yet. */
+function firstIntent(trigger: HTMLElement) {
+  fireEvent.pointerDown(trigger, { pointerType: 'mouse' });
+  fireEvent.mouseDown(trigger);
+  fireEvent.focus(trigger);
+}
+
+describe('detached-handle Dialog.Trigger cost', () => {
+  const { render } = createRenderer();
 
   it('renders on the slow path', () => {
     const handle = Dialog.createHandle();
@@ -150,12 +143,11 @@ describe('a detached-handle Dialog.Trigger', () => {
     view.unmount();
   });
 
-  it('costs at most base at mount plus its first press', async () => {
-    const five = await handleTriggers(5);
-    const four = await handleTriggers(4);
-    const cost = five.mount - four.mount + five.press;
-    expect(cost, `mount ${five.mount - four.mount} + first press ${five.press}`).toBeLessThanOrEqual(
-      HANDLE_TRIGGER_BUDGET,
+  it('costs at most base at mount and after the first press, as a whole tree', async () => {
+    const cost = await handleTreeCost(render, handleTree(), firstIntent);
+    expect(cost.mount, `mount ${cost.mount}`).toBeLessThanOrEqual(HANDLE_TREE_BUDGET.mount);
+    expect(cost.total, `after the first press ${cost.total}`).toBeLessThanOrEqual(
+      HANDLE_TREE_BUDGET.total,
     );
   });
 });

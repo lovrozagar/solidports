@@ -5,13 +5,14 @@
  * the exit bar's target (D32 puts it after the sweep): what remains is the trigger's shared popup
  * machinery (data forwarding, deferred interactions) and PreviewCard.Root's store.
  */
-import { DEV, flush } from 'solid-js';
+import { DEV, flush, For } from 'solid-js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
-import { screen } from '@solidjs/testing-library';
+import { fireEvent, screen } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 import { renderPathOf } from '../utils/renderPath';
+import { handleTreeCost } from '../../test/handleTriggerCost';
 import { normalizeTree } from '../../test/parityHarness';
 import { FloorPreviewCardRoot, FloorPreviewCardTrigger } from '../../test/floor/previewCard';
 
@@ -88,6 +89,66 @@ describe('preview card cost against the hand-written floor', () => {
     const floorCost = perCopy(floor.rootTrigger) - perCopy(floor.root);
     expect(cost, `closed PreviewCard.Trigger ${cost} nodes, floor ${floorCost}`).toBeLessThanOrEqual(
       TRIGGER_BUDGET,
+    );
+  });
+});
+
+/**
+ * Detached-handle triggers render on the slow path. The whole tree (the root and five triggers
+ * sharing its handle) costs at most base's (44260fef, before D32's native PreviewCard.Trigger) at mount
+ * and after the last trigger's first hover (regate c): a per-trigger count missed work moving
+ * between the root and its triggers.
+ */
+const HANDLE_TREE_BUDGET = { mount: 215, total: 223 };
+
+function handleTree() {
+  const handle = PreviewCard.createHandle();
+  return () => (
+    <div>
+      <For each={[0, 1, 2, 3, 4]}>
+        {(i) => (
+          <PreviewCard.Trigger data-testid="handle-trigger" href="#a" handle={handle}>
+            Trigger {i}
+          </PreviewCard.Trigger>
+        )}
+      </For>
+      <PreviewCard.Root handle={handle}>
+        <PreviewCard.Portal>
+            <PreviewCard.Positioner>
+              <PreviewCard.Popup>Card</PreviewCard.Popup>
+            </PreviewCard.Positioner>
+          </PreviewCard.Portal>
+      </PreviewCard.Root>
+    </div>
+  );
+}
+
+function firstIntent(trigger: HTMLElement) {
+  fireEvent.pointerEnter(trigger, { pointerType: 'mouse' });
+  fireEvent.mouseEnter(trigger);
+  fireEvent.focus(trigger);
+}
+
+describe('detached-handle PreviewCard.Trigger cost', () => {
+  const { render } = createRenderer();
+
+  it('renders on the slow path', () => {
+    const handle = PreviewCard.createHandle();
+    const view = render(() => (
+      <PreviewCard.Trigger data-testid="handle-trigger" href="#a" handle={handle}>
+        Trigger
+      </PreviewCard.Trigger>
+    ));
+    flush();
+    expect(renderPathOf(screen.getByTestId('handle-trigger'))).toBe('slow');
+    view.unmount();
+  });
+
+  it('costs at most base at mount and after the first hover, as a whole tree', async () => {
+    const cost = await handleTreeCost(render, handleTree(), firstIntent);
+    expect(cost.mount, `mount ${cost.mount}`).toBeLessThanOrEqual(HANDLE_TREE_BUDGET.mount);
+    expect(cost.total, `after the first hover ${cost.total}`).toBeLessThanOrEqual(
+      HANDLE_TREE_BUDGET.total,
     );
   });
 });
