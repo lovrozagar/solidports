@@ -1,7 +1,7 @@
 ---
 tags: [otp-field, native, forms, perf]
-sources: [packages/base-ui/packages/solid/src/otp-field, packages/base-ui/packages/solid/src/otp-field/root/OTPFieldRoot.tsx, packages/base-ui/packages/solid/src/otp-field/input/OTPFieldInput.tsx, packages/base-ui/packages/solid/test/floor/otpField.tsx]
-verified: 2026-10-22
+sources: [packages/base-ui/packages/solid/src/otp-field, packages/base-ui/packages/solid/src/utils/native/elementWrites.test.tsx, packages/base-ui/packages/solid/src/otp-field/root/OTPFieldRoot.tsx, packages/base-ui/packages/solid/src/otp-field/input/OTPFieldInput.tsx, packages/base-ui/packages/solid/test/floor/otpField.tsx]
+verified: 2026-10-23
 ---
 
 # OTP field
@@ -33,6 +33,8 @@ Chromium heap the bench step keeps (production builds, a heap snapshot after a f
 | Scenario | React | Solid before D32 | Solid, native parts |
 | :--- | ---: | ---: | ---: |
 | otp-field/12 mount | 667 KB | 901 KB | 595 KB |
+
+An arrow key moves the active slot, which every slot's `tabindex` reads, so all 12 slots' attribute effects re-run. Until 92c2fa70 each re-run handed Solid's `assign` its whole record (228 keys for 2 changed values); the native element writer now passes only the changed keys (`utils/native/elementWrites.test.tsx`). Against ffaba7ea, 12 runs, otp-field/12 arrow left through allocates (growthKB, reported, not judged) 76 to 79 KB less per sweep in the bench's high sample mode (231 and 234 to 154 and 156 KB) and 36 KB less in its low mode (187 to 151 KB); React allocates 737 KB. Timing rows are left to the Mac regate (D33).
 
 ## Post-sweep leaves
 
