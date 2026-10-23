@@ -178,6 +178,16 @@ describe("base-ui perf scenario manifest", () => {
 		})
 	}, 60_000)
 
+	test("every step that waits on `until` declares `timerMs`, 0 when no timer runs", async () => {
+		// The report shows settled minus the declared timer only for steps that declare one, so a step
+		// with `until` and no `timerMs` reports nothing (regate c's settled audit).
+		const missing: string[] = []
+		for (const { scenario } of await loadScenarios())
+			for (const step of scenario.steps)
+				if (step.until !== undefined && step.timerMs === undefined) missing.push(`${scenario.id} › ${step.name}`)
+		expect(missing).toEqual([])
+	})
+
 	test("every component covers its coverage-matrix axes, or each gap is pending with the leaf that fills it", async () => {
 		const scenarios = (await loadScenarios()).map(({ scenario }) => scenario)
 		const cases = ssrCases as { components: readonly string[]; tags: readonly string[] }[]
