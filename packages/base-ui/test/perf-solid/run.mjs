@@ -27,7 +27,7 @@ import { engineSpec, measuredColumns } from './shared/engines.mjs';
 import { diagFromEnv, withDiag, writeDiag } from './shared/diag.mjs';
 import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
 import { balancedOrders, splitRuns } from './shared/order.mjs';
-import { summarize } from './shared/report.mjs';
+import { summarize, settledBeforeTimer } from './shared/report.mjs';
 import { knownDifference } from './shared/known.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -290,6 +290,7 @@ const fmt = (n) => (n == null ? '-' : n.toFixed(1));
 // A ratio of a column the engine does not measure is `-`, not `NaNx`.
 const ratio = (n) => (Number.isFinite(n) ? `${n.toFixed(2)}x` : '-');
 const summary = summarize(results, NAMES, timers, firstOpens);
+problems.push(...settledBeforeTimer(summary, timers));
 const ratioNames = NAMES.slice(1).map((name) => `${name}/${NAMES[0]}`);
 const lines = [
   `# Base UI bench ${new Date().toISOString()}`,

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
 	compareVariants,
 	mainThreadLines,
+	settledBeforeTimer,
 	summarize,
 	unmeasuredPairs,
 	variantPairs,
@@ -59,6 +60,27 @@ describe("perf report", () => {
 			"unjudged (raw floor)",
 			"unjudged (raw floor)",
 		])
+	})
+
+	test("a step that settles before its declared timer reports no settled value and is a problem", () => {
+		// regate c: tooltip/roots-500 › leave declared a 40 ms timer that never runs on that path, and
+		// every variant reported about -38 ms.
+		const early = {
+			"tooltip/roots-500": {
+				react: { steps: { leave: step([1, 1, 1], [1, 1, 1], [2, 3, 2]) }, heapKB: ten([200]) },
+				cur: { steps: { leave: step([1, 1, 1], [1, 1, 1], [2, 2, 60]) }, heapKB: ten([200]) },
+			},
+		}
+		const summary = summarize(early, ["react", "cur"], { "tooltip/roots-500": { leave: 40 } })
+		const leave = summary["tooltip/roots-500 › leave"]
+		expect(leave.react.settled).toBeNull()
+		expect(leave.react.settledBeforeTimer).toBe(10)
+		expect(leave.cur.settledBeforeTimer).toBe(7)
+		expect(settledBeforeTimer(summary, { "tooltip/roots-500": { leave: 40 } })).toEqual([
+			"tooltip/roots-500 › leave [react]: settled before its 40 ms timer in 10 of 10 runs; the timer does not apply",
+			"tooltip/roots-500 › leave [cur]: settled before its 40 ms timer in 7 of 10 runs; the timer does not apply",
+		])
+		expect(settledBeforeTimer(summarize(results, ["react", "base", "cur"], timers), timers)).toEqual([])
 	})
 
 	test("a step without a timer reports no settled value", () => {

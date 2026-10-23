@@ -44,7 +44,12 @@ export function summarize(results, names, timers, firstOpens = {}) {
       const entry = firstOpen ? { ratios: {}, firstOpen } : { ratios: {} };
       for (const name of names) {
         const s = byName[name].steps[step] ?? NO_SAMPLES;
-        const settled = timer === undefined ? [] : (s.settled ?? []).map((value) => value - timer);
+        const afterTimer =
+          timer === undefined ? [] : (s.settled ?? []).map((value) => value - timer);
+        // A step whose `until` holds before its declared timer could fire has no timer on that path:
+        // its samples are not a cost after the timer (`settledBeforeTimer` reports it as a problem).
+        const early = afterTimer.filter((value) => value < 0).length;
+        const settled = early ? [] : afterTimer;
         entry[name] = {
           sync: median(s.sync),
           syncP90: p90(s.sync),
@@ -53,6 +58,7 @@ export function summarize(results, names, timers, firstOpens = {}) {
           layout: median(s.layout),
           style: median(s.style),
           settled: settled.length ? median(settled) : null,
+          ...(early ? { settledBeforeTimer: early } : {}),
           growthKB: s.growthKB?.length ? median(s.growthKB) : null,
           retainedKB: s.retainedKB?.length ? median(s.retainedKB) : null,
           samples: {
@@ -191,3 +197,28 @@ export function mainThreadLines(keys, results, names) {
   }
   return lines;
 }
+
+/**
+ * Steps whose `until` held before their declared `timerMs` in any run, one line per variant: the
+ * timer does not apply to that step's path, so its settled time would read as a negative cost
+ * (regate c: tooltip/roots-500 › leave, about -38 ms in every variant). The bench reports each as a
+ * problem.
+ * @param {Record<string, any>} summary `summarize`'s result
+ * @param {Record<string, Record<string, number>>} timers timers[scenario][step]: the declared `timerMs`
+ */
+export function settledBeforeTimer(summary, timers) {
+  const lines = [];
+  for (const [key, entry] of Object.entries(summary)) {
+    const [id, step] = key.split(' › ');
+    for (const [name, value] of Object.entries(entry)) {
+      if (value && typeof value === 'object' && value.settledBeforeTimer) {
+        const runs = value.samples?.sync?.length ?? value.settledBeforeTimer;
+        lines.push(
+          `${key} [${name}]: settled before its ${timers[id]?.[step]} ms timer in ${value.settledBeforeTimer} of ${runs} runs; the timer does not apply`,
+        );
+      }
+    }
+  }
+  return lines;
+}
+
