@@ -198,20 +198,24 @@ export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Paylo
     },
   );
 
-  // A closed trigger renders handlers only: click is created on the trigger's first intent (in the
-  // capture phase before its own listeners, so the press finds it ready), or once this trigger
-  // opens or mounts the dialog, and is kept afterwards (D32, as Popover does). React mounts it up
-  // front.
-  const interactions = useTriggerInteractions(
-    () =>
-      useClick({
-        get context() {
-          return store().context.floatingRootContext;
-        },
-      }),
-    triggerElement,
-    () => isOpenedByThisTrigger() || isMountedByThisTrigger(),
-  );
+  // A closed native trigger renders handlers only: click is created on the trigger's first intent
+  // (in the capture phase before its own listeners, so the press finds it ready), or once this
+  // trigger opens or mounts the dialog, and is kept afterwards (D32, as Popover does). A slow-path
+  // trigger (a detached handle, a reactive render) creates it up front, as React does: deferring
+  // cost it 2 nodes at mount and saved none (regate c).
+  const createClick = () =>
+    useClick({
+      get context() {
+        return store().context.floatingRootContext;
+      },
+    });
+  const interactions = native
+    ? useTriggerInteractions(
+        createClick,
+        triggerElement,
+        () => isOpenedByThisTrigger() || isMountedByThisTrigger(),
+      )
+    : constant(createClick());
   const interactionTypeProps = useOpenMethodTriggerProps(
     () => store().select('open'),
     (interactionType) => {

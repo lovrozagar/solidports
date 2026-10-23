@@ -245,6 +245,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'dialog cost against the hand-written floor > the floor renders the same DOM as a closed Dialog.Trigger',
     'dialog cost against the hand-written floor > a closed Dialog.Trigger renders on the native path',
     'dialog cost against the hand-written floor > a closed Dialog.Trigger costs at most the native trigger budget',
+    'a detached-handle Dialog.Trigger > renders on the slow path',
+    'a detached-handle Dialog.Trigger > costs at most base at mount plus its first press',
   ],
   drawer: [closedRoot('Drawer'), bareRoot('Drawer')],
   field: [
