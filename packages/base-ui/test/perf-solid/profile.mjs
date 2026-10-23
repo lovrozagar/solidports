@@ -9,7 +9,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const builds = path.resolve(here, '../../../../.tmp/grunt/bench-builds');
 const [lib, scenario, dir = 'dist-dev', setup = '', measured = ''] = process.argv.slice(2);
 const SETUP = setup || '';
-const MEASURE = measured || `lib.mount('${scenario}'); lib.unmount()`;
+// The harness exposes the library as `window.bench.debug` (`shared/harness.ts`).
+const MEASURE =
+  measured || `window.bench.debug.mount('${scenario}'); window.bench.debug.unmount()`;
 const server = http
   .createServer((req, res) => {
     const [l, ...rest] = req.url.split('?')[0].slice(1).split('/');
@@ -42,7 +44,7 @@ for (let i = 0; i < 5; i += 1) {
 }
 const { profile } = await cdp.send('Profiler.stop');
 if (!SETUP) {
-  await page.evaluate(`lib.mount('${scenario}')`);
+  await page.evaluate(`window.bench.debug.mount('${scenario}')`);
 }
 const { profile: heap } = await cdp.send('HeapProfiler.stopSampling');
 const selfMs = new Map();
