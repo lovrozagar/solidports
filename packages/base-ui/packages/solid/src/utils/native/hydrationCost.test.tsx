@@ -77,6 +77,31 @@ describe.skipIf(!isJSDOM)('hydrating native parts: work after hydrate()', () => 
     expect([one.writes, ten.writes]).toEqual([1, 10]);
   });
 
+  it('writes only the changed attributes of a hydrated element once hydration has ended', async () => {
+    await hydrateCounting('closed1');
+    const trigger = screen.getByRole('button');
+    const changed = new Set<string>();
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        changed.add(record.attributeName!);
+      }
+    });
+    observer.observe(trigger, { attributes: true });
+    const assign = vi.mocked(web.assign);
+    assign.mockClear();
+    trigger.click();
+    flush();
+    await Promise.resolve();
+    flush();
+    observer.takeRecords().forEach((record) => changed.add(record.attributeName!));
+    observer.disconnect();
+    const assigned = assign.mock.calls
+      .filter(([node]) => node === trigger)
+      .flatMap(([, props]) => Object.keys(props ?? {}));
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(assigned.length).toBeGreaterThan(0);
+    expect(assigned.sort()).toEqual([...changed].sort());
+  });
 });
 
 describe('hydrating native parts', () => {

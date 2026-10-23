@@ -296,6 +296,79 @@ function untrackedPartRefs() {
 const STATEFUL_TAGS: ReadonlySet<string> = new Set(['INPUT', 'SELECT', 'TEXTAREA', 'OPTION']);
 
 /**
+ * The element properties Solid's `assignProp` re-sets on every write, unchanged or not (its
+ * `DOMWithState` entries marked 1): the element's own state (typed text, a toggled box) can drift
+ * from the last write.
+ */
+const RESET_EVERY_WRITE: Readonly<Record<string, Readonly<Record<string, true>>>> = {
+  INPUT: { value: true, checked: true },
+  SELECT: { value: true },
+  OPTION: { value: true, selected: true },
+  TEXTAREA: { value: true },
+  VIDEO: { muted: true },
+  AUDIO: { muted: true },
+};
+const NO_RESETS: Readonly<Record<string, true>> = Object.freeze({});
+
+/**
+ * A diffing run's change, kept on its element for the `apply` that follows (Solid runs other
+ * effects' computes between one effect's compute and its apply): the changed keys, their previous
+ * values, how many of them are new, and the held keys the run dropped. Only a run that changes
+ * something allocates one.
+ */
+class PendingChange {
+  declare changed: Record<string, unknown>;
+  declare before: Record<string, unknown>;
+  declare added: number;
+  declare dropped: string[] | undefined;
+
+  constructor() {
+    this.changed = {};
+    this.before = {};
+    this.added = 0;
+    this.dropped = undefined;
+  }
+}
+
+/*
+ * The diffing run in progress, at module level so an element keeps none of it: one compute at a
+ * time (an attribute effect's compute never runs inside another's; development asserts it). The
+ * run's token marks each attribute name's first write (`lastWritten`), with no record per element.
+ */
+const lastWritten = new Map<string, number>();
+let writeRun = 0;
+let runWriter: object | undefined;
+let runChange: PendingChange | undefined;
+let runMatched = 0;
+let runResets: Readonly<Record<string, true>> = NO_RESETS;
+
+/** The running diff's change, created on its first changed or dropped key. */
+function currentChange(): PendingChange {
+  if (runChange === undefined) {
+    runChange = new PendingChange();
+  }
+  return runChange;
+}
+
+/**
+ * Starts `writer`'s diffing run. A run inside another would overwrite the other's state, in any
+ * build, so it throws.
+ */
+function beginRun(writer: object, el: Element) {
+  if (runWriter !== undefined) {
+    throw new Error(
+      'Base UI: a native element wrote its attributes while another element was writing. ' +
+        'The diffing write keeps its run at module level and needs one run at a time.',
+    );
+  }
+  writeRun += 1;
+  runWriter = writer;
+  runChange = undefined;
+  runMatched = 0;
+  runResets = RESET_EVERY_WRITE[el.nodeName] ?? NO_RESETS;
+}
+
+/**
  * Whether Solid's `assign` would only record `next` on `el`: a claimed (connected) element while
  * hydrating, with no object `class` (whose classes Solid records on the node even then) and no
  * form-control properties.
@@ -873,8 +946,11 @@ class ElementWriter<State extends object> implements SetAttribute {
   declare protected el: Element;
   declare protected previous: Record<string, unknown>;
   declare private target: Record<string, unknown>;
-  /** The record `compute` wrote, for the `apply` that follows it. */
-  declare private pending: Record<string, unknown> | undefined;
+  /**
+   * What `compute` kept for the `apply` that follows it: a whole record, or a diffing run's change
+   * (none when the run changed nothing).
+   */
+  declare private pending: Record<string, unknown> | PendingChange | undefined;
   declare private runs: number;
   declare private keepUndefined: boolean;
   declare private readonly keys: ReadonlySet<string>;
@@ -885,6 +961,11 @@ class ElementWriter<State extends object> implements SetAttribute {
   declare private readonly writtenState: object | undefined;
   declare private readonly hasClass: boolean;
   declare private readonly hasStyle: boolean;
+  /**
+   * How many keys `previous` holds. A diffing run that wrote fewer of them than are held dropped
+   * one, the only run that walks `previous`.
+   */
+  declare private held: number;
 
   constructor(
     keys: ReadonlySet<string>,
@@ -906,6 +987,7 @@ class ElementWriter<State extends object> implements SetAttribute {
     this.writtenState = writtenState;
     this.hasClass = 'class' in props;
     this.hasStyle = 'style' in props;
+    this.held = 0;
   }
 
   /** The element the effect writes to, with a fresh record of what it wrote. */
@@ -915,22 +997,155 @@ class ElementWriter<State extends object> implements SetAttribute {
   }
 
   /**
-   * The attribute effect's compute: writes everything that can change into a record kept for
-   * `apply`, and returns the run's number. A primitive, so the runtime does not check the result
-   * for a promise or an async iterator, which it does for an object through a closure per run. A
-   * new number each run, so every run applies, as a fresh record did.
+   * Whether a run writes the whole record (`applyWrite`) instead of diffing as it writes: the first
+   * run, which holds nothing to diff against, so every key would be a change.
+   */
+  protected writesWholeRecord(): boolean {
+    return this.runs === 1;
+  }
+
+  /**
+   * The attribute effect's compute: writes everything that can change, keeping for `apply` only
+   * what differs from what the element holds (Solid's `assign` received the whole record, and each
+   * re-run for one changed input cost a fresh record and two `for…in` passes over it), and returns
+   * the run's number. A primitive, so the runtime does not check the result for a promise or an
+   * async iterator, which it does for an object through a closure per run. A new number each run,
+   * so every run applies.
    */
   compute(): number {
-    this.pending = this.write({}, true);
     this.runs += 1;
+    if (this.writesWholeRecord()) {
+      this.pending = this.write({}, true);
+      return this.runs;
+    }
+    beginRun(this, this.el);
+    try {
+      this.write(NO_ATTRIBUTES, true);
+      if (runMatched < this.held) {
+        this.dropKeys();
+      }
+      this.pending = runChange;
+    } finally {
+      runWriter = undefined;
+      runChange = undefined;
+    }
     return this.runs;
   }
 
-  /** The attribute effect's apply: writes the record of the run before it. */
+  /**
+   * The held keys this run did not write: removed, as `assign` removes a key missing from its
+   * record, and no longer held.
+   */
+  private dropKeys() {
+    const previous = this.previous;
+    for (const key in previous) {
+      if (Object.hasOwn(previous, key) && lastWritten.get(key) !== writeRun) {
+        if (previous[key] != null) {
+          this.keepChange(key, null);
+        }
+        const change = currentChange();
+        (change.dropped ??= []).push(key);
+      }
+    }
+  }
+
+  /** The attribute effect's apply: writes what the run before it kept. */
   apply() {
-    const next = this.pending!;
+    const pending = this.pending;
+    if (pending === undefined) {
+      return;
+    }
     this.pending = undefined;
-    this.applyWrite(next);
+    if (!(pending instanceof PendingChange)) {
+      this.applyWrite(pending);
+      this.countHeld();
+      return;
+    }
+    const before = pending.before;
+    // `assign` writes each key's applied value back into `before`, which then joins `previous`.
+    assign(this.el, pending.changed, true, before, true);
+    const dropped = pending.dropped;
+    if (pending.added === 0 && dropped === undefined) {
+      const previous = this.previous;
+      for (const key in before) {
+        if (Object.hasOwn(before, key)) {
+          previous[key] = before[key];
+        }
+      }
+      return;
+    }
+    // A run that adds or drops keys builds a fresh record, as a whole-record write does: adding to
+    // and deleting from the held one in place leaves it larger for the element's whole life.
+    const previous = this.previous;
+    const next: Record<string, unknown> = {};
+    for (const key in previous) {
+      if (Object.hasOwn(previous, key) && !dropped?.includes(key)) {
+        next[key] = Object.hasOwn(before, key) ? before[key] : previous[key];
+      }
+    }
+    for (const key in before) {
+      if (Object.hasOwn(before, key) && !Object.hasOwn(next, key) && !dropped?.includes(key)) {
+        next[key] = before[key];
+      }
+    }
+    this.previous = next;
+    this.held += pending.added - (dropped?.length ?? 0);
+  }
+
+  /** Counts the keys a whole-record write left in `previous`, for the diffing runs after it. */
+  protected countHeld() {
+    let held = 0;
+    for (const key in this.previous) {
+      if (Object.hasOwn(this.previous, key)) {
+        held += 1;
+      }
+    }
+    this.held = held;
+  }
+
+  /**
+   * One key of a diffing run. It changed when its value is not the one the element holds, as
+   * `assignProp` skips an unchanged value, except where Solid writes it anyway: a property it
+   * re-sets every write, and an object `class` or `style`, which it diffs against what it applied
+   * (so an object mutated in place still writes). A key written twice in a run keeps the last value.
+   */
+  private diff(key: string, value: unknown) {
+    if (lastWritten.get(key) !== writeRun) {
+      lastWritten.set(key, writeRun);
+      if (key in this.previous) {
+        runMatched += 1;
+      }
+    }
+    const changed = runChange?.changed;
+    if (changed !== undefined && key in changed) {
+      changed[key] = value;
+      return;
+    }
+    if (
+      value !== this.previous[key] ||
+      runResets[key] === true ||
+      ((key === 'class' || key === 'style') && value !== null && typeof value === 'object')
+    ) {
+      this.keepChange(key, value);
+    }
+  }
+
+  private keepChange(key: string, value: unknown) {
+    const change = currentChange();
+    if (!(key in this.previous)) {
+      change.added += 1;
+    }
+    change.changed[key] = value;
+    change.before[key] = this.previous[key];
+  }
+
+  /** One key of a write: diffed in this element's diffing run, else written into the record. */
+  private put(key: string, value: unknown) {
+    if (runWriter === this) {
+      this.diff(key, value);
+    } else {
+      this.target[key] = value;
+    }
   }
 
   /**
@@ -955,7 +1170,7 @@ class ElementWriter<State extends object> implements SetAttribute {
 
   set(key: string, value: unknown) {
     if ((this.keepUndefined || value !== undefined) && !this.keys.has(key)) {
-      this.target[key] = value;
+      this.put(key, value);
     }
   }
 
@@ -967,11 +1182,18 @@ class ElementWriter<State extends object> implements SetAttribute {
     const source = this.props;
     this.writeState?.(this.writtenState!, this);
     spec.attributes?.(this, spec.handlerTarget);
-    readReactiveProps(source, this.reactive, into);
+    if (runWriter === this) {
+      const reactive = this.reactive;
+      for (let i = 0; i < reactive.length; i += 1) {
+        this.diff(reactive[i], source[reactive[i]]);
+      }
+    } else {
+      readReactiveProps(source, this.reactive, into);
+    }
     if (this.hasClass) {
       const value = resolveClass(source.class, consumerState(spec, source.class));
       if (keepUndefined || value !== undefined) {
-        into.class = value;
+        this.put('class', value);
       }
     }
     const styleOverride = spec.styleOverride;
@@ -985,7 +1207,7 @@ class ElementWriter<State extends object> implements SetAttribute {
         value = value ? combineStyle(value, override) : override;
       }
       if (keepUndefined || value !== undefined) {
-        into.style = value;
+        this.put('style', value);
       }
     }
     // The last target is not kept: the element holds no reference to a write's result.
@@ -1033,6 +1255,15 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
     }
   }
 
+  /**
+   * The first write and every write while hydrating are whole records: the first stands for the
+   * server's markup (kept by reference), and a claimed element only records its writes. Once
+   * hydration has ended, the element diffs as any other does.
+   */
+  protected override writesWholeRecord(): boolean {
+    return this.firstWrite === undefined || isHydrating();
+  }
+
   protected override applyWrite(next: Record<string, unknown>) {
     if (this.firstWrite === undefined) {
       this.takeFirstWrite(next);
@@ -1050,9 +1281,9 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
         }
       }
       Object.assign(previous, next);
-      return;
+    } else {
+      super.applyWrite(next);
     }
-    super.applyWrite(next);
   }
 
   private reconcile() {
@@ -1060,6 +1291,7 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
     const hydratedWrite = { ...attributesOf(this.literal), ...attributesOf(this.firstWrite ?? {}) };
     assign(this.el, { ...attributesOf(this.literal), ...written }, true, hydratedWrite, true);
     Object.assign(this.previous, written);
+    this.countHeld();
   }
 }
 
