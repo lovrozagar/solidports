@@ -40,9 +40,10 @@ const scenarios: Scenario[] = [
         name: 'leave',
         run: () => unhover(qa('[data-testid="tooltip-trigger"]')[0]),
         settle: true,
-        // safePolygon closes on a 40 ms timer once the pointer leaves inside its polygon.
+        // The pointer leaves away from the popup, outside safePolygon's polygon, so the tooltip
+        // closes at once: no timer runs on this path (a declared 40 ms read as -38 ms in regate c).
         until: () => qa('[data-testid="tooltip-popup"]').length === 0,
-        timerMs: 40,
+        timerMs: 0,
         verify: summary,
       },
       { ...sweep('[data-testid="tooltip-trigger"]'), firstOpen: true },
