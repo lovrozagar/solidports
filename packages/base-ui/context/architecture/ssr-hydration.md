@@ -1,12 +1,12 @@
 ---
 tags: [ssr, hydration, testing, native]
-sources: [packages/base-ui/packages/solid/test/hydration, packages/base-ui/packages/solid/test/ssr, packages/base-ui/packages/solid/test/ssrFixtures.ts, packages/base-ui/packages/solid/test/hydrationSentinel.tsx, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/runInLazyScope.ts, packages/base-ui/packages/solid/src/utils/useId.ts, packages/base-ui/packages/solid/src/utils/FocusGuard.tsx, packages/base-ui/scripts/docs/templates/src/adapters/react.ts]
-verified: 2026-10-17
+sources: [packages/base-ui/packages/solid/test/hydration, packages/base-ui/packages/solid/test/ssr, packages/base-ui/packages/solid/test/ssrFixtures.ts, packages/base-ui/packages/solid/test/hydrationSentinel.tsx, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/releaseServerFormState.ts, packages/base-ui/packages/solid/src/utils/runInLazyScope.ts, packages/base-ui/packages/solid/src/utils/useId.ts, packages/base-ui/packages/solid/src/utils/FocusGuard.tsx, packages/base-ui/scripts/docs/templates/src/adapters/react.ts]
+verified: 2026-10-24
 ---
 
 # SSR and hydration
 
-Hydration claims each server element by a key derived from the owner tree, so the client must create the same id-consuming nodes in the same order as the server. `*.ssr-fixtures.tsx` plus a sentinel catch any drift; the native kit opts out of hydration entirely.
+Hydration claims each server element by a key derived from the owner tree, so the client must create the same id-consuming nodes in the same order as the server. `*.ssr-fixtures.tsx` plus a sentinel catch any drift; a native part renders on the server and hydrates only when it passes `ssr`, with form state handed over as on the slow path.
 
 ## Hydration id rules (Solid 2.0.0-rc.15)
 
@@ -26,9 +26,11 @@ Rules that follow for library code:
 - The server cannot see the visitor's platform, browser or screen reader. Machinery that only some clients create (VoiceOver on WebKit gives focus guards their `button` role after mount, in `useSafariGuardRole` in `src/utils/FocusGuard.tsx`) goes in a lazy scope too: an `onSettled` created directly under the guard's owner on Mac and iOS Safari only took a hydration id the server gave the next node, so every later server node stayed inert. `src/utils/FocusGuard.hydration.test.tsx` hydrates Menu and Popover fixtures under each `voiceOver` and `webkit` combination, with the platform modules mocked on the client only. A production build throws on the first key miss and halts the reactive system for the whole hydrated root: a probe hydrating a Popover and a Menu side by side in Safari 26.6.1 left both inert when the popover's key missed.
 - Machinery created later (first open, first read) goes through `runInLazyScope(owner, create)` (`src/utils/runInLazyScope.ts`). It wraps the work in an owner with its own id (`<owner id>-<n>-`), so the owner's later children keep the server's keys. A single late computation can pass `transparent: true` instead.
 
-## Why the native kit opts out
+## The native kit on the server and while hydrating
 
-`canRenderNative(props, staticKeys)` in `src/utils/native/index.ts` returns false on the server and while `isHydrating()`, before checking for proxied props, `render`, a reactive `ref` or reactive `staticKeys`. The native kit builds elements with `document.createElement` (`createNativeElement`) instead of claiming server nodes through `getNextElement`, and attaches a plain owned `createRenderEffect`. Hydrating it would leave the server element unclaimed and shift every later key, so SSR apps and anything mounted during hydration take the `useRenderElement` slow path. See the [render pipeline](./render-pipeline.md).
+`canRenderNative(props, staticKeys, ssr)` in `src/utils/native/index.ts` returns false on the server and while `isHydrating()` unless the part passes `ssr`; then it decides from the props alone (a Solid proxy, a static `ref`, `render`, static `staticKeys`). A part that passes it renders natively on both sides: the server pass writes its attributes into the markup (`renderServerElement`), and the hydrating client claims the server's element through the template's compiled JSX and keeps its first write as the server's record (`HydratingWriter` in `element.ts`), reconciling after `hydrate()` returns only what changed. Both sides must take the same path, or they create different owners and shift every later hydration key; they do, because the server and the client compile give every component call the same props shape, key by key (getter or plain, `mergeProps` for a spread with other props, a `ref` always a plain value or a `ref(el)` method, a conditional `ref` dropped), which `test/ssr/compile-agreement.test.ts` pins against the installed `@solidjs/babel-plugin`.
+
+A form control's state crosses hydration as on the slow path: the server prints it as attributes (`value`, `checked`, `selected`; a part's `serverFormState` writes ones only the server renderer prints, such as an OTP slot's character), the development check reads a `defaultValue` or `defaultChecked` as its attribute and expects server-only form state on a control, and once `hydrate()` returns the kit calls `releaseFormStateAttributes` (`src/utils/releaseServerFormState.ts`), keeping the attributes a client render has (`test/hydration/form-state.*`). See the [render pipeline](./render-pipeline.md).
 
 ## Hydration suite (`packages/solid/test/hydration`)
 

@@ -21,7 +21,12 @@ import { access, autofocus, shallowEqual, createLayoutEffect } from '../solid-he
 import type { MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
 import { warn } from './warn';
-import { releaseFormStateAttributes } from './releaseServerFormState';
+import {
+  clientFormStateAttributes,
+  FORM_STATE_ATTRIBUTES,
+  isFormControl,
+  releaseFormStateAttributes,
+} from './releaseServerFormState';
 import type { StateAttributesMapping } from './getStateAttributesProps';
 import {
   createPropsView,
@@ -68,17 +73,6 @@ const ATTRIBUTE_ALIASES: Record<string, string> = {
   htmlFor: 'for',
   defaultValue: 'value',
 };
-/**
- * A form control's default state: the server prints its current value, checked or selected state
- * as these attributes, while the client sets the properties (an uncontrolled `defaultValue`, a
- * `prop:value`, a part's value effect). Removing one after hydration resets an untouched control,
- * so they are never reconciled away.
- */
-const FORM_STATE_ATTRIBUTES = new Set(['value', 'checked', 'selected']);
-const isFormControl = (el: Element) =>
-  el instanceof HTMLInputElement ||
-  el instanceof HTMLTextAreaElement ||
-  el instanceof HTMLOptionElement;
 const IMG_DEFAULTS = { alt: '' } as const;
 /** React's `renderTag` defaults per intrinsic tag, at the lowest priority. */
 const TAG_DEFAULTS = new Map<unknown, object>([
@@ -737,16 +731,8 @@ export function useRenderElement<
               }
               assign(el, current, true, previous, true);
               if (keepsFormState) {
-                // The client render's own form-state attributes stay: a `defaultValue` or
-                // `defaultChecked` renders as the attribute; the rest are properties.
-                const keep = new Set<string>();
-                if (current.defaultValue != null) {
-                  keep.add('value');
-                }
-                if (current.defaultChecked != null) {
-                  keep.add('checked');
-                }
-                releaseFormStateAttributes(el, keep);
+                // The client render's own form-state attributes stay.
+                releaseFormStateAttributes(el, clientFormStateAttributes(current));
               }
             });
           }

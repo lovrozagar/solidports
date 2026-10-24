@@ -3,8 +3,12 @@
  * microtask after `hydrate()` returns, the attribute keys of a write, and the development check of
  * the server's attributes.
  */
+import { FORM_STATE_ATTRIBUTES, isFormControl } from '../releaseServerFormState';
 import { warn } from '../warn';
 import { isHandlerKey } from './consumer';
+
+/** Keys a write renders as another attribute: a control's default state is its `value`/`checked`. */
+const ATTRIBUTE_OF: Record<string, string> = { defaultvalue: 'value', defaultchecked: 'checked' };
 
 let pendingReconciles: Array<[Element, () => void]> | undefined;
 
@@ -56,12 +60,18 @@ export function checkHydratedAttributes(el: Element, ...expected: Record<string,
     for (const key of Object.keys(attributes)) {
       const value = attributes[key];
       if (value != null && value !== false) {
-        rendered.add(key.toLowerCase());
+        const name = key.toLowerCase();
+        rendered.add(ATTRIBUTE_OF[name] ?? name);
       }
     }
   }
+  // A control's form state is the server's to print and the client's to hold as a property
+  // (released after hydration), so a server-only `value`, `checked` or `selected` is expected.
+  const keepsFormState = isFormControl(el);
   const server = el.getAttributeNames().filter((name) => name !== '_hk' && name !== 'data-hk');
-  const extra = server.filter((name) => !rendered.has(name));
+  const extra = server.filter(
+    (name) => !rendered.has(name) && !(keepsFormState && FORM_STATE_ATTRIBUTES.has(name)),
+  );
   const missing = [...rendered].filter((name) => !el.hasAttribute(name));
   if (extra.length > 0 || missing.length > 0) {
     warn(
