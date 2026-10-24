@@ -67,7 +67,9 @@ describe('toast cost against the hand-written floor', () => {
     const manager = Toast.createToastManager();
     function List() {
       const { toasts } = Toast.useToastManager();
-      return <For each={toasts()}>{(toast) => <Toast.Root toast={toast}>{inner()}</Toast.Root>}</For>;
+      return (
+        <For each={toasts()}>{(toast) => <Toast.Root toast={toast}>{inner()}</Toast.Root>}</For>
+      );
     }
     const view = render(() => (
       <Toast.Provider toastManager={manager} timeout={0} limit={100}>
@@ -113,7 +115,10 @@ describe('toast cost against the hand-written floor', () => {
     count = 0;
     hooks.onOwner = counting;
     for (let i = 0; i < n; i += 1) {
-      setToasts((list) => [{ id: `t${i}`, title: `Title ${i}`, description: 'Description' }, ...list]);
+      setToasts((list) => [
+        { id: `t${i}`, title: `Title ${i}`, description: 'Description' },
+        ...list,
+      ]);
       flush();
     }
     hooks.onOwner = undefined;
@@ -127,7 +132,8 @@ describe('toast cost against the hand-written floor', () => {
   const partCost = (part: Part) =>
     part === 'root'
       ? perToast((n) => libraryNodes(n, parts.root))
-      : perToast((n) => libraryNodes(n, parts[part])) - perToast((n) => libraryNodes(n, parts.root));
+      : perToast((n) => libraryNodes(n, parts[part])) -
+        perToast((n) => libraryNodes(n, parts.root));
   const floorCost = (part: Part) =>
     part === 'root'
       ? perToast((n) => floorNodes(n, floorParts.root))
@@ -252,5 +258,46 @@ describe('toast cost against the hand-written floor', () => {
     expect(cost, `${part} ${cost} nodes, floor ${floorCost(part)}`).toBeLessThanOrEqual(
       BUDGET[part],
     );
+  });
+});
+
+/** Toast.Arrow at D32's port; the slow path's in the comment. */
+const ARROW_BUDGET = 2; // slow 14
+
+describe('toast arrow cost', () => {
+  const { render } = createRenderer();
+  const anchored: Toast.Root.ToastObject = { id: 'anchored', title: 'Saved' };
+
+  function nodes(ui: () => JSX.Element) {
+    count = 0;
+    hooks.onOwner = counting;
+    const view = render(ui);
+    flush();
+    hooks.onOwner = undefined;
+    const created = count;
+    view.unmount();
+    return created;
+  }
+
+  const arrows = (n: number) => () => (
+    <Toast.Provider>
+      <Toast.Positioner toast={anchored}>
+        {Array.from({ length: n }, () => (
+          <Toast.Arrow data-testid="arrow" />
+        ))}
+      </Toast.Positioner>
+    </Toast.Provider>
+  );
+
+  it('a Toast.Arrow renders on the native path', () => {
+    const view = render(arrows(1));
+    flush();
+    expect(renderPathOf(document.querySelector('[data-testid="arrow"]')!)).toBe('native');
+    view.unmount();
+  });
+
+  it('a Toast.Arrow stays within its native budget', () => {
+    const cost = nodes(arrows(5)) - nodes(arrows(4));
+    expect(cost, `Toast.Arrow ${cost} nodes`).toBe(ARROW_BUDGET);
   });
 });
