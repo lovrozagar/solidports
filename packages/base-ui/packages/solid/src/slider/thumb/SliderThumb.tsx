@@ -129,9 +129,10 @@ function getNewValue(
  * Documentation: [Base UI Slider](https://base-ui.com/react/components/slider)
  */
 export function SliderThumb(componentProps: SliderThumb.Props) {
-  // The native path reads the props as they are; only the slow path splits them into views.
-  // Client renders only: the last inset thumb renders the slider's prehydration script.
-  const native = canRenderNative(componentProps);
+  // The native path reads the props as they are; only the slow path splits them into views. It
+  // renders on the server and while hydrating too: the last inset thumb renders the slider's
+  // prehydration script on both paths, and the thumb stays as it left it until measured.
+  const native = canRenderNative(componentProps, undefined, true);
   const split = native ? undefined : splitComponentProps(componentProps, THUMB_OWN_KEY_LIST);
   const local = split ? split[1] : componentProps;
   const elementProps = split?.[2];

@@ -20,7 +20,7 @@ Slider is fully ported. With plain props on the client, Root, Label, Value, Cont
 - Indicator (`indicator/SliderIndicator.tsx`): a `<div>` with its position style.
 - Thumb (`thumb/SliderThumb.tsx`): a `<div>` with its index, id and position style, owning its children (the consumer's, then its range input and, for the last inset thumb, the prehydration script).
 
-The native path covers client renders only: while hydrating, the slider's prehydration script positions an inset slider's parts, and the slow path keeps that handoff.
+The native path covers the server and hydration too (D33 server batch): the last inset thumb renders the prehydration script on both paths, the script positions an inset slider's thumbs and indicator before hydration, and the hydrated parts keep what it set until the slider measures them. From the script through the settled slider, no part it showed is hidden again and no position it set goes missing or back to the server's, and every part settles to the slow path's style (`test/hydration/slider.hydration.test.tsx`, with the browser's layout given to jsdom). Both paths leave the script's `--end-position` on a range's indicator, which a client render never sets and no style reads. One more hydrated slider creates 53 reactive nodes against 168 with the ported parts on the slow path (exact).
 
 ## Reactive cost
 
@@ -48,7 +48,6 @@ Chromium heap the bench step keeps (production builds, a heap snapshot after a f
 
 ## Post-sweep leaves
 
-- Server renders and hydration stay on the slow path (the prehydration handoff).
 - The Thumb's range input still spreads its props (`inputProps()`).
 
 ## Docs

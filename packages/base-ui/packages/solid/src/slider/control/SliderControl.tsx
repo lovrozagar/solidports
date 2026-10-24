@@ -581,9 +581,8 @@ export function SliderControl(componentProps: SliderControl.Props): JSX.Element 
   }
 
   // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div>` with its
-  // pointerdown handler, no props view (D32). Client renders only, as the indicator: the
-  // prehydration script positions the parts while hydrating.
-  if (canRenderNative(componentProps)) {
+  // pointerdown handler, no props view (D32), on the server and while hydrating too.
+  if (canRenderNative(componentProps, undefined, true)) {
     return renderNativeElement(DIV, componentProps, {
       own: OWN_KEYS,
       state,
