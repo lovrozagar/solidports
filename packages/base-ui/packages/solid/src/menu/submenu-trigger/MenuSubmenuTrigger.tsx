@@ -19,11 +19,22 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { warn } from '../../utils/warn';
-import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
+import {
+  isUnfilteredItem,
+  useMenuFilterItem,
+  withFilterChildren,
+} from '../filter-root/MenuFilterContext';
+import { useContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
+import { canRenderNative } from '../../utils/native';
+import { createNativeListItem } from '../../utils/native/listItem';
+import { NativeSubmenuTriggerModel, renderNativeSubmenuTrigger } from './nativeSubmenuTrigger';
 import { useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
+
+/** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
+const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
 
 /**
  * A menu item that opens a submenu.
@@ -32,26 +43,17 @@ import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContex
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'label',
-    'id',
-    'nativeButton',
-    'openOnHover',
-    'delay',
-    'closeDelay',
-    'disabled',
-  ]);
-  const idProp = () => local.id;
-  const nativeButton = () => local.nativeButton ?? false;
-  const openOnHover = () => local.openOnHover ?? true;
-  const delay = () => local.delay ?? 100;
-  const closeDelay = () => local.closeDelay ?? 0;
-  const disabledProp = () => local.disabled ?? false;
+  const idProp = () => componentProps.id;
+  const nativeButton = () => componentProps.nativeButton ?? false;
+  const openOnHover = () => componentProps.openOnHover ?? true;
+  const delay = () => componentProps.delay ?? 100;
+  const closeDelay = () => componentProps.closeDelay ?? 0;
+  const disabledProp = () => componentProps.disabled ?? false;
 
   const filterItem = useMenuFilterItem(
     {
       get label() {
-        return local.label;
+        return componentProps.label;
       },
       get children() {
         return componentProps.children;
@@ -73,8 +75,20 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
   const { store, parentVirtualFocus } = context;
   const parentMenuStore = context.parent.store;
 
+  // Native fast path (`context/architecture/render-pipeline.md`): a plain menu's submenu trigger
+  // renders its `<div role="menuitem">` with direct JSX; `useMenuItem`, `useButton` and the
+  // composite list item inlined (D32's sweep). A filtered menu (its visibility branch and its
+  // submenu root's key handler) keeps the slow path.
+  const native =
+    isUnfilteredItem(filterItem) &&
+    submenuRootContext?.onTriggerKeyDown == null &&
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    untrack(() => componentProps.nativeButton) !== true;
+
   // Solid: no `guess`; Solid has no extra post-mount render for it to avoid.
-  const listItem = useCompositeListItem({ label: () => local.label });
+  const listItem = native
+    ? createNativeListItem<null>(null, { label: () => componentProps.label })
+    : useCompositeListItem({ label: () => componentProps.label });
 
   const thisTriggerId = useBaseUiId(idProp);
   const open = store.useState('open');
@@ -124,7 +138,8 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
 
   // Observe focus leaving the guard inside the positioner. When the portal is in a shadow root, the
   // trigger's focus event can report the shadow host as `relatedTarget`, not the guard.
-  let focusReturnedThroughGuard = false;
+  // A ref object, so the native trigger's model reads and clears the same flag.
+  const focusGuard = { returned: false };
   const positionerElement = store.useState('positionerElement');
   createLayoutEffect(
     () => (open() ? positionerElement() : null),
@@ -135,13 +150,13 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
 
       function handleGuardFocusOut(event: FocusEvent) {
         if (getTarget(event) === store.context.beforeContentFocusGuardRef.current) {
-          focusReturnedThroughGuard = event.relatedTarget === triggerElementRef.current;
+          focusGuard.returned = event.relatedTarget === triggerElementRef.current;
         }
       }
 
       positioner.addEventListener('focusout', handleGuardFocusOut, true);
       return () => {
-        focusReturnedThroughGuard = false;
+        focusGuard.returned = false;
         positioner.removeEventListener('focusout', handleGuardFocusOut, true);
       };
     },
@@ -165,29 +180,10 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     });
   }
 
-  const itemProps = parentMenuStore.useState('itemProps');
-  const highlighted = parentMenuStore.useState('isActive', listItem.index);
-
-  const itemMetadata = () => ({
-    type: 'submenu-trigger' as const,
-    setActive(event: MouseEvent) {
-      if (parentMenuStore.select('highlightItemOnHover')) {
-        parentMenuStore.setActiveIndex(untrack(listItem.index), REASONS.pointer, event);
-      }
-    },
-  });
-
-  const { itemSources, setItemRef } = useMenuItem({
-    closeOnClick: false,
-    disabled,
-    highlighted,
-    id: thisTriggerId,
-    store,
-    typingRef: parentMenuStore.context.typingRef,
-    nativeButton,
-    itemMetadata,
-    nodeId: () => menuPositionerContext?.context.nodeId(),
-  });
+  // The native path reads the keyed highlight where it writes, with no memo of its own.
+  const highlighted = native
+    ? () => parentMenuStore.select('isActive', listItem.index)
+    : parentMenuStore.useState('isActive', listItem.index);
 
   const hoverEnabled = store.useState('hoverEnabled');
 
@@ -244,13 +240,6 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     },
   });
 
-  const localInteractionProps = () => click.reference ?? EMPTY_OBJECT;
-
-  const rootTriggerProps = createMemo(() => {
-    const { id: _id, ...rest } = store.select('triggerProps', () => true) as HTMLProps;
-    return rest;
-  });
-
   const state: MenuSubmenuTrigger.State = {
     get disabled() {
       return disabled();
@@ -271,75 +260,137 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     lastOpenChangeReason() === REASONS.listNavigation || openMethod() === 'keyboard';
   const shouldOmitExpanded = () => open() && openedByKeyboard() && platform.screenReader.voiceOver;
 
-  const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
-    state,
-    stateAttributesMapping: triggerOpenStateMapping,
-    // A static list whose changing parts are read per key: highlighting the trigger or opening the
-    // submenu updates its attributes without rebuilding the trigger's props chain.
-    props: [
-      ...itemSources.attributes,
-      propsSourceAccessor(localInteractionProps),
-      hoverProps,
-      // Opening a submenu changes the trigger's expanded state while the trigger still holds
-      // focus, and VoiceOver announces that state change instead of the submenu item that focus
-      // moves to a moment later, so the first item is never announced. Dropping the state while
-      // the submenu is open avoids the announcement without claiming the submenu is collapsed;
-      // `aria-haspopup` still conveys that the item opens a submenu.
-      // Solid: a later `undefined` would not remove the key, so it is omitted instead.
-      propsSourceAccessor(
-        createMemo(() => {
-          const expandedProps = rootTriggerProps();
-          return shouldOmitExpanded() ? omitExpanded(expandedProps) : expandedProps;
-        }),
+  if (native) {
+    return renderNativeSubmenuTrigger(
+      componentProps,
+      new NativeSubmenuTriggerModel(
+        componentProps,
+        context,
+        useContextMenuRootContext(true) ?? null,
+        listItem.index,
+        thisTriggerId,
+        disabled,
+        shouldOmitExpanded,
+        hoverProps,
+        click,
+        menuPositionerContext,
+        focusGuard,
       ),
-      propsSourceAccessor(itemProps),
-      filterItem.props,
-      // MenuFilterSubmenuRoot overrides the generic trigger handler because entry and exit
-      // depend on both the parent and child menu orientations.
-      submenuRootContext?.onTriggerKeyDown
-        ? { onKeyDown: submenuRootContext.onTriggerKeyDown }
-        : undefined,
-      {
-        get 'aria-controls'() {
-          return popupId();
-        },
-        // A virtually focused parent keeps real focus on its input, so the trigger must stay out
-        // of the tab order.
-        get tabindex() {
-          return parentVirtualFocus() || !(open() || highlighted()) ? -1 : 0;
-        },
-        onFocus(event: FocusEvent) {
-          // Close when focus returns through the submenu's guard to its trigger. This also lets
-          // screen reader users move past the trigger in the parent menu. Direct focus from a
-          // submenu item, such as on hover, leaves the submenu open.
-          if (store.select('open') && focusReturnedThroughGuard) {
-            focusReturnedThroughGuard = false;
-            store.setOpen(false, createChangeEventDetails(REASONS.focusOut, event));
-          }
-        },
-        onBlur() {
-          if (highlighted()) {
-            parentMenuStore.setActiveIndex(null, REASONS.none);
-          }
-        },
-      },
-      elementProps,
-      itemSources.handlers,
-    ],
-    ref: [
-      listItem.setRef,
-      setItemRef,
-      registerTrigger,
-      handleTriggerElementRef,
-      (el: HTMLElement | null | undefined) => {
-        if (filterItem.ref) {
-          filterItem.ref.current = el ?? null;
+      [listItem.setRef, registerTrigger, handleTriggerElementRef],
+    );
+  }
+
+  return SlowSubmenuTriggerElement();
+
+  function SlowSubmenuTriggerElement() {
+    const [, , elementProps] = splitComponentProps(componentProps, [
+      'label',
+      'id',
+      'nativeButton',
+      'openOnHover',
+      'delay',
+      'closeDelay',
+      'disabled',
+    ]);
+    const itemProps = parentMenuStore.useState('itemProps');
+    const itemMetadata = () => ({
+      type: 'submenu-trigger' as const,
+      setActive(event: MouseEvent) {
+        if (parentMenuStore.select('highlightItemOnHover')) {
+          parentMenuStore.setActiveIndex(untrack(listItem.index), REASONS.pointer, event);
         }
       },
-    ],
-  });
+    });
 
-  return <Show when={filterItem.visible()}>{element()}</Show>;
+    const { itemSources, setItemRef } = useMenuItem({
+      closeOnClick: false,
+      disabled,
+      highlighted,
+      id: thisTriggerId,
+      store,
+      typingRef: parentMenuStore.context.typingRef,
+      nativeButton,
+      itemMetadata,
+      nodeId: () => menuPositionerContext?.context.nodeId(),
+    });
+
+    const localInteractionProps = () => click.reference ?? EMPTY_OBJECT;
+
+    const rootTriggerProps = createMemo(() => {
+      const { id: _id, ...rest } = store.select('triggerProps', () => true) as HTMLProps;
+      return rest;
+    });
+
+    const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
+      state,
+      stateAttributesMapping: triggerOpenStateMapping,
+      // A static list whose changing parts are read per key: highlighting the trigger or opening the
+      // submenu updates its attributes without rebuilding the trigger's props chain.
+      props: [
+        ...itemSources.attributes,
+        propsSourceAccessor(localInteractionProps),
+        hoverProps,
+        // Opening a submenu changes the trigger's expanded state while the trigger still holds
+        // focus, and VoiceOver announces that state change instead of the submenu item that focus
+        // moves to a moment later, so the first item is never announced. Dropping the state while
+        // the submenu is open avoids the announcement without claiming the submenu is collapsed;
+        // `aria-haspopup` still conveys that the item opens a submenu.
+        // Solid: a later `undefined` would not remove the key, so it is omitted instead.
+        propsSourceAccessor(
+          createMemo(() => {
+            const expandedProps = rootTriggerProps();
+            return shouldOmitExpanded() ? omitExpanded(expandedProps) : expandedProps;
+          }),
+        ),
+        propsSourceAccessor(itemProps),
+        filterItem.props,
+        // MenuFilterSubmenuRoot overrides the generic trigger handler because entry and exit
+        // depend on both the parent and child menu orientations.
+        submenuRootContext?.onTriggerKeyDown
+          ? { onKeyDown: submenuRootContext.onTriggerKeyDown }
+          : undefined,
+        {
+          get 'aria-controls'() {
+            return popupId();
+          },
+          // A virtually focused parent keeps real focus on its input, so the trigger must stay out
+          // of the tab order.
+          get tabindex() {
+            return parentVirtualFocus() || !(open() || highlighted()) ? -1 : 0;
+          },
+          onFocus(event: FocusEvent) {
+            // Close when focus returns through the submenu's guard to its trigger. This also lets
+            // screen reader users move past the trigger in the parent menu. Direct focus from a
+            // submenu item, such as on hover, leaves the submenu open.
+            if (store.select('open') && focusGuard.returned) {
+              focusGuard.returned = false;
+              store.setOpen(false, createChangeEventDetails(REASONS.focusOut, event));
+            }
+          },
+          onBlur() {
+            if (highlighted()) {
+              parentMenuStore.setActiveIndex(null, REASONS.none);
+            }
+          },
+        },
+        elementProps,
+        itemSources.handlers,
+      ],
+      ref: [
+        listItem.setRef,
+        setItemRef,
+        registerTrigger,
+        handleTriggerElementRef,
+        (el: HTMLElement | null | undefined) => {
+          if (filterItem.ref) {
+            filterItem.ref.current = el ?? null;
+          }
+        },
+      ],
+    });
+
+    return <Show when={filterItem.visible()}>{element()}</Show>;
+  }
 }
 
 function omitExpanded(props: HTMLProps) {

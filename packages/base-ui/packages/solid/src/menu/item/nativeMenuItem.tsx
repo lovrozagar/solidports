@@ -233,7 +233,7 @@ export class NativeMenuItemModel {
  * and Enter click the item (Space unless typeahead prevented it); a link item with an `href`
  * leaves Enter to the browser.
  */
-function compositeItemKeyDownAfter(item: NativeMenuItemModel, event: ItemEvent<KeyboardEvent>) {
+export function compositeItemKeyDownAfter(event: ItemEvent<KeyboardEvent>, link: boolean) {
   if (event.baseUIHandlerPrevented || event.target !== event.currentTarget) {
     return;
   }
@@ -253,7 +253,7 @@ function compositeItemKeyDownAfter(item: NativeMenuItemModel, event: ItemEvent<K
   if (event.key !== 'Enter' || event.defaultPrevented) {
     return;
   }
-  if (item.kind.link && (currentTarget as HTMLAnchorElement).href) {
+  if (link && (currentTarget as HTMLAnchorElement).href) {
     return;
   }
   event.preventDefault();
@@ -287,7 +287,7 @@ const ITEM_HANDLERS: Readonly<Record<string, Dispatch<NativeMenuItemModel>>> = {
     'onKeyDown',
     (item, event) => {
       item.keyDown(event);
-      compositeItemKeyDownAfter(item, event);
+      compositeItemKeyDownAfter(event, item.kind.link);
     },
     (item, event) => {
       // `useFocusableWhenDisabled`: a disabled item keeps Tab and blocks every other key.
