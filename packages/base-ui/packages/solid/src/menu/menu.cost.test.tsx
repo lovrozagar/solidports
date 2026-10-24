@@ -16,6 +16,7 @@ import {
   FloorMenuItemIndicator,
   FloorMenuLinkItem,
   FloorMenuList,
+  FloorMenuSubmenuTrigger,
 } from '../../test/floor/menu';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
@@ -114,6 +115,8 @@ const BUDGET = {
   checkbox: 15, // with its indicator; slow 53, floor 13
   radio: 14, // with its indicator; slow 52, floor 13
   link: 2, // slow 23, floor 5
+  // Per copy: a closed Menu.SubmenuRoot (its store) with its trigger; the floor's is the trigger.
+  submenu: 104, // slow 132; the floor trigger 5
 };
 
 describe('menu item kinds against the hand-written floor', () => {
@@ -166,8 +169,14 @@ describe('menu item kinds against the hand-written floor', () => {
         </Menu.RadioGroup>
       )),
     link: (n: number) =>
+      menu(() => labels(n).map((label) => <Menu.LinkItem href="#a">{label}</Menu.LinkItem>)),
+    submenu: (n: number) =>
       menu(() =>
-        labels(n).map((label) => <Menu.LinkItem href="#a">{label}</Menu.LinkItem>),
+        labels(n).map((label) => (
+          <Menu.SubmenuRoot>
+            <Menu.SubmenuTrigger>{label}</Menu.SubmenuTrigger>
+          </Menu.SubmenuRoot>
+        )),
       ),
   };
   const floor = {
@@ -214,11 +223,23 @@ describe('menu item kinds against the hand-written floor', () => {
         </FloorMenuList>
       );
     },
+    submenu: (n: number) => () => {
+      const [active, setActive] = createSignal(-1);
+      return (
+        <FloorMenuList active={active} setActive={setActive} onActivate={() => {}}>
+          {/* eslint-disable-next-line solid/prefer-for -- the floor's menu never changes */}
+          {labels(n).map((label, index) => (
+            <FloorMenuSubmenuTrigger index={index}>{label}</FloorMenuSubmenuTrigger>
+          ))}
+        </FloorMenuList>
+      );
+    },
   };
   const selector = {
     checkbox: '[role="menuitemcheckbox"]',
     radio: '[role="menuitemradio"]',
     link: 'a[role="menuitem"]',
+    submenu: '[aria-haspopup="menu"][role="menuitem"]',
   };
 
   /** The normalized HTML and render paths of each element `selector` matches, and of its indicator. */

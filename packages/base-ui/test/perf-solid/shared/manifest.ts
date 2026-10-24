@@ -277,6 +277,9 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'menu item kinds against the hand-written floor > the floor renders the same link item DOM',
     'menu item kinds against the hand-written floor > a link item and any indicator render on the native path',
     'menu item kinds against the hand-written floor > a link item with any indicator stays within its native budget',
+    'menu item kinds against the hand-written floor > the floor renders the same submenu item DOM',
+    'menu item kinds against the hand-written floor > a submenu item and any indicator render on the native path',
+    'menu item kinds against the hand-written floor > a submenu item with any indicator stays within its native budget',
   ],
   meter: [
     staticPart('a Meter.Track costs at most 1 node'),

@@ -193,3 +193,34 @@ export function FloorMenuLinkItem(props: FloorMenuLinkItemProps) {
   );
   return el;
 }
+
+/**
+ * A closed submenu's trigger: an item that names its popup (`aria-haspopup`, `aria-expanded`),
+ * writing its highlight from one render effect.
+ */
+export function FloorMenuSubmenuTrigger(props: FloorMenuItemProps) {
+  const context = useContext(FloorMenuContext)!;
+  const record: FloorMenuItemRecord = { context, index: props.index };
+  const el = (
+    <div
+      id={`base-ui-${createUniqueId()}`}
+      tabindex="-1"
+      role="menuitem"
+      aria-haspopup="menu"
+      aria-expanded="false"
+      onClick={[itemClick, record]}
+      onKeyDown={[itemKeyDown, record]}
+      onMouseMove={[itemMove, record]}
+    >
+      {props.children}
+    </div>
+  ) as HTMLDivElement;
+  createRenderEffect(
+    () => context.isHighlighted(record.index),
+    (highlighted) => {
+      el.setAttribute('tabindex', highlighted ? '0' : '-1');
+      toggle(el, 'data-highlighted', highlighted);
+    },
+  );
+  return el;
+}
