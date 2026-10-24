@@ -509,9 +509,10 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     : {};
 
   // Native fast path (`context/architecture/render-pipeline.md`): a plain `<input>` with the slot's
-  // attributes and handlers, no props view (D32). Client renders only: the server prints the slot's
-  // character as its `value`, which the slow path renders.
-  if (canRenderNative(componentProps)) {
+  // attributes and handlers, no props view (D32), on the server and while hydrating too: the server
+  // prints the slot's character as its `value` (`serverFormState`), which the hydrating client
+  // releases, keeping it as the property.
+  if (canRenderNative(componentProps, undefined, true)) {
     return renderNativeElement(INPUT, componentProps, {
       own: OWN_KEYS,
       state: liveState,
@@ -520,6 +521,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       attributes: writeInputAttributes,
       handlers: INPUT_HANDLERS,
       handlerTarget: inputProps,
+      serverFormState: isServer ? (w: SetAttribute) => w.set('value', slotValue()) : undefined,
       reactive: true,
       refs: [
         (el: HTMLInputElement | null) => {

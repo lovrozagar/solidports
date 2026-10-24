@@ -79,9 +79,10 @@ function writeRootAttributes(w: SetAttribute, model: OTPFieldRootModel) {
  * Documentation: [Base UI OTP Field](https://base-ui.com/react/components/otp-field)
  */
 export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
-  // The native path reads the props as they are; only the slow path splits them into views.
-  // Client renders only: the server's hidden input keeps its form state through the slow path.
-  const native = canRenderNative(componentProps);
+  // The native path reads the props as they are; only the slow path splits them into views. It
+  // renders on the server and while hydrating too: the hidden input is the root's own JSX on both
+  // paths and releases its server form state itself.
+  const native = canRenderNative(componentProps, undefined, true);
   const split = native ? undefined : splitComponentProps(componentProps, ROOT_OWN_KEY_LIST);
   const local = split ? split[1] : componentProps;
   const elementProps = split?.[2];
