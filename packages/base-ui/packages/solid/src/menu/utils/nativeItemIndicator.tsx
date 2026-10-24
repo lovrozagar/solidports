@@ -1,19 +1,16 @@
 /*
- * The native path shared by Menu's CheckboxItemIndicator and RadioItemIndicator (D32's sweep): a
- * `<span aria-hidden>` mounted while its item is checked (or `keepMounted`), with the item's
- * state and the transition hooks as `data-*` attributes. The mount and transition contract is
- * Checkbox.Indicator's (`createLazyTransitionStatus` with a batched close-complete on the
- * indicator), so an unchecked indicator builds no transition machinery until its item is first
- * checked. Checkbox.Indicator's own element writes the checkbox root's state (indeterminate, the
- * Field validity, read-only, required), so only the lazy transition is shared with it.
+ * Menu's CheckboxItemIndicator and RadioItemIndicator on the shared native item indicator
+ * (`utils/native/itemIndicator.tsx`, D32's sweep). Checkbox.Indicator's own element writes the
+ * checkbox root's state (indeterminate, the Field validity, read-only, required), so only the lazy
+ * transition is shared with it.
  */
-import { Show } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import type { JSX } from '@solidjs/web';
-import { createLazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
 import type { LazyTransitionHandle } from '../../utils/createLazyTransitionStatus';
-import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
-import type { NativeElementTemplate } from '../../utils/native/element';
+import { compileStateWriter } from '../../utils/native/element';
+import type {
+  NativeItemIndicatorKind,
+  NativeItemIndicatorState,
+} from '../../utils/native/itemIndicator';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { itemMapping } from './stateAttributesMapping';
 
@@ -24,24 +21,8 @@ export interface ItemIndicatorSource {
   highlighted: Accessor<boolean>;
 }
 
-export interface NativeItemIndicatorProps {
-  keepMounted?: boolean | undefined;
-}
-
-const SPAN: NativeElementTemplate = {
-  tag: 'span',
-  attributes: { 'aria-hidden': 'true' },
-  create: () => (<span aria-hidden="true" />) as unknown as Element,
-};
-const OWN_KEYS: ReadonlySet<string> = new Set(['keepMounted']);
-/** The indicator state's `data-*` attributes in the slow path's key order. */
-const writeIndicatorState = compileStateWriter(
-  ['checked', 'disabled', 'highlighted', 'transitionStatus'],
-  itemMapping,
-);
-
 /** The indicator's state: prototype getters over its item and its transition. */
-class NativeItemIndicatorState {
+class MenuItemIndicatorState implements NativeItemIndicatorState {
   declare private readonly item: ItemIndicatorSource;
   declare private readonly transition: LazyTransitionHandle;
   declare indicator: HTMLElement | null;
@@ -69,35 +50,14 @@ class NativeItemIndicatorState {
   }
 }
 
-const indicatorState = (state: NativeItemIndicatorState) => state;
-
-/** Renders an item indicator natively for `props`, reading its item from `item`. */
-export function renderNativeItemIndicator(
-  props: NativeItemIndicatorProps,
-  item: ItemIndicatorSource,
-): JSX.Element {
-  let state: NativeItemIndicatorState | undefined;
-  const transition = createLazyTransitionStatus(item.checked, {
-    closeComplete: { batch: true, ref: () => state?.indicator },
-  });
-  state = new NativeItemIndicatorState(item, transition);
-  const view = state;
-  const setIndicator = (node: HTMLElement | null) => {
-    view.indicator = node;
-  };
-  return (
-    <Show when={(props.keepMounted ?? false) || transition.mounted()}>
-      {
-        renderNativeElement(SPAN, props, {
-          own: OWN_KEYS,
-          state: indicatorState,
-          stateWriter: writeIndicatorState,
-          stateView: view,
-          reactive: true,
-          handlerTarget: view,
-          refs: [setIndicator],
-        }) as unknown as JSX.Element
-      }
-    </Show>
-  );
-}
+/** Menu's checked-item indicator, shown while its item is checked. */
+export const MENU_ITEM_INDICATOR_KIND = Object.freeze<NativeItemIndicatorKind<ItemIndicatorSource>>(
+  {
+    shown: (item) => item.checked,
+    State: MenuItemIndicatorState,
+    writeState: compileStateWriter(
+      ['checked', 'disabled', 'highlighted', 'transitionStatus'],
+      itemMapping,
+    ),
+  },
+);
