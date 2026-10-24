@@ -64,6 +64,40 @@ export function checkMode(env) {
 }
 
 /**
+ * The check run's output and exit code: a line per case and library it checked (`ok`, or `FAIL`
+ * when one of the problems `run.mjs` prefixes with `<case> [<library>, <browser>]` is its), then
+ * the counts. A run that checked nothing fails, so an empty filter or a case list without
+ * interactions cannot pass as a clean check.
+ * @param {{ key: string, name: string }[]} checked
+ * @param {string} browser
+ * @param {string[]} problems
+ * @returns {{ lines: string[], code: 0 | 1 }}
+ */
+export function checkSummary(checked, browser, problems) {
+  if (checked.length === 0) {
+    return {
+      lines: [
+        'SSR check: 0 cases checked (no case matched with an interaction); nothing was checked',
+      ],
+      code: 1,
+    };
+  }
+  const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+  const label = ({ key, name }) => `${key} [${name}, ${browser}]`;
+  const cases = new Set(checked.map((c) => c.key)).size;
+  const libraries = new Set(checked.map((c) => c.name)).size;
+  return {
+    lines: [
+      ...checked.map(
+        (c) => `${label(c)} ${problems.some((p) => p.startsWith(label(c))) ? 'FAIL' : 'ok'}`,
+      ),
+      `SSR check: ${plural(cases, 'case', 'cases')} × ${plural(libraries, 'library', 'libraries')}, ${plural(problems.length, 'problem', 'problems')}`,
+    ],
+    code: problems.length > 0 ? 1 : 0,
+  };
+}
+
+/**
  * One interactive case's correctness check on one cold load (`measureInteraction`): its problems,
  * none when it passes. It fails on a dead trigger, a load that measured no TTI, a page error, or a
  * hydration warning in the console, and never on a timing.
@@ -73,7 +107,12 @@ export function checkMode(env) {
  * @param {{ measure?: typeof measureInteraction }} [options] `measure` stands in for the load in tests
  * @returns {Promise<string[]>}
  */
-export async function checkInteraction(browser, url, interaction, { measure = measureInteraction } = {}) {
+export async function checkInteraction(
+  browser,
+  url,
+  interaction,
+  { measure = measureInteraction } = {},
+) {
   const problems = [];
   try {
     const { ttiMs, page } = await measure(browser, url, interaction, {
@@ -84,7 +123,9 @@ export async function checkInteraction(browser, url, interaction, { measure = me
             problems.push(message.text().slice(0, 200));
           }
         });
-        opened.on('pageerror', (error) => problems.push(`pageerror: ${String(error).slice(0, 200)}`));
+        opened.on('pageerror', (error) =>
+          problems.push(`pageerror: ${String(error).slice(0, 200)}`),
+        );
       },
     });
     if (!Number.isFinite(ttiMs)) {
@@ -141,12 +182,17 @@ export async function measureInteraction(browser, url, interaction, options = {}
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: options.throttle });
   }
   await page.goto(url, { waitUntil: 'commit' });
-  await page.waitForFunction((selector) => document.querySelector(selector) != null, interaction.trigger);
+  await page.waitForFunction(
+    (selector) => document.querySelector(selector) != null,
+    interaction.trigger,
+  );
   /** A real click at the center of the stashed trigger, or of `selector`'s first match. */
   const clickAt = async (selector) => {
     const [x, y] = await page.evaluate(
       ([trigger, other]) => {
-        const el = other ? document.querySelector(other) : (window.__perfTrigger ??= document.querySelector(trigger));
+        const el = other
+          ? document.querySelector(other)
+          : (window.__perfTrigger ??= document.querySelector(trigger));
         const rect = el.getBoundingClientRect();
         return [rect.x + rect.width / 2, rect.y + rect.height / 2];
       },
@@ -170,7 +216,8 @@ export async function measureInteraction(browser, url, interaction, options = {}
             requestAnimationFrame(() => resolve());
           }),
       ),
-    effectSeen: () => page.evaluate((effect) => window.__perfEffectShows(effect), interaction.effect),
+    effectSeen: () =>
+      page.evaluate((effect) => window.__perfEffectShows(effect), interaction.effect),
   };
   let landed;
   try {
@@ -195,12 +242,19 @@ export async function measureInteraction(browser, url, interaction, options = {}
     await page.keyboard.press('Escape');
   } else if (undo === 'escape') {
     for (const type of ['keyDown', 'keyUp']) {
-      await cdp.send('Input.dispatchKeyEvent', { type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+      await cdp.send('Input.dispatchKeyEvent', {
+        type,
+        key: 'Escape',
+        code: 'Escape',
+        windowsVirtualKeyCode: 27,
+      });
     }
   } else {
     await clickAt(undo === 'toggle' ? undefined : undo.click);
   }
-  await page.waitForFunction((effect) => !window.__perfEffectShows(effect), interaction.effect, { timeout: 5000 });
+  await page.waitForFunction((effect) => !window.__perfEffectShows(effect), interaction.effect, {
+    timeout: 5000,
+  });
   await driver.nextFrame();
   await driver.nextFrame();
   // The warm click resolves the trigger again: an undo may have replaced it (a dialog's Close).
@@ -208,10 +262,11 @@ export async function measureInteraction(browser, url, interaction, options = {}
     window.__perfTrigger = undefined;
   });
   await clickAt();
-  await page.waitForFunction((effect) => window.__perfEffectShows(effect), interaction.effect, { timeout: 5000 });
+  await page.waitForFunction((effect) => window.__perfEffectShows(effect), interaction.effect, {
+    timeout: 5000,
+  });
   const inpMs = await lastLatency();
-  const scriptMs =
-    (metrics.metrics.find((m) => m.name === 'ScriptDuration')?.value ?? 0) * 1000;
+  const scriptMs = (metrics.metrics.find((m) => m.name === 'ScriptDuration')?.value ?? 0) * 1000;
   const loaded = await page.evaluate(() => ({
     hydrateLoadCommitMs: window.__hydratedAt ?? null,
     bundleBytes: performance
@@ -234,7 +289,9 @@ export async function firstHandledClick(driver, { timeoutMs }) {
   for (;;) {
     const at = await driver.now();
     if (at > timeoutMs) {
-      throw new Error(`${DEAD_TRIGGER}: no click took effect within ${timeoutMs} ms (${clicks} sent)`);
+      throw new Error(
+        `${DEAD_TRIGGER}: no click took effect within ${timeoutMs} ms (${clicks} sent)`,
+      );
     }
     await driver.click();
     clicks += 1;

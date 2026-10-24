@@ -37,7 +37,13 @@ import { balancedOrders } from '../shared/order.mjs';
 import { median } from '../shared/regression.mjs';
 import { SERVER_SAMPLING, sampleServer } from './sample.mjs';
 import { mainThreadLines } from '../shared/report.mjs';
-import { DEAD_TRIGGER, checkInteraction, checkMode, measureInteraction } from './interact.mjs';
+import {
+  DEAD_TRIGGER,
+  checkInteraction,
+  checkMode,
+  checkSummary,
+  measureInteraction,
+} from './interact.mjs';
 import { summariesMatch } from '../shared/known.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -170,6 +176,11 @@ try {
 const keys = first.cases
   .filter((c) => matchesFilter(c, FILTER) && (!CHECK || c.interaction))
   .map((c) => c.id);
+if (keys.length === 0 && CHECK) {
+  // A check with nothing to check fails rather than passing empty.
+  console.error(checkSummary([], CHECK, []).lines.join('\n'));
+  process.exit(1);
+}
 if (keys.length === 0) {
   console.error(`No SSR case matches "${process.argv[3]}"; cases: ${caseIds.join(', ')}`);
   process.exit(1);
@@ -240,6 +251,8 @@ for (const key of keys) {
 
 // --- Hydration (Chromium) ---
 const problems = [];
+/** The cases and variants the check loaded (`checkSummary`). */
+const checked = [];
 if (!process.env.SERVER_ONLY) {
   const playwright = await import('playwright');
   const templates = Object.fromEntries(
@@ -291,6 +304,7 @@ if (!process.env.SERVER_ONLY) {
       for (const problem of await checkInteraction(browser, url, interaction)) {
         problems.push(`${key} [${name}, ${CHECK}] ${problem}`);
       }
+      checked.push({ key, name });
     }
   }
   for (const key of CHECK ? [] : keys) {
@@ -478,29 +492,40 @@ const ratio = (a, b) => (a && b != null ? `${(b / a).toFixed(2)}x` : '-');
 const others = NAMES.slice(1);
 /** Hydration and first-close script time together: what deferring work past hydration can't hide. */
 const withClose = (entry) => entry.hydrateScriptMs + (entry.firstCloseScriptMs ?? 0);
-const lines = [
-  `# Base UI SSR bench ${new Date().toISOString()}`,
-  '',
-  `runs ${RUNS} · hydration warmup ${WARMUP}${CPU_THROTTLE > 1 ? ` · CPU ${CPU_THROTTLE}x slower` : ''} · server warmup ${SERVER_SAMPLING.warmup}, samples: batch means (${keys.map((key) => `${key} ×${serverBatch[key]}`).join(', ')}), GC before each batch · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
-  '',
-  `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate ms / hydrate script ms / first close ms / close script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate / hydrate+close script`).join(' | ')} |`,
-  `|---|${NAMES.map(() => '---').join('|')}|${others.map(() => '---').join('|')}|`,
-];
-for (const key of keys) {
-  const row = results[key];
-  const cells = NAMES.map(
-    (n) =>
-      `${fmt(row[n].serverMs)} / ${row[n].htmlBytes} / ${fmt(row[n].hydrateCommitMs)} / ${fmt(row[n].hydrateScriptMs)} / ${fmt(row[n].firstCloseMs)} / ${fmt(row[n].firstCloseScriptMs)}`,
-  );
-  const ratios = others.map(
-    (n) =>
-      `${ratio(row[NAMES[0]].serverMs, row[n].serverMs)} / ${ratio(row[NAMES[0]].hydrateCommitMs, row[n].hydrateCommitMs)} / ${ratio(withClose(row[NAMES[0]]), withClose(row[n]))}`,
-  );
-  lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
+if (CHECK) {
+  // The check times nothing: no bench table and no results file, only what it checked.
+  const summary = checkSummary(checked, CHECK, problems);
+  console.log([...summary.lines, ...problems.map((p) => `- ${p}`)].join('\n'));
+  process.exit(summary.code);
 }
-lines.push(...mainThreadLines(keys, results, NAMES));
+const lines = timingLines();
 if (problems.length) {
   lines.push('', '## Problems', '', ...problems.map((p) => `- ${p}`));
+}
+/** The measured run's report: the server, hydration and close timings, then the main thread. */
+function timingLines() {
+  const table = [
+    `# Base UI SSR bench ${new Date().toISOString()}`,
+    '',
+    `runs ${RUNS} · hydration warmup ${WARMUP}${CPU_THROTTLE > 1 ? ` · CPU ${CPU_THROTTLE}x slower` : ''} · server warmup ${SERVER_SAMPLING.warmup}, samples: batch means (${keys.map((key) => `${key} ×${serverBatch[key]}`).join(', ')}), GC before each batch · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
+    '',
+    `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate ms / hydrate script ms / first close ms / close script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate / hydrate+close script`).join(' | ')} |`,
+    `|---|${NAMES.map(() => '---').join('|')}|${others.map(() => '---').join('|')}|`,
+  ];
+  for (const key of keys) {
+    const row = results[key];
+    const cells = NAMES.map(
+      (n) =>
+        `${fmt(row[n].serverMs)} / ${row[n].htmlBytes} / ${fmt(row[n].hydrateCommitMs)} / ${fmt(row[n].hydrateScriptMs)} / ${fmt(row[n].firstCloseMs)} / ${fmt(row[n].firstCloseScriptMs)}`,
+    );
+    const ratios = others.map(
+      (n) =>
+        `${ratio(row[NAMES[0]].serverMs, row[n].serverMs)} / ${ratio(row[NAMES[0]].hydrateCommitMs, row[n].hydrateCommitMs)} / ${ratio(withClose(row[NAMES[0]]), withClose(row[n]))}`,
+    );
+    table.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
+  }
+  table.push(...mainThreadLines(keys, results, NAMES));
+  return table;
 }
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const out = process.env.RESULTS_FILE ?? path.join(resultsDir, `ssr-${stamp}`);
