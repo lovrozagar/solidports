@@ -97,8 +97,35 @@ function Anchored() {
   );
 }
 
+// Each toast fades out over 60 ms when it closes: its removal waits for the exit to finish.
+const EXIT_CSS =
+  '.bench-toast-exit { transition: opacity 60ms linear; } .bench-toast-exit[data-ending-style] { opacity: 0; }';
+
+function ExitList() {
+  const { toasts } = Toast.useToastManager();
+  return toasts.map((toast) => (
+    <Toast.Root key={toast.id} toast={toast} data-testid="toast" className="bench-toast-exit">
+      <Toast.Title data-testid="toast-title" />
+    </Toast.Root>
+  ));
+}
+
+function ExitViewport() {
+  return (
+    <Toast.Provider toastManager={manager} timeout={0} limit={100}>
+      <style>{EXIT_CSS}</style>
+      <Toast.Portal>
+        <Toast.Viewport data-testid="viewport">
+          <ExitList />
+        </Toast.Viewport>
+      </Toast.Portal>
+    </Toast.Provider>
+  );
+}
+
 export const fixtures: Record<string, React.FC> = {
   'toast/viewport': ToastViewport,
   'toast/viewport-action': ActionViewport,
   'toast/anchored': Anchored,
+  'toast/viewport-exit': ExitViewport,
 };
