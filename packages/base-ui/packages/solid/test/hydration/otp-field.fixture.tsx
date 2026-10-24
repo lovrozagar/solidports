@@ -40,14 +40,16 @@ export function OTPFieldFixture() {
         />
         <OTPField.Input data-testid="c-render-getter" render={renderFlag() ? 'input' : undefined} />
         <OTPField.Input {...slotSpread} data-testid="c-spread" />
-        {createComponent(OTPField.Input, {
-          get ref() {
-            return (el: HTMLInputElement) => {
-              getterTarget = el;
-            };
-          },
-          'data-testid': 'c-getter-ref',
-        } as OTPField.Input.Props) as unknown as JSX.Element}
+        {
+          createComponent(OTPField.Input, {
+            get ref() {
+              return (el: HTMLInputElement) => {
+                getterTarget = el;
+              };
+            },
+            'data-testid': 'c-getter-ref',
+          } as OTPField.Input.Props) as unknown as JSX.Element
+        }
       </OTPField.Root>
     </div>
   );

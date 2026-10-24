@@ -4,8 +4,9 @@
  */
 import { flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { TabsFixture } from './tabs.fixture';
+import { serverHtml } from './serverHtml';
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -15,7 +16,7 @@ afterEach(() => {
 
 describe('hydrated Tabs', () => {
   it('wires each tab to its panel', async () => {
-    const html = inject('serverHtml')['tabs.server.tsx'];
+    const html = serverHtml('tabs.server.tsx');
     if (!html) {
       throw new Error('globalSetup did not server-render tabs.server.tsx');
     }

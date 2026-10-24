@@ -17,7 +17,11 @@ export function LazyScopeElement() {
         return null;
       }}
     >
-      <div>{runInLazyScope(owner, () => <span data-testid="inside" />)}</div>
+      <div>
+        {runInLazyScope(owner, () => (
+          <span data-testid="inside" />
+        ))}
+      </div>
     </Errored>
   );
 }

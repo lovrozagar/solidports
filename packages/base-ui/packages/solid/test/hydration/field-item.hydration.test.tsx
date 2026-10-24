@@ -4,9 +4,10 @@
  */
 import { flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderPathOf } from '../../src/utils/renderPath';
 import { FieldItemFixture } from './field-item.fixture';
+import { serverHtml } from './serverHtml';
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -17,7 +18,7 @@ afterEach(() => {
 
 describe('hydrated Field.Item', () => {
   it("claims the server's items, natively and without a mismatch", () => {
-    const html = inject('serverHtml')['field-item.server.tsx'];
+    const html = serverHtml('field-item.server.tsx');
     if (!html) {
       throw new Error('globalSetup did not server-render field-item.server.tsx');
     }

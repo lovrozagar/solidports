@@ -6,8 +6,9 @@
  */
 import { flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { caught, LazyScopeElement } from './lazy-scope.fixture';
+import { serverHtml } from './serverHtml';
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -18,7 +19,7 @@ afterEach(() => {
 
 describe('runInLazyScope while hydrating', () => {
   it('fails when an element is claimed inside the scope', () => {
-    const html = inject('serverHtml')['lazy-scope.server.tsx'];
+    const html = serverHtml('lazy-scope.server.tsx');
     if (!html) {
       throw new Error('globalSetup did not server-render lazy-scope.server.tsx');
     }

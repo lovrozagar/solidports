@@ -39,21 +39,20 @@ export function FieldControlFixture() {
         }}
       />
       {/* A reactive `render`: a getter on both sides, so the slow path. */}
-      <Field.Control
-        data-testid="render-getter"
-        render={renderFlag() ? 'input' : undefined}
-      />
+      <Field.Control data-testid="render-getter" render={renderFlag() ? 'input' : undefined} />
       {/* A spread beside other props: a `mergeProps` proxy on both sides, so the slow path. */}
       <Field.Control {...spreadProps} data-testid="spread" />
       {/* A getter `ref`, the one dynamic-ref shape: a getter on both sides, so the slow path. */}
-      {createComponent(Field.Control, {
-        get ref() {
-          return (el: HTMLInputElement) => {
-            getterTarget = el;
-          };
-        },
-        'data-testid': 'getter-ref',
-      } as Field.Control.Props) as unknown as JSX.Element}
+      {
+        createComponent(Field.Control, {
+          get ref() {
+            return (el: HTMLInputElement) => {
+              getterTarget = el;
+            };
+          },
+          'data-testid': 'getter-ref',
+        } as Field.Control.Props) as unknown as JSX.Element
+      }
     </div>
   );
 }

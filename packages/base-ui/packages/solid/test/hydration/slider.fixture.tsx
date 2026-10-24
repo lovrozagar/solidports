@@ -153,7 +153,9 @@ export function ScriptedSliders(props: { slow: boolean }) {
             get children() {
               return (
                 <Slider.Track style={track}>
-                  {part(props.slow, Slider.Indicator, { 'data-testid': 'b-indicator' } as Slider.Indicator.Props)}
+                  {part(props.slow, Slider.Indicator, {
+                    'data-testid': 'b-indicator',
+                  } as Slider.Indicator.Props)}
                   {part(props.slow, Slider.Thumb, { 'data-testid': 'b-thumb', style: thumbStyle })}
                 </Slider.Track>
               );
@@ -171,7 +173,9 @@ export function ScriptedSliders(props: { slow: boolean }) {
             get children() {
               return (
                 <Slider.Track style={track}>
-                  {part(props.slow, Slider.Indicator, { 'data-testid': 'c-indicator' } as Slider.Indicator.Props)}
+                  {part(props.slow, Slider.Indicator, {
+                    'data-testid': 'c-indicator',
+                  } as Slider.Indicator.Props)}
                   {part(props.slow, Slider.Thumb, {
                     index: 0,
                     'data-testid': 'c-thumb-0',
