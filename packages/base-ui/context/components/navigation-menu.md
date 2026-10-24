@@ -1,6 +1,6 @@
 ---
 tags: [navigation-menu, popup, floating, perf]
-sources: [packages/base-ui/packages/solid/src/navigation-menu, packages/base-ui/packages/solid/src/navigation-menu/trigger/NavigationMenuTrigger.tsx, packages/base-ui/packages/solid/src/navigation-menu/root/NavigationMenuRoot.tsx, packages/base-ui/packages/solid/src/navigation-menu/navigationMenu.cost.test.tsx, packages/base-ui/packages/solid/test/floor/navigationMenu.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/navigation-menu/navigationMenu.parity.test.tsx, packages/base-ui/packages/solid/src/utils/native/compositeButton.ts]
+sources: [packages/base-ui/packages/solid/src/navigation-menu, packages/base-ui/packages/solid/src/navigation-menu/trigger/NavigationMenuTrigger.tsx, packages/base-ui/packages/solid/src/navigation-menu/root/NavigationMenuRoot.tsx, packages/base-ui/packages/solid/src/navigation-menu/navigationMenu.cost.test.tsx, packages/base-ui/packages/solid/test/floor/navigationMenu.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/navigation-menu/navigationMenu.parity.test.tsx, packages/base-ui/packages/solid/src/utils/native/compositeButton.ts, packages/base-ui/packages/solid/src/navigation-menu/trigger/NavigationMenuTrigger.pointerEvents.test.tsx]
 verified: 2026-10-23
 ---
 
@@ -99,7 +99,7 @@ See [floating](../architecture/floating.md) and the [optimization map](../perf/o
 ## Known issues and divergences
 
 - Dynamic floating root context: `root/NavigationMenuRoot.tsx:111` derives the active trigger's floating context in the same flush from the triggers' registered contexts. React copies it from the trigger's effect. Its identity changes with the active trigger by design.
-- `trigger/NavigationMenuTrigger.tsx:811`: `handleActivation` clears its toggle latch in a microtask; `:874` defers the pointer-events mutation the same way, as upstream does.
+- `trigger/NavigationMenuTrigger.tsx:819`: `handleActivation` clears its toggle latch in a microtask; `:882` defers the pointer-events mutation the same way, as upstream does, and skips it once the trigger is disposed (otherwise a trigger unmounted in the hover's tick left the body with `pointer-events: none`; `trigger/NavigationMenuTrigger.pointerEvents.test.tsx`).
 - `content/NavigationMenuContent.tsx:144`: `mounted` lags `open` by a flush, so an opening content also renders while `open` is true.
 - Content and viewport map React's bubbling `onFocus`/`onBlur` to `focusin`/`focusout` (`content/NavigationMenuContent.tsx:117`, `viewport/NavigationMenuViewport.tsx:128`).
 
