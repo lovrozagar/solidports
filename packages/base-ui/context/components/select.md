@@ -1,6 +1,6 @@
 ---
 tags: [select, native, floating, composite, perf]
-sources: [packages/base-ui/packages/solid/src/select, packages/base-ui/packages/solid/src/select/root/SelectRoot.tsx, packages/base-ui/packages/solid/src/select/item/SelectItem.tsx, packages/base-ui/packages/solid/src/select/select.cost.test.tsx, packages/base-ui/packages/solid/test/floor/select.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
+sources: [packages/base-ui/packages/solid/src/utils/ItemIndicator.tsx, packages/base-ui/packages/solid/src/utils/native/itemIndicator.tsx, packages/base-ui/packages/solid/src/utils/ItemIndicator.parity.test.tsx, packages/base-ui/packages/solid/src/utils/ItemIndicator.cost.test.tsx, packages/base-ui/packages/solid/src/select, packages/base-ui/packages/solid/src/select/root/SelectRoot.tsx, packages/base-ui/packages/solid/src/select/item/SelectItem.tsx, packages/base-ui/packages/solid/src/select/select.cost.test.tsx, packages/base-ui/packages/solid/test/floor/select.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx]
 verified: 2026-10-22
 ---
 
@@ -33,7 +33,7 @@ All under `packages/base-ui/packages/solid/src/select/`.
 - The root builds one `getItemProps()` view, on the first item's read and under the root's owner, and every item reads it at event time; before, each item built its own view.
 - The values slot and the selected-index claim are one render effect that compares against the slot it last wrote, where the slow path keeps two memo-and-effect pairs.
 - `createNativeListItem` takes the typeahead `label` and `textRef`.
-- `Select.ItemText` renders a plain `<div>` with its text refs; `Select.ItemIndicator` mounts through the kit's conditional, with no `<Show>` memos.
+- `Select.ItemText` renders a plain `<div>` with its text refs. `Select.ItemIndicator` renders natively on the client through the shared item indicator (`utils/native/itemIndicator.tsx`, `SELECTED_ITEM_INDICATOR_KIND` in `utils/ItemIndicator.tsx`), which Combobox's shares: a `<span aria-hidden>` with `data-selected` and the transition attributes, `✔️` unless the consumer passes children. As upstream's wrapper gates it, it mounts while its item is selected or `keepMounted`, so a plain indicator unmounts on deselect and a reselect creates it again, each mount with its own transition; a `keepMounted` one keeps its element through an exit and a reselect (`utils/ItemIndicator.parity.test.tsx`). A mounted indicator costs 3 nodes against 20 on the slow path, an unselected one 1, as before (`utils/ItemIndicator.cost.test.tsx`). Any `render` takes the slow path.
 
 ## Reactive cost
 

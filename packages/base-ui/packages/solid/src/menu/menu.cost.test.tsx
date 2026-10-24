@@ -112,8 +112,8 @@ describe('menu cost against the hand-written floor', () => {
 
 /** Each item kind's count at D32's port; the slow path's in the comment. */
 const BUDGET = {
-  checkbox: 15, // with its indicator; slow 53, floor 13
-  radio: 14, // with its indicator; slow 52, floor 13
+  checkbox: 12, // with its indicator; slow 53, floor 13
+  radio: 11, // with its indicator; slow 52, floor 13
   link: 2, // slow 23, floor 5
   // Per copy: a closed Menu.SubmenuRoot (its store) with its trigger; the floor's is the trigger.
   submenu: 104, // slow 132; the floor trigger 5

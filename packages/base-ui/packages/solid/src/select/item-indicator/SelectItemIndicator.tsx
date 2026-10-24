@@ -1,7 +1,9 @@
 import { getOwner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { ItemIndicator } from '../../utils/ItemIndicator';
+import { ItemIndicator, SELECTED_ITEM_INDICATOR_KIND } from '../../utils/ItemIndicator';
+import { canRenderNative } from '../../utils/native';
+import { renderNativeItemIndicator } from '../../utils/native/itemIndicator';
 import { createNativeConditional } from '../../utils/native/conditional';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useSelectItemContext } from '../item/SelectItemContext';
@@ -13,7 +15,13 @@ import { useSelectItemContext } from '../item/SelectItemContext';
  * Documentation: [Base UI Select](https://base-ui.com/react/components/select)
  */
 export function SelectItemIndicator(componentProps: SelectItemIndicator.Props) {
-  const { selected } = useSelectItemContext();
+  const item = useSelectItemContext();
+  // Native fast path (`context/architecture/render-pipeline.md`): the shared item indicator
+  // (`utils/native/itemIndicator.tsx`, D32's sweep).
+  if (canRenderNative(componentProps)) {
+    return renderNativeItemIndicator(componentProps, item, SELECTED_ITEM_INDICATOR_KIND);
+  }
+  const { selected } = item;
 
   // Mount the shared indicator only while selected or kept mounted, so an unselected item does
   // not pay for the transition hooks. A conditional branch the parent's insert tracks: no
