@@ -181,7 +181,7 @@ export async function measureInteraction(browser, url, interaction, options = {}
 
 /**
  * Clicks once per frame until a click's effect appears.
- * @param {{ now: () => number, click: () => Promise<void>, nextFrame: () => Promise<void>, effectSeen: () => Promise<boolean> }} driver
+ * @param {{ now: () => Promise<number>, click: () => Promise<void>, nextFrame: () => Promise<void>, effectSeen: () => Promise<boolean> }} driver
  *   `now` is milliseconds since navigation start.
  * @param {{ timeoutMs: number }} options
  * @returns {Promise<{ ttiMs: number, clicks: number }>} the landing click's time and the clicks sent
@@ -189,7 +189,7 @@ export async function measureInteraction(browser, url, interaction, options = {}
 export async function firstHandledClick(driver, { timeoutMs }) {
   let clicks = 0;
   for (;;) {
-    const at = driver.now();
+    const at = await driver.now();
     if (at > timeoutMs) {
       throw new Error(`${DEAD_TRIGGER}: no click took effect within ${timeoutMs} ms (${clicks} sent)`);
     }

@@ -4,6 +4,14 @@
     <meta charset="utf-8" />
     <title>ssr-solid</title>
     <!--ssr-head-->
+    <!-- An interactive case's trigger needs a box to be clicked: a checkbox root is empty while unchecked. -->
+    <style>
+      [role='checkbox'] {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+      }
+    </style>
   </head>
   <body>
     <div id="root"><!--ssr-outlet--></div>
