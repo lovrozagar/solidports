@@ -78,7 +78,11 @@ export default mergeConfig(
       // the shipped files with Node APIs: they run under jsdom, and browsers can't load them.
       exclude: ['test/ssr/**', ...(IN_BROWSER ? ['test/package/**'] : [])],
       // Hydration fixtures are server-rendered in Node up front (browser mode has no SSR loader).
-      globalSetup: [resolve(PACKAGE_DIR, 'test/hydration/globalSetup.ts')],
+      globalSetup: [
+        resolve(PACKAGE_DIR, 'test/hydration/globalSetup.ts'),
+        // The jsdom exit records keep the newest runs (`test/exitDiagnosticsSetup.ts`).
+        ...(IN_BROWSER ? [] : [resolve(PACKAGE_DIR, 'test/exitDiagnosticsSetup.ts')]),
+      ],
       setupFiles: [
         resolve(PACKAGE_DIR, 'test/disableAutoCleanup.ts'),
         resolve(PACKAGE_DIR, 'test/setupSolid.ts'),
