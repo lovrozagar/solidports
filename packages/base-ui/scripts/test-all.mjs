@@ -21,7 +21,9 @@
 //                                              on vitest's module-graph diff against HEAD
 //                                              (uncommitted changes) or the ref, and Firefox
 //                                              and WebKit parity on the range's browser test
-//                                              files (WebKit in Playwright's Docker image)
+//                                              files (WebKit in Playwright's Docker image),
+//                                              and docs-validate on the pages the range can
+//                                              change (`changedDocsPages`)
 import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -69,7 +71,8 @@ const WEBKIT_STEP_TIMEOUT_SECONDS = 1425;
 // the module-graph diff. The parity suites run scoped, on the Solid test files the range changed
 // or changed a source file beside (CI's parity caught new tests only after the push: a WebKit
 // mousemove test, and a Firefox pointer-lock test in run 39799938293); their `fullOnly` names the
-// whole run that only a full run or CI does. Every other heavy suite names in `fullOnly` why only a
+// whole run that only a full run or CI does. docs-validate runs on the docs pages the range can
+// change (`changedDocsPages`; CI caught a stale toast types page, 66627259). Every other heavy suite names in `fullOnly` why only a
 // full run or CI runs it.
 export const suites = [
   { job: 'Linting', name: 'format', cwd: '.', run: ['bun run fmt:check'] },
@@ -347,6 +350,132 @@ export function changedBrowserTestFiles(names, exists, listDir) {
   };
 }
 
+/** The Solid docs routes, relative to packages/base-ui. */
+const DOCS_ROUTES = 'docs/solid/src/app/(docs)/solid';
+/** Changes the docs' generated files follow that no one page owns: the docs, their inputs, the lockfile. */
+const DOCS_INPUTS = [`${baseUi}/docs/`, `${baseUi}/scripts/docs/`, 'bun.lock'];
+
+/**
+ * The docs pages a range can change, for a scoped docs-validate under `--changed`. A page's types
+ * come from its component's entry (`types.ts` imports `@solidports/base-ui/<dir>`), so a source
+ * change reaches the pages whose directory imports the changed one, directly or through other
+ * directories. A change no page owns (shared code such as `utils/`, a file at the source root, the
+ * docs or their inputs) reaches nearly every page: it returns as `full`, the full validation. Test
+ * files reach none, and a change to a page's own files (its page, demos or generated types) reaches
+ * that page. `names` are repo-relative; `graph.pages` maps a source directory to its route,
+ * and `graph.importsOf(dir)` lists the source directories that dir's non-test files import.
+ * @returns {{ full: string | null, pages: string[] }} `full`: the first change that needs the
+ *   full validation
+ */
+export function changedDocsPages(names, graph) {
+  const changedDirs = new Set();
+  const routes = new Set(Object.values(graph.pages));
+  /** Pages whose own files (page, demos, generated types) changed. */
+  const touched = new Set();
+  for (const name of names) {
+    const route = [...routes].find((candidate) =>
+      name.startsWith(`${baseUi}/docs/solid/src/app/${candidate}/`),
+    );
+    if (route) {
+      touched.add(route);
+      continue;
+    }
+    if (DOCS_INPUTS.some((input) => name === input || name.startsWith(input))) {
+      return { full: name, pages: [] };
+    }
+    if (!name.startsWith(SOLID_SOURCES) || TEST_FILE.test(name)) {
+      continue;
+    }
+    const rest = name.slice(SOLID_SOURCES.length);
+    const dir = rest.includes('/') ? rest.slice(0, rest.indexOf('/')) : null;
+    if (dir === null || !Object.hasOwn(graph.pages, dir)) {
+      return { full: name, pages: [] };
+    }
+    changedDirs.add(dir);
+  }
+  const pages = [...touched];
+  for (const [dir, route] of Object.entries(graph.pages)) {
+    if (touched.has(route)) {
+      continue;
+    }
+    // The directories this page's entry reaches, itself first.
+    const reached = new Set([dir]);
+    const queue = [dir];
+    while (queue.length > 0) {
+      for (const imported of graph.importsOf(queue.pop())) {
+        if (!reached.has(imported)) {
+          reached.add(imported);
+          queue.push(imported);
+        }
+      }
+    }
+    if ([...changedDirs].some((changed) => reached.has(changed))) {
+      pages.push(route);
+    }
+  }
+  return { full: null, pages: pages.sort() };
+}
+
+/** Relative import specifiers: `from '...'`, `import('...')` and side-effect `import '...'`. */
+const RELATIVE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*)'(\.{1,2}\/[^']+)'/g;
+
+/**
+ * The source directories one file imports from, other than its own: every relative specifier a
+ * type can come through (`import`, `import type`, `export * from`, `export { x } from`,
+ * `export type { x } from`, a side-effect `import`, a literal `import()`), resolved against the
+ * file and cut to its first segment under `src`.
+ */
+export function importedDirs(source, file, src) {
+  const own = path.relative(src, file).split(path.sep)[0];
+  const dirs = new Set();
+  for (const [, specifier] of source.matchAll(RELATIVE_IMPORT)) {
+    const target = path.relative(src, path.resolve(path.dirname(file), specifier));
+    const top = target.split(path.sep)[0].replace(/\.tsx?$/, '');
+    if (!target.startsWith('..') && top !== own && top !== '') {
+      dirs.add(top);
+    }
+  }
+  return [...dirs];
+}
+
+/**
+ * The docs graph on disk for `changedDocsPages`: each source directory with a component or utility
+ * page, and the source directories each directory's non-test files import.
+ */
+export function docsGraph() {
+  const src = path.join(root, SOLID_SOURCES);
+  const routes = path.join(root, baseUi, DOCS_ROUTES);
+  const pages = {};
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    for (const section of ['components', 'utils']) {
+      if (entry.isDirectory() && fs.existsSync(path.join(routes, section, entry.name, 'page.mdx'))) {
+        pages[entry.name] = `(docs)/solid/${section}/${entry.name}`;
+      }
+    }
+  }
+  const cache = new Map();
+  const importsOf = (dir) => {
+    if (!cache.has(dir)) {
+      const imported = new Set();
+      const base = path.join(src, dir);
+      const files = fs.existsSync(base)
+        ? fs.readdirSync(base, { recursive: true, withFileTypes: true }).filter(
+            (entry) => entry.isFile() && /\.tsx?$/.test(entry.name) && !TEST_FILE.test(entry.name),
+          )
+        : [];
+      for (const file of files) {
+        const at = path.join(file.parentPath, file.name);
+        for (const dirName of importedDirs(fs.readFileSync(at, 'utf8'), at, src)) {
+          imported.add(dirName);
+        }
+      }
+      cache.set(dir, [...imported]);
+    }
+    return cache.get(dir);
+  };
+  return { pages, importsOf };
+}
+
 export function parseArgs(argv) {
   const options = { only: null, list: false, changed: null, fullBench: false };
   for (let index = 0; index < argv.length; index += 1) {
@@ -413,6 +542,18 @@ export function planSuites(options) {
       } else {
         run = [scopedParity(suite.browser, tests).join('\n')];
         note = `${tests.solidCount} Solid test files${tests.overBudget ? `, over the ${BROWSER_TEST_BUDGET}-file budget` : ''}`;
+      }
+    } else if (options.changed != null && suite.name === 'docs-validate' && options.docsPages) {
+      // The scoped docs validation: one run per page the range can change, or the full one.
+      const { full, pages } = options.docsPages;
+      if (full) {
+        note = `full: ${full} reaches every page`;
+      } else if (pages.length > 0) {
+        run = pages.map((page) => `bun run docs:validate ${quote(page)}`);
+        note = `${pages.length} page${pages.length === 1 ? '' : 's'}: ${pages.join(', ')}`;
+      } else {
+        selected = false;
+        detail = 'not selected (--changed: no docs page reached)';
       }
     } else if (options.changed != null) {
       selected = !suite.heavy || Boolean(suite.vitest);
@@ -708,6 +849,7 @@ function scopedParityInputs(ref) {
     ...git(['ls-files', '--others', '--exclude-standard']),
   ];
   const base = path.join(root, baseUi);
+  const docsPages = changedDocsPages(names, docsGraph());
   const browserTests = changedBrowserTestFiles(
     names,
     (file) => fs.existsSync(path.join(base, file)),
@@ -719,7 +861,7 @@ function scopedParityInputs(ref) {
             .map((entry) => `${dir}/${entry.name}`)
         : [],
   );
-  return { browserTests };
+  return { browserTests, docsPages };
 }
 
 /**
