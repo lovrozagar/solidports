@@ -1,6 +1,6 @@
 ---
 tags: [combobox, native, floating, composite, perf]
-sources: [packages/base-ui/packages/solid/src/combobox, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/combobox/item/ComboboxItem.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/combobox/combobox.cost.test.tsx, packages/base-ui/packages/solid/test/floor/combobox.tsx]
+sources: [packages/base-ui/packages/solid/src/utils/ItemIndicator.tsx, packages/base-ui/packages/solid/src/utils/native/itemIndicator.tsx, packages/base-ui/packages/solid/src/utils/ItemIndicator.parity.test.tsx, packages/base-ui/packages/solid/src/utils/ItemIndicator.cost.test.tsx, packages/base-ui/packages/solid/src/combobox, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/combobox/item/ComboboxItem.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/combobox/combobox.cost.test.tsx, packages/base-ui/packages/solid/test/floor/combobox.tsx]
 verified: 2026-10-22
 ---
 
@@ -31,6 +31,7 @@ All under `packages/base-ui/packages/solid/src/combobox/`. The shared engine is 
 
 - The item renders its `<div role="option">` (`gridcell` in a row) through the kit when its props are plain, the list is not virtualized, it has no `index` prop and `nativeButton` is not `true`. One `NativeComboboxItemModel` per item is the target of the module-level handler tables, of the attribute write, of `ComboboxItemContext` and, as an `EventListener` object, of the capture-phase pointerdown; `useButton`'s composite gates are inlined in the slow path's `mergeProps` order (button gate, consumer, item, the root's list navigation).
 - The visible-values slot and the selected-index claim are one render effect that compares against the slot it last wrote; a listed item needs no `listRef` slot (only a virtualized or indexed item writes one).
+- `Combobox.ItemIndicator` renders natively on the client through the item indicator Select's shares (see [Select](select.md)): mounted while its item is selected or `keepMounted`. A mounted indicator costs 3 nodes against 24 on the slow path, an unselected one 1 against 6 (`utils/ItemIndicator.cost.test.tsx`). Any `render` takes the slow path.
 - Follow-up leaf: a virtualized item and an item with an `index` prop keep the slow path.
 
 ## Reactive cost

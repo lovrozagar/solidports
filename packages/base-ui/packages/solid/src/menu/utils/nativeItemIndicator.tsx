@@ -7,10 +7,7 @@
 import type { Accessor } from 'solid-js';
 import type { LazyTransitionHandle } from '../../utils/createLazyTransitionStatus';
 import { compileStateWriter } from '../../utils/native/element';
-import type {
-  NativeItemIndicatorKind,
-  NativeItemIndicatorState,
-} from '../../utils/native/itemIndicator';
+import type { NativeItemIndicatorKind } from '../../utils/native/itemIndicator';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { itemMapping } from './stateAttributesMapping';
 
@@ -22,15 +19,13 @@ export interface ItemIndicatorSource {
 }
 
 /** The indicator's state: prototype getters over its item and its transition. */
-class MenuItemIndicatorState implements NativeItemIndicatorState {
+class MenuItemIndicatorState {
   declare private readonly item: ItemIndicatorSource;
   declare private readonly transition: LazyTransitionHandle;
-  declare indicator: HTMLElement | null;
 
   constructor(item: ItemIndicatorSource, transition: LazyTransitionHandle) {
     this.item = item;
     this.transition = transition;
-    this.indicator = null;
   }
 
   get checked() {
@@ -50,10 +45,11 @@ class MenuItemIndicatorState implements NativeItemIndicatorState {
   }
 }
 
-/** Menu's checked-item indicator, shown while its item is checked. */
+/** Menu's checked-item indicator, shown while its item is checked and through its exit. */
 export const MENU_ITEM_INDICATOR_KIND = Object.freeze<NativeItemIndicatorKind<ItemIndicatorSource>>(
   {
     shown: (item) => item.checked,
+    keepsExit: true,
     State: MenuItemIndicatorState,
     writeState: compileStateWriter(
       ['checked', 'disabled', 'highlighted', 'transitionStatus'],

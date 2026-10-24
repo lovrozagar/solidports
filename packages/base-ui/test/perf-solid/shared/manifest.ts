@@ -236,6 +236,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'combobox cost against the hand-written floor > the floor renders the same option DOM as an open Combobox.Item',
     'combobox cost against the hand-written floor > an open Combobox.Item renders on the native path',
     'combobox cost against the hand-written floor > an open Combobox.Item costs at most the floor item plus 25%',
+    'item indicator cost > a mounted combobox indicator renders on the native path',
+    'item indicator cost > a combobox indicator stays within its native budget',
   ],
   'context-menu': [closedRoot('ContextMenu')],
   dialog: [
@@ -344,6 +346,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'select cost against the hand-written floor > the floor renders the same option DOM as an open Select.Item',
     'select cost against the hand-written floor > an open Select.Item renders on the native path',
     'select cost against the hand-written floor > an open Select.Item costs at most the floor item plus 25%',
+    'item indicator cost > a mounted select indicator renders on the native path',
+    'item indicator cost > a select indicator stays within its native budget',
     'select cost against the hand-written floor > a multiple Select toggle re-runs only the toggled item',
   ],
   separator: [
