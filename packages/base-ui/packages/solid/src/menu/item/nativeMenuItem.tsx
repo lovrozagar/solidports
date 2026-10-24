@@ -45,6 +45,16 @@ export interface NativeMenuItemKind {
   readonly stateWriter: StateWriter;
   /** `closeOnClick` when the prop is absent. */
   readonly closeOnClick: boolean;
+  /** The item's state class: `class`/`style` functions and the state writer read it. */
+  readonly State: new (item: NativeMenuItemModel) => NativeMenuItemState;
+  /** Sets the kind's per-item fields up, in the item's owner (it may read context). */
+  readonly init: ((item: NativeMenuItemModel) => void) | undefined;
+  /** The kind's own click, after the consumer's and before the root's list navigation. */
+  readonly click: ((item: NativeMenuItemModel, event: MouseEvent) => void) | undefined;
+  /** The kind's attributes beside the item's, in the same write. */
+  readonly attributes: ((w: SetAttribute, item: NativeMenuItemModel) => void) | undefined;
+  /** Renders the element under the kind's context, which its parts (an indicator) read. */
+  readonly provide: ((item: NativeMenuItemModel, render: () => Element) => Element) | undefined;
 }
 
 /**
@@ -53,7 +63,7 @@ export interface NativeMenuItemKind {
  * release per read, and the attribute write reads it too).
  */
 export class NativeMenuItemState {
-  declare private readonly item: NativeMenuItemModel;
+  declare protected readonly item: NativeMenuItemModel;
   declare private pass: number;
   declare private cachedHighlighted: boolean;
 
@@ -87,6 +97,10 @@ export class NativeMenuItemModel {
   declare readonly id: Accessor<string | undefined>;
   declare readonly state: NativeMenuItemState;
   declare element: HTMLElement | null;
+  /** A checkbox or radio item's checked state (set by its kind's `init`). */
+  declare checked: Accessor<boolean>;
+  /** A checkbox item's setter, or a radio item's group selection (set by its kind's `init`). */
+  declare select: (event: MouseEvent) => void;
 
   constructor(
     props: NativeMenuItemProps,
@@ -102,7 +116,7 @@ export class NativeMenuItemModel {
     this.contextMenu = contextMenu;
     this.index = index;
     this.id = id;
-    this.state = new NativeMenuItemState(this);
+    this.state = new kind.State(this);
     this.element = null;
   }
 
@@ -152,6 +166,7 @@ export class NativeMenuItemModel {
   }
 
   click(event: MouseEvent) {
+    this.kind.click?.(this, event);
     this.callListNavigation('onClick', event);
     if (this.props.closeOnClick ?? this.kind.closeOnClick) {
       this.root.store
@@ -300,6 +315,7 @@ function writeItemAttributes(w: SetAttribute, item: NativeMenuItemModel) {
   );
   // `useFocusableWhenDisabled` for a non-native composite item.
   w.set('aria-disabled', state.disabled ? 'true' : undefined);
+  item.kind.attributes?.(w, item);
 }
 
 const itemState = (item: NativeMenuItemModel) => item.state;
@@ -316,7 +332,17 @@ export function renderNativeMenuItem(
   const idIsStatic = !('id' in props) || isStaticKey(props, 'id');
   const id = useBaseUiId(idIsStatic ? untrack(() => props.id) : () => props.id);
   const model = new NativeMenuItemModel(props, kind, root, contextMenu, listItem.index, id);
+  kind.init?.(model);
+  const render = () => renderElement(props, model, listItem.setRef);
+  return (kind.provide ? kind.provide(model, render) : render()) as unknown as JSX.Element;
+}
 
+function renderElement(
+  props: NativeMenuItemProps,
+  model: NativeMenuItemModel,
+  setListRef: (node: HTMLElement | null | undefined) => void,
+): Element {
+  const kind = model.kind;
   const el = (<div />) as unknown as HTMLDivElement;
   return renderNativeElement(el, props, {
     own: kind.own,
@@ -330,10 +356,10 @@ export function renderNativeMenuItem(
     handlersIfPassed: ITEM_HANDLERS_IF_PASSED,
     handlerTarget: model,
     refs: [
-      listItem.setRef,
+      setListRef,
       (node: HTMLElement | null) => {
         model.element = node;
       },
     ],
-  }) as unknown as JSX.Element;
+  });
 }

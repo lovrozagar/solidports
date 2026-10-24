@@ -1,4 +1,4 @@
-import { Show } from 'solid-js';
+import { Show, untrack } from 'solid-js';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -10,11 +10,89 @@ import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
+import { NativeMenuItemState, renderNativeMenuItem } from '../item/nativeMenuItem';
+import type { NativeMenuItemKind, NativeMenuItemModel } from '../item/nativeMenuItem';
+import { canRenderNative } from '../../utils/native';
+import { compileStateWriter } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
+import { provideNativeContext } from '../../utils/native/context';
 import type { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
+import {
+  useMenuFilterImpl,
+  useMenuFilterItem,
+  withFilterChildren,
+} from '../filter-root/MenuFilterContext';
 import { itemMapping } from '../utils/stateAttributesMapping';
 import { MenuCheckboxItemContext } from './MenuCheckboxItemContext';
+
+/** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
+const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
+
+/** A checkbox item's state: the item's, plus its checked state. */
+class NativeMenuCheckboxItemState extends NativeMenuItemState {
+  get checked() {
+    return this.item.checked();
+  }
+}
+
+/** `useControlled` over `checked`/`defaultChecked`; the click toggles it unless canceled. */
+function initCheckboxItem(item: NativeMenuItemModel) {
+  const props = item.props as MenuCheckboxItem.Props;
+  const [checked, setChecked] = useControlled({
+    controlled: () => props.checked,
+    default: () => props.defaultChecked ?? false,
+    name: 'MenuCheckboxItem',
+    state: 'checked',
+  });
+  item.checked = checked;
+  item.select = (event) => {
+    const details = createChangeEventDetails(REASONS.itemPress, event, undefined, {
+      preventUnmountOnClose: NOOP,
+    });
+    const next = !untrack(checked);
+    props.onCheckedChange?.(next, details);
+    if (details.isCanceled) {
+      return;
+    }
+    setChecked(next);
+  };
+}
+
+function writeCheckboxItemAttributes(w: SetAttribute, item: NativeMenuItemModel) {
+  w.set('aria-checked', item.checked() ? 'true' : 'false');
+}
+
+/**
+ * A checkbox item's native kind: `role="menuitemcheckbox"`, stays open on click by default, and
+ * provides its state to its indicator. The model is the context value (`checked`, `disabled` and
+ * `highlighted`).
+ */
+const CHECKBOX_ITEM_KIND = Object.freeze<NativeMenuItemKind>({
+  own: new Set([
+    'id',
+    'label',
+    'nativeButton',
+    'disabled',
+    'closeOnClick',
+    'checked',
+    'defaultChecked',
+    'onCheckedChange',
+  ]),
+  literal: Object.freeze({ role: 'menuitemcheckbox' }),
+  stateWriter: compileStateWriter(['checked', 'disabled', 'highlighted'], itemMapping),
+  closeOnClick: false,
+  State: NativeMenuCheckboxItemState,
+  init: initCheckboxItem,
+  click: (item, event) => item.select(event),
+  attributes: writeCheckboxItemAttributes,
+  provide: (item, render) =>
+    provideNativeContext(
+      MenuCheckboxItemContext,
+      item as unknown as MenuCheckboxItemContext,
+      render,
+    ),
+});
 
 /**
  * A menu item that toggles a setting on or off.
@@ -23,6 +101,20 @@ import { MenuCheckboxItemContext } from './MenuCheckboxItemContext';
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
+  // Native fast path (`context/architecture/render-pipeline.md`): as Menu.Item's, with the
+  // checkbox kind (D32's sweep). A filtered menu keeps the slow path's visibility branch.
+  if (
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    untrack(() => componentProps.nativeButton) !== true &&
+    // Read without registering: the slow path registers its item under the item's context.
+    useMenuFilterImpl() === null
+  ) {
+    return renderNativeMenuItem(componentProps, CHECKBOX_ITEM_KIND);
+  }
+  return SlowMenuCheckboxItem(componentProps);
+}
+
+function SlowMenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'id',
     'label',
@@ -114,29 +206,29 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
       },
     });
     const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
-    props: [
-      ...itemSources.attributes,
-      propsSourceMemo(itemProps),
-      {
-        role: 'menuitemcheckbox' as const,
-        get 'aria-checked'() {
-          return checked() ? 'true' : 'false';
+      props: [
+        ...itemSources.attributes,
+        propsSourceMemo(itemProps),
+        {
+          role: 'menuitemcheckbox' as const,
+          get 'aria-checked'() {
+            return checked() ? 'true' : 'false';
+          },
+          onClick: handleClick,
         },
-        onClick: handleClick,
+        elementProps,
+        itemSources.handlers,
+      ],
+      ref: (el) => {
+        setItemRef(el);
+        listItem.setRef(el);
+        if (filterItem.ref) {
+          filterItem.ref.current = el ?? null;
+        }
       },
-      elementProps,
-      itemSources.handlers,
-    ],
-    ref: (el) => {
-      setItemRef(el);
-      listItem.setRef(el);
-      if (filterItem.ref) {
-        filterItem.ref.current = el ?? null;
-      }
-    },
-    state,
-    stateAttributesMapping: itemMapping,
-  });
+      state,
+      stateAttributesMapping: itemMapping,
+    });
     return <Show when={filterItem.visible()}>{element()}</Show>;
   };
 

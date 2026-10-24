@@ -268,6 +268,9 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'menu cost against the hand-written floor > the floor renders the same item DOM as an open Menu.Item',
     'menu cost against the hand-written floor > an open Menu.Item renders on the native path',
     'menu cost against the hand-written floor > an open Menu.Item costs at most the floor item plus 25%',
+    'menu item kinds against the hand-written floor > the floor renders the same checkbox item DOM',
+    'menu item kinds against the hand-written floor > a checkbox item and its indicator render on the native path',
+    'menu item kinds against the hand-written floor > a checkbox item with its indicator stays within its native budget',
   ],
   meter: [
     staticPart('a Meter.Track costs at most 1 node'),
