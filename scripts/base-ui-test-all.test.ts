@@ -4,6 +4,9 @@ import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import {
 	changedBrowserTestFiles,
+	changedDocsPages,
+	docsGraph,
+	importedDirs,
 	commandFor,
 	dockerUnavailable,
 	failureDetail,
@@ -461,5 +464,105 @@ describe("the Docker probe", () => {
 		expect(dockerUnavailable({ status: null, error: new Error("spawnSync docker ENOENT"), stderr: "" }, false)).toBe(
 			unavailable,
 		)
+	})
+})
+
+describe("--changed: docs-validate scoped to the docs pages a range can reach", () => {
+	const SRC = "packages/base-ui/packages/solid/src"
+	const TOAST = "(docs)/solid/components/toast"
+	const MENU = "(docs)/solid/components/menu"
+	const CONTEXT_MENU = "(docs)/solid/components/context-menu"
+	// Each page's directory, and the source directories each directory's non-test files import.
+	const graph = {
+		pages: { toast: TOAST, menu: MENU, "context-menu": CONTEXT_MENU },
+		importsOf: (dir: string) =>
+			(
+				{ toast: ["utils"], menu: ["utils", "internals"], "context-menu": ["menu", "utils"] } as Record<
+					string,
+					string[]
+				>
+			)[dir] ?? [],
+	}
+
+	test("a change under src/toast selects the toast page alone", () => {
+		expect(changedDocsPages([`${SRC}/toast/action/ToastAction.tsx`], graph)).toEqual({ full: null, pages: [TOAST] })
+	})
+
+	test("an unrelated change, or a test file's, selects no page", () => {
+		const names = [
+			"scripts/verify.ts",
+			"packages/recharts/src/index.ts",
+			`${SRC}/toast/action/ToastAction.parity.test.tsx`,
+		]
+		expect(changedDocsPages(names, graph)).toEqual({ full: null, pages: [] })
+	})
+
+	test("a component another page imports selects that page too", () => {
+		expect(changedDocsPages([`${SRC}/menu/item/MenuItem.tsx`], graph)).toEqual({
+			full: null,
+			pages: [CONTEXT_MENU, MENU],
+		})
+	})
+
+	test("a page's own generated files select that page, not the full validation", () => {
+		const name = "packages/base-ui/docs/solid/src/app/(docs)/solid/components/toast/types.md"
+		expect(changedDocsPages([name], graph)).toEqual({ full: null, pages: [TOAST] })
+	})
+
+	test("the real tree: toast reaches its page alone, menu the menus that import it", () => {
+		const real = docsGraph()
+		expect(changedDocsPages([`${SRC}/toast/action/ToastAction.tsx`], real).pages).toEqual([TOAST])
+		expect(changedDocsPages([`${SRC}/menu/item/MenuItem.tsx`], real).pages).toEqual([
+			CONTEXT_MENU,
+			MENU,
+			"(docs)/solid/components/menubar",
+		])
+	})
+
+	test("shared code, the docs or the lockfile fall back to the full validation", () => {
+		for (const name of [
+			`${SRC}/utils/native/element.ts`,
+			`${SRC}/index.ts`,
+			"packages/base-ui/docs/solid/src/x.ts",
+			"bun.lock",
+		]) {
+			expect(changedDocsPages([name], graph).full).toBe(name)
+		}
+	})
+
+	describe("an import edge is any relative specifier a type can come through", () => {
+		const FILE = "/src/toast/action/ToastAction.tsx"
+		const edges = (source: string) => importedDirs(source, FILE, "/src")
+		test("a type-only import or re-export", () => {
+			expect(edges(`import type { A } from '../../utils/types';`)).toEqual(["utils"])
+			expect(edges(`export type { B } from '../../field/root/FieldRoot';`)).toEqual(["field"])
+		})
+		test("a star or named re-export, across lines", () => {
+			expect(edges(`export * from '../../menu/index.parts';`)).toEqual(["menu"])
+			expect(edges(`export {\n  DialogClose as Close,\n} from '../../dialog/close/DialogClose';`)).toEqual(["dialog"])
+		})
+		test("a dynamic import with a literal specifier, and a side-effect import", () => {
+			expect(edges(`const m = await import('../../popover/Popover');`)).toEqual(["popover"])
+			expect(edges(`import '../../tooltip/styles';`)).toEqual(["tooltip"])
+		})
+		test("a file at the source root, its own directory, and a package import", () => {
+			expect(edges(`import { x } from '../../solid-helpers';`)).toEqual(["solid-helpers"])
+			expect(edges(`import { r } from '../root/ToastRoot';\nimport { s } from 'solid-js';`)).toEqual([])
+		})
+	})
+
+	const docsSuite = (docsPages: { full: string | null; pages: string[] }) =>
+		planSuites({ changed: "main", only: null, fullBench: false, docsPages, dockerUnavailable: null }).find(
+			(suite) => suite.name === "docs-validate",
+		)!
+
+	test("planSuites runs one scoped validation per page, the full one, or none", () => {
+		const scoped = docsSuite({ full: null, pages: [CONTEXT_MENU, TOAST] })
+		expect(scoped.selected).toBe(true)
+		expect(scoped.run).toEqual([`bun run docs:validate '${CONTEXT_MENU}'`, `bun run docs:validate '${TOAST}'`])
+		const full = docsSuite({ full: `${SRC}/utils/a.ts`, pages: [] })
+		expect(full.selected).toBe(true)
+		expect(full.run).toEqual(["bun run docs:validate"])
+		expect(docsSuite({ full: null, pages: [] }).selected).toBe(false)
 	})
 })
