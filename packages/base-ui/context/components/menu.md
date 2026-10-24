@@ -1,7 +1,7 @@
 ---
 tags: [menu, native, floating, composite, perf]
-sources: [packages/base-ui/packages/solid/src/menu, packages/base-ui/packages/solid/src/menu/root/MenuRoot.tsx, packages/base-ui/packages/solid/src/menu/item/MenuItem.tsx, packages/base-ui/packages/solid/src/context-menu, packages/base-ui/packages/solid/src/menubar, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/menu/menu.cost.test.tsx, packages/base-ui/packages/solid/test/floor/menu.tsx]
-verified: 2026-10-22
+sources: [packages/base-ui/packages/solid/src/menu, packages/base-ui/packages/solid/src/menu/root/MenuRoot.tsx, packages/base-ui/packages/solid/src/menu/item/MenuItem.tsx, packages/base-ui/packages/solid/src/menu/item/nativeMenuItem.tsx, packages/base-ui/packages/solid/src/context-menu, packages/base-ui/packages/solid/src/menubar, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/menu/menu.cost.test.tsx, packages/base-ui/packages/solid/test/floor/menu.tsx]
+verified: 2026-10-24
 ---
 
 # Menu
@@ -32,7 +32,7 @@ ContextMenu lives in `context-menu/` (Root, Trigger, Positioner; the rest re-exp
 
 `Menu.Item` in a plain menu (the D32 sweep, after Select), in Menu, ContextMenu and Menubar alike. The other parts still render through `useRenderElement`. See [render pipeline](../architecture/render-pipeline.md).
 
-- The item renders its `<div role="menuitem">` through the kit when its props are plain, `nativeButton` is not `true` and the menu has no filter (`isUnfilteredItem`). One `NativeMenuItemModel` per item is the target of the module-level handler tables and of the attribute write; `useMenuItem`, `useMenuItemCommonProps` and `useButton`'s composite gates are inlined in the slow path's `mergeProps` order (button gate, consumer, the root's list navigation, the item).
+- The item renders its `<div role="menuitem">` through the kit when its props are plain, `nativeButton` is not `true` and the menu has no filter (`isUnfilteredItem`). The native path lives in `item/nativeMenuItem.tsx`, shared by the item kinds: what a kind changes (its own keys, `role`, state keys, the `closeOnClick` default) is one frozen module-level `NativeMenuItemKind` the model references, with no per-item flags or closures. One `NativeMenuItemModel` per item is the target of the module-level handler tables and of the attribute write; `useMenuItem`, `useMenuItemCommonProps` and `useButton`'s composite gates are inlined in the slow path's `mergeProps` order (button gate, consumer, the root's list navigation, the item).
 - Follow-up leaf: an item of a filtered menu (inside `Menu.FilterProvider`) keeps the slow path, with its visibility branch and filter children; the next Menu unit ports it, then CheckboxItem, RadioItem, LinkItem and SubmenuTrigger.
 
 ## Reactive cost
@@ -70,7 +70,7 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. Sync ms.
 
 - `MenuRoot.tsx:644` `createInteractions()` builds dismiss, list navigation and typeahead on a trigger's first intent (`activateInteractions`, `:760`); React mounts them up front. The many-roots mount cost is the remaining per-root store, trigger and floating setup.
 - `MenuRoot.tsx:783`, `:803`, `:820`: trigger and popup props are memos over `interactions()`, so they rebuild once when interactions activate.
-- `MenuItem.tsx:53`: every item subscribes to `isActive`, a keyed selector, so after the first move a highlight move re-runs the old and the new item only.
+- `nativeMenuItem.tsx:114` (the slow path's `MenuItem.tsx` likewise): every item subscribes to `isActive`, a keyed selector, so after the first move a highlight move re-runs the old and the new item only.
 - Floating hooks hold 18 `createMemo(() => store().select(...))` reads, 6 of them for `open`, duplicated per popup.
 
 See [floating](../architecture/floating.md), [composite lists](../architecture/composite-lists.md), and the [optimization map](../perf/optimization-map.md).
