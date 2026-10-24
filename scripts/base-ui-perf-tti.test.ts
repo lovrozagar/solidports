@@ -5,7 +5,8 @@ import { ssrPairs } from "../packages/base-ui/scripts/bench-component.mjs"
 
 /**
  * A page stand-in: a clock that advances 16 ms a frame, and a trigger that becomes interactive at
- * `liveAt` ms; a click after that produces the effect `lag` frames later.
+ * `liveAt` ms; a click after that produces the effect `lag` frames later. The clock is async, as
+ * the page's `performance.now()` is read through `page.evaluate`.
  */
 function page({ liveAt, lag = 0 }: { liveAt: number; lag?: number }) {
 	let now = 0
@@ -14,7 +15,9 @@ function page({ liveAt, lag = 0 }: { liveAt: number; lag?: number }) {
 	return {
 		clicks,
 		driver: {
-			now: () => now,
+			async now() {
+				return now
+			},
 			async nextFrame() {
 				now += 16
 			},
@@ -47,8 +50,10 @@ describe("TTI: navigation start to the first click handled (D29)", () => {
 	})
 
 	test("a trigger that never responds fails the case outright, not as a slow sample", async () => {
-		const { driver } = page({ liveAt: Number.POSITIVE_INFINITY })
+		const { driver, clicks } = page({ liveAt: Number.POSITIVE_INFINITY })
 		await expect(firstHandledClick(driver, { timeoutMs: 10_000 })).rejects.toThrow(DEAD_TRIGGER)
+		// One click a frame up to the deadline, then none: the page clock bounds the loop.
+		expect(clicks.length).toBe(Math.floor(10_000 / 16) + 1)
 	})
 
 	test("TTI and both INP measures are gated metrics", () => {
