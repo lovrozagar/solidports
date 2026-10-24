@@ -7,8 +7,9 @@
  */
 import { flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FormStateFixture } from './form-state.fixture';
+import { serverHtml } from './serverHtml';
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -18,7 +19,7 @@ afterEach(() => {
 });
 
 function serverContainer() {
-  const html = inject('serverHtml')['form-state.server.tsx'];
+  const html = serverHtml('form-state.server.tsx');
   if (!html) {
     throw new Error('globalSetup did not server-render form-state.server.tsx');
   }

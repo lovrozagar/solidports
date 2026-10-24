@@ -4,9 +4,10 @@
  */
 import { flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderPathOf } from '../../src/utils/renderPath';
 import { ComboboxRowFixture } from './combobox-row.fixture';
+import { serverHtml } from './serverHtml';
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -17,7 +18,7 @@ afterEach(() => {
 
 describe('hydrated Combobox.Row', () => {
   it("claims the server's rows, natively and without a mismatch", () => {
-    const html = inject('serverHtml')['combobox-row.server.tsx'];
+    const html = serverHtml('combobox-row.server.tsx');
     if (!html) {
       throw new Error('globalSetup did not server-render combobox-row.server.tsx');
     }

@@ -7,9 +7,10 @@
  */
 import { DEV, flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderPathOf } from '../../src/utils/renderPath';
 import { forwardedRef, getterRef, OTPFieldBudget, OTPFieldFixture } from './otp-field.fixture';
+import { serverHtml } from './serverHtml';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
 const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
@@ -31,7 +32,7 @@ afterEach(() => {
 });
 
 function serverContainer(file: string) {
-  const html = inject('serverHtml')[file];
+  const html = serverHtml(file);
   if (!html) {
     throw new Error(`globalSetup did not server-render ${file}`);
   }
@@ -94,9 +95,9 @@ describe('hydrated OTPField', () => {
     const messages = [...warn.mock.calls, ...error.mock.calls].map(String);
     expect(messages.filter((message) => /hydrat|mismatch|unclaimed/i.test(message))).toEqual([]);
     expect(Object.keys(PATHS).filter((id) => query(id) !== server[id])).toEqual([]);
-    expect(Object.fromEntries(Object.keys(PATHS).map((id) => [id, renderPathOf(query(id))]))).toEqual(
-      PATHS,
-    );
+    expect(
+      Object.fromEntries(Object.keys(PATHS).map((id) => [id, renderPathOf(query(id))])),
+    ).toEqual(PATHS);
     expect(forwardedRef()).toBe(query('c-ref-forward'));
     expect(getterRef()).toBe(query('c-getter-ref'));
     const slots = (read: (el: HTMLInputElement) => string | null) =>

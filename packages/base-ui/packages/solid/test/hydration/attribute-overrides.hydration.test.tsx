@@ -4,8 +4,9 @@
  */
 import { flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AttributeOverridesFixture } from './attribute-overrides.fixture';
+import { serverHtml } from './serverHtml';
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -23,7 +24,7 @@ const EXPECTED = {
 
 describe('hydrated attribute overrides', () => {
   it("claims the server's element with the overridden attributes and no mismatch", () => {
-    const html = inject('serverHtml')['attribute-overrides.server.tsx'];
+    const html = serverHtml('attribute-overrides.server.tsx');
     if (!html) {
       throw new Error('globalSetup did not server-render attribute-overrides.server.tsx');
     }

@@ -6,7 +6,7 @@
  */
 import { DEV, flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderPathOf } from '../../src/utils/renderPath';
 import {
   FieldControlBudget,
@@ -14,6 +14,7 @@ import {
   forwardedRef,
   getterRef,
 } from './field-control.fixture';
+import { serverHtml } from './serverHtml';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
 const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
@@ -28,7 +29,7 @@ afterEach(() => {
 });
 
 function serverContainer(file: string) {
-  const html = inject('serverHtml')[file];
+  const html = serverHtml(file);
   if (!html) {
     throw new Error(`globalSetup did not server-render ${file}`);
   }
@@ -58,7 +59,8 @@ const SLOW = ['render-getter', 'spread', 'getter-ref'];
 describe('hydrated Field.Control and Input', () => {
   it("claims the server's controls on their paths, with their values and no mismatch", async () => {
     const container = serverContainer('field-control.server.tsx');
-    const query = (id: string) => container.querySelector<HTMLInputElement>(`[data-testid="${id}"]`)!;
+    const query = (id: string) =>
+      container.querySelector<HTMLInputElement>(`[data-testid="${id}"]`)!;
     const server = Object.fromEntries([...NATIVE, ...SLOW].map((id) => [id, query(id)]));
     expect(Object.values(server).every(Boolean)).toBe(true);
     const warn = vi.spyOn(console, 'warn');
@@ -82,7 +84,13 @@ describe('hydrated Field.Control and Input', () => {
     expect(getterRef()).toBe(query('getter-ref'));
     // Uncontrolled controls keep their default as the attribute, as a client render does; a
     // controlled one keeps only the property.
-    const defaults = { uncontrolled: 'Ada', bare: 'Cy', input: 'Di', 'ref-forward': 'Rae', spread: 'Sam' };
+    const defaults = {
+      uncontrolled: 'Ada',
+      bare: 'Cy',
+      input: 'Di',
+      'ref-forward': 'Rae',
+      spread: 'Sam',
+    };
     const held = (read: (el: HTMLInputElement) => string | null) =>
       Object.fromEntries(Object.keys(defaults).map((id) => [id, read(query(id))]));
     expect(held((el) => el.value)).toEqual(defaults);
@@ -114,4 +122,3 @@ describe('hydrated Field.Control and Input', () => {
     expect(NATIVE_PER_FIELD).toBeLessThan(SLOW_PER_FIELD);
   });
 });
-

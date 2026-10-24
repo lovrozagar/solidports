@@ -5,8 +5,9 @@
  */
 import { flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NavigationMenuFixture } from './navigation-menu.fixture';
+import { serverHtml } from './serverHtml';
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -17,7 +18,7 @@ afterEach(() => {
 
 describe('hydrated NavigationMenu', () => {
   it("claims the trigger's element children", () => {
-    const html = inject('serverHtml')['navigation-menu.server.tsx'];
+    const html = serverHtml('navigation-menu.server.tsx');
     if (!html) {
       throw new Error('globalSetup did not server-render navigation-menu.server.tsx');
     }

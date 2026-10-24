@@ -8,7 +8,7 @@
  */
 import { DEV, flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, inject, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderPathOf } from '../../src/utils/renderPath';
 import {
   forwardedRef,
@@ -17,6 +17,7 @@ import {
   SliderBudget,
   SliderFixture,
 } from './slider.fixture';
+import { serverHtml } from './serverHtml';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
 const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
@@ -63,7 +64,7 @@ afterEach(() => {
 });
 
 function serverContainer(file: string) {
-  const html = inject('serverHtml')[file];
+  const html = serverHtml(file);
   if (!html) {
     throw new Error(`globalSetup did not server-render ${file}`);
   }

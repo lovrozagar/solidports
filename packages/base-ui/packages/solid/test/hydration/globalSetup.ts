@@ -9,7 +9,10 @@ import type {} from '../ssrFixtures';
 
 declare module 'vitest' {
   export interface ProvidedContext {
-    /** Server HTML of each `test/hydration/*.server.tsx` entry, keyed by file name. */
+    /**
+     * Server HTML of each `test/hydration/*.server.tsx` entry, keyed by file name, URI-encoded:
+     * read it with `serverHtml()` (`test/hydration/serverHtml.ts`).
+     */
     serverHtml: Record<string, string>;
   }
 }
@@ -23,8 +26,11 @@ export default async function setup(project: TestProject) {
   const entries = readdirSync(dir).filter((file) => file.endsWith('.server.tsx'));
   const serverHtml: Record<string, string> = {};
   for (const entry of entries) {
+    // URI-encoded, as the SSR fixtures below: browser mode inlines provided values into the
+    // orchestrator page's `<script>`, and a fixture's `</script>` (a prehydration script) ended it,
+    // failing every browser test file. Read back with `serverHtml()`.
     // eslint-disable-next-line no-await-in-loop -- each entry starts and closes its own Vite server
-    serverHtml[entry] = await serverRender(entry);
+    serverHtml[entry] = encodeURIComponent(await serverRender(entry));
   }
   project.provide('serverHtml', serverHtml);
   const fixtureFiles: string[] = [];
