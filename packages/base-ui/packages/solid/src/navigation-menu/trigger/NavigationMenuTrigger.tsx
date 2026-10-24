@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
+import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { closest } from '../../utils/shadowDom';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
@@ -727,6 +727,14 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     return closest(triggerElementRef.current, 'ul');
   }
 
+  // Set once the trigger is disposed: a pointer-events mutation deferred to a microtask (a hover
+  // moving between triggers) is dropped then, since no cleanup is left to clear it and the scope
+  // (the document body) would keep `pointer-events: none`. React queues the same microtask.
+  let disposed = false;
+  void onCleanup(() => {
+    disposed = true;
+  });
+
   // Solid: React's click handler closes over the render-time `toggle`, while `useClick` reads it
   // live; keep the value from before this event's activation flush for the rest of the event.
   let toggleDuringActivation: boolean | undefined;
@@ -871,7 +879,11 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
         };
 
         if (currentValue != null && currentValue !== itemValue()) {
-          queueMicrotask(applyPointerEventsMutation);
+          queueMicrotask(() => {
+            if (!disposed) {
+              applyPointerEventsMutation();
+            }
+          });
         } else {
           applyPointerEventsMutation();
         }
