@@ -37,7 +37,7 @@ import { balancedOrders } from '../shared/order.mjs';
 import { median } from '../shared/regression.mjs';
 import { SERVER_SAMPLING, sampleServer } from './sample.mjs';
 import { mainThreadLines } from '../shared/report.mjs';
-import { DEAD_TRIGGER, checkMode, measureInteraction } from './interact.mjs';
+import { DEAD_TRIGGER, checkInteraction, checkMode, measureInteraction } from './interact.mjs';
 import { summariesMatch } from '../shared/known.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -62,7 +62,8 @@ const LAYOUT_METRICS = [
 const WARMUP = 3;
 // D29: TTI and INP under CPU throttling (`CPU_THROTTLE=4`, as a phone); off by default.
 const CPU_THROTTLE = Number(process.env.CPU_THROTTLE ?? 1);
-// D29: `SSR_CHECK=webkit` checks the interactive cases in WebKit, pass or fail, untimed.
+// D29: `SSR_CHECK=chromium` or `SSR_CHECK=webkit` checks the interactive cases in that browser,
+// pass or fail, untimed (`checkInteraction`); test-all's benchmark suite and CI run it in Chromium.
 const CHECK = checkMode(process.env);
 
 const VARIANTS = Object.fromEntries(
@@ -165,7 +166,10 @@ try {
   console.error(error.message);
   process.exit(1);
 }
-const keys = first.cases.filter((c) => matchesFilter(c, FILTER)).map((c) => c.id);
+// The check runs only the cases with an interaction; a measured run, every matching case.
+const keys = first.cases
+  .filter((c) => matchesFilter(c, FILTER) && (!CHECK || c.interaction))
+  .map((c) => c.id);
 if (keys.length === 0) {
   console.error(`No SSR case matches "${process.argv[3]}"; cases: ${caseIds.join(', ')}`);
   process.exit(1);
@@ -204,6 +208,10 @@ for (const key of keys) {
   }
   for (const name of NAMES) {
     (html[name] ??= {})[key] = server[name].render(key);
+  }
+  if (CHECK) {
+    // The check times nothing: the server render above is all the pages need.
+    continue;
   }
   const sampled = sampleServer(
     Object.fromEntries(
@@ -274,31 +282,14 @@ if (!process.env.SERVER_ONLY) {
     await assertScriptMetric(page, cdp);
     await page.close();
   }
-  // The check: each interactive case once per variant, failing on a dead trigger or a hydration
-  // error; nothing timed.
+  // The check: each interactive case once per variant, failing on a dead trigger, a missing TTI, a
+  // page error or a hydration warning (`checkInteraction`); nothing timed.
   for (const key of CHECK ? keys : []) {
     const interaction = first.cases.find((c) => c.id === key)?.interaction;
     for (const name of interaction ? NAMES : []) {
       const url = `http://localhost:${port}/${name}/?fixture=${encodeURIComponent(key)}&auto=1`;
-      try {
-        const { page } = await measureInteraction(browser, url, interaction, {
-          cdp: false,
-          onPage: (opened) => {
-            opened.on('console', (message) => {
-              if (/hydrat|mismatch|unclaimed/i.test(message.text())) {
-                problems.push(`${key} [${name}, ${CHECK}] ${message.text().slice(0, 200)}`);
-              }
-            });
-            opened.on('pageerror', (error) =>
-              problems.push(`${key} [${name}, ${CHECK}] pageerror: ${String(error).slice(0, 200)}`),
-            );
-          },
-        });
-        await page.close();
-      } catch (error) {
-        problems.push(
-          `${key} [${name}, ${CHECK}] ${String(error?.message ?? error).slice(0, 200)}`,
-        );
+      for (const problem of await checkInteraction(browser, url, interaction)) {
+        problems.push(`${key} [${name}, ${CHECK}] ${problem}`);
       }
     }
   }

@@ -24,13 +24,17 @@ describe("test:base-ui:all plan", () => {
 	})
 
 	test("the gate benchmark is a one-run correctness check unless --full-bench asks for the measured run", () => {
+		// Both forms end with the SSR interaction check, which times nothing.
+		const check = "SSR_CHECK=chromium node --expose-gc test/perf-solid/ssr/run.mjs 1"
 		expect(byName(planSuites({}), "benchmark").run).toEqual([
 			"bun run bench:solid:build",
 			"WARMUP=0 HEAP_RUNS=1 node test/perf-solid/run.mjs 1",
+			check,
 		])
 		expect(byName(planSuites({ fullBench: true }), "benchmark").run).toEqual([
 			"bun run bench:solid:build",
 			"bun run bench:solid",
+			check,
 		])
 	})
 
