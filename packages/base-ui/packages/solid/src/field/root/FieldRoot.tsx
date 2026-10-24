@@ -35,7 +35,8 @@ const OWN_KEYS: ReadonlySet<string> = new Set([
   'touched',
   'actionsRef',
 ]);
-const writeFieldState = compileStateWriter(
+/** The field's state attributes, which Field.Item writes too (with its own `disabled`). */
+export const writeFieldState = compileStateWriter(
   ['disabled', 'touched', 'dirty', 'valid', 'filled', 'focused'],
   fieldValidityMapping,
 );

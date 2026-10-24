@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Field } from '@solidports/base-ui/field';
 import { Fieldset } from '@solidports/base-ui/fieldset';
 import { Form } from '@solidports/base-ui/form';
+import { screen } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 import { renderPathOf } from '../utils/renderPath';
@@ -239,5 +240,47 @@ describe('field cost against the hand-written floor', () => {
     expect(partCost, `${part} ${partCost} nodes, floor ${cost(floor, part)}`).toBeLessThanOrEqual(
       BUDGET[part],
     );
+  });
+});
+
+/** Field.Item at D32's port; the slow path's in the comment. */
+const ITEM_BUDGET = 9; // slow 18
+
+describe('field item cost', () => {
+  const { render } = createRenderer();
+
+  function nodes(ui: () => JSX.Element) {
+    count = 0;
+    hooks.onOwner = counting;
+    const view = render(ui);
+    flush();
+    hooks.onOwner = undefined;
+    const created = count;
+    view.unmount();
+    return created;
+  }
+
+  const items = (n: number) => () => (
+    <Field.Root>
+      {Array.from({ length: n }, () => (
+        <Field.Item />
+      ))}
+    </Field.Root>
+  );
+
+  it('a Field.Item renders on the native path', () => {
+    const view = render(() => (
+      <Field.Root>
+        <Field.Item data-testid="item" />
+      </Field.Root>
+    ));
+    flush();
+    expect(renderPathOf(screen.getByTestId('item'))).toBe('native');
+    view.unmount();
+  });
+
+  it('a Field.Item stays within its native budget', () => {
+    const cost = nodes(items(5)) - nodes(items(4));
+    expect(cost, `Field.Item ${cost} nodes`).toBe(ITEM_BUDGET);
   });
 });

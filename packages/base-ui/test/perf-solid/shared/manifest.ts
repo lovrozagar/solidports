@@ -265,6 +265,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'field cost against the hand-written floor > control costs at most its native budget',
     'field cost against the hand-written floor > description costs at most its native budget',
     'field cost against the hand-written floor > error costs at most its native budget',
+    'field item cost > a Field.Item renders on the native path',
+    'field item cost > a Field.Item stays within its native budget',
   ],
   fieldset: [
     'field cost against the hand-written floor > fieldsetRoot costs at most its native budget',
