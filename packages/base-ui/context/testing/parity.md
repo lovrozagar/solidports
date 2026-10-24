@@ -1,7 +1,7 @@
 ---
 tags: [testing, parity, upstream, tdd]
 sources: [packages/base-ui/scripts/test-parity.mjs, packages/base-ui/scripts/browser-parity.mjs, packages/base-ui/scripts/compare-regressions.mjs, packages/base-ui/test/regressions-solid/run.mjs, packages/base-ui/test/regressions-solid/accepted.json, packages/base-ui/packages/solid/test/parityHarness.tsx, .rulesync/reference/tdd.md]
-verified: 2026-10-17
+verified: 2026-10-24
 ---
 
 # Test parity
@@ -33,6 +33,7 @@ Input: Vitest JSON reports of upstream's suite and the Solid suite in one browse
 - History: two reruns, with one passing upstream rerun enough, confirmed a Solid test failing 60% of runs by chance at 98d6a238. Ten reruns with the same rule then confirmed Popover's "should toggle closed with Enter or Space when rendering a <div>" at 75bdb4e3 (Solid failed 10/10, upstream passed 3/10, p 0.105).
 - Known WebKit driver race, that test: both libraries move focus into the popup one frame after the open (`enqueueFocus`, one `requestAnimationFrame`, identical on both sides), and Playwright's WebKit presses several keys within one frame, so a shift-Tab in the frame of an open leaves the popup before it has focus. A frame counter on the Mac showed the same click-to-focus frame for both libraries in WebKit and Chromium; which cycle a run loses depends on frame alignment (upstream lost at its second Enter, Solid at its second Space).
 - Open finding: Solid fails the 'contained triggers' variant in 18 of 30 of those runs against upstream's 10 of 27, a gap present since the oldest run. It passes in Chromium and Firefox.
+- Known Docker WebKit first-pass failure that upstream shares: PopoverRoot's "keeps the popover open when a nested menu opens via pointer using a shared container", under 'contained triggers', 'detached triggers' and 'multiple detached triggers' (`popover/root/PopoverRoot.test.tsx` in both suites). Two full Docker WebKit runs (2026-10-24) each failed one variant on the first pass, which the confirm reruns did not confirm (upstream passed 5 of 20 and 2 of 10 reruns). Run alone in Playwright's Docker image (`scripts/webkit-docker.sh` with `-t` on the title), 10 runs per suite with all three variants each: React failed all 30 (10 of 10 per variant), Solid failed 28 (contained 9 of 10, detached 10 of 10, multiple detached 9 of 10). It fails as often upstream, so it is WebKit's or upstream's behavior; there is no Solid leaf.
 - Prints Solid failures, shared, Solid-only, not confirmed, and upstream failures Solid passes. Exit 1 on any confirmed Solid-only failure.
 
 ## Visual regressions (CI: Regression tests)
