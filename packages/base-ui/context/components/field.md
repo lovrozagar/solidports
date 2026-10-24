@@ -54,7 +54,7 @@ Chromium heap the bench step keeps (production builds, a heap snapshot after a f
 
 ## Post-sweep leaves
 
-- Field.Control renders on the slow path on the server and while hydrating. The server prints the value as the `value` attribute, and hydration keeps a control's form-state attributes (`value`, `checked`), which `useRenderElement` reconciles and the native kit does not: the kit's hydration check flagged `value` against the client's `defaultValue`. Teaching the kit those attributes would make a hydrated control native too.
+- Field.Control, and Input through it, render natively on the server and while hydrating too (D33 server batch). The server prints the value as the `value` attribute; the hydrating client reads its `defaultValue` as that attribute and hands the form state over once `hydrate()` returns, keeping `value` on an uncontrolled control and only the property on a controlled one, as the slow path does. One more hydrated field (Field.Root and a Field.Control) creates 34 reactive nodes against 65 with the control on the slow path (`test/hydration/field-control.hydration.test.tsx`, exact). A reactive `render`, a spread beside other props or a getter `ref` keeps the slow path on both sides.
 - Field.Validity is still on the slow path.
 - Owed at the family's exit (plan 3 leaf 5.6): a hand-written floor entry for Field.Item; until then its budget is exact, beside the measured slow count.
 

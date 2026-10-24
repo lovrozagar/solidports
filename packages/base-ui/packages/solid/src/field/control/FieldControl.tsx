@@ -326,10 +326,10 @@ export function FieldControl(componentProps: FieldControl.Props): JSX.Element {
   };
 
   // Native fast path (`context/architecture/render-pipeline.md`): a plain `<input>` with the
-  // field's attributes, validation and handlers, no props view (D32). Client renders only: the
-  // server prints the value as the `value` attribute and hydration keeps a control's form-state
-  // attributes, which `useRenderElement` reconciles and the native kit does not.
-  if (canRenderNative(componentProps)) {
+  // field's attributes, validation and handlers, no props view (D32), on the server and while
+  // hydrating too: the server prints the value as the `value` attribute, and the kit hands a
+  // control's form state over after hydration as the slow path does.
+  if (canRenderNative(componentProps, undefined, true)) {
     const model: FieldControlModel = {
       id,
       disabled: () => Boolean(disabled()),
