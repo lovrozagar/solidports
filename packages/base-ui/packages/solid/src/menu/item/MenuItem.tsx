@@ -14,7 +14,7 @@ import {
   withFilterChildren,
 } from '../filter-root/MenuFilterContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { renderNativeMenuItem } from './nativeMenuItem';
+import { NativeMenuItemState, renderNativeMenuItem } from './nativeMenuItem';
 import type { NativeMenuItemKind } from './nativeMenuItem';
 import { REGULAR_ITEM, useMenuItem } from './useMenuItem';
 
@@ -22,12 +22,17 @@ import { REGULAR_ITEM, useMenuItem } from './useMenuItem';
 const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
 
 /** A plain `Menu.Item`'s native kind: `role="menuitem"`, closes the menu on click by default. */
-const ITEM_KIND: NativeMenuItemKind = Object.freeze({
+const ITEM_KIND = Object.freeze<NativeMenuItemKind>({
   own: new Set(['id', 'label', 'nativeButton', 'disabled', 'closeOnClick']),
   literal: Object.freeze({ role: 'menuitem' }),
   /** The item state's `data-*` attributes in the slow path's key order. */
   stateWriter: compileStateWriter(['disabled', 'highlighted'], undefined),
   closeOnClick: true,
+  State: NativeMenuItemState,
+  init: undefined,
+  click: undefined,
+  attributes: undefined,
+  provide: undefined,
 });
 
 /**

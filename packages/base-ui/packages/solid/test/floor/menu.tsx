@@ -7,7 +7,7 @@
  *
  * Cost tests (`menu.cost.test.tsx`) hold an open `Menu.Item` to this item's nodes plus 25%.
  */
-import { createContext, createRenderEffect, createUniqueId, useContext } from 'solid-js';
+import { createContext, createRenderEffect, createUniqueId, Show, useContext } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { keyedHighlight } from './listHighlight';
@@ -94,4 +94,67 @@ export function FloorMenuItem(props: FloorMenuItemProps) {
     },
   );
   return el;
+}
+
+export interface FloorMenuCheckboxItemProps {
+  index: number;
+  checked: Accessor<boolean>;
+  children?: JSX.Element;
+}
+
+/**
+ * An open checkbox item: one render effect writes its highlight and checked state; its id is
+ * generated once. Its indicator is the consumer's.
+ */
+export function FloorMenuCheckboxItem(props: FloorMenuCheckboxItemProps) {
+  const context = useContext(FloorMenuContext)!;
+  const record: FloorMenuItemRecord = { context, index: props.index };
+  const el = (
+    <div
+      id={`base-ui-${createUniqueId()}`}
+      tabindex="-1"
+      role="menuitemcheckbox"
+      aria-checked="false"
+      onClick={[itemClick, record]}
+      onKeyDown={[itemKeyDown, record]}
+      onMouseMove={[itemMove, record]}
+    >
+      {props.children}
+    </div>
+  ) as HTMLDivElement;
+  createRenderEffect(
+    () => [context.isHighlighted(record.index), props.checked()] as const,
+    ([highlighted, checked]) => {
+      el.setAttribute('tabindex', highlighted ? '0' : '-1');
+      el.setAttribute('aria-checked', checked ? 'true' : 'false');
+      toggle(el, 'data-highlighted', highlighted);
+      toggle(el, 'data-checked', checked);
+      toggle(el, 'data-unchecked', !checked);
+    },
+  );
+  return el;
+}
+
+export interface FloorMenuItemIndicatorProps {
+  checked: Accessor<boolean>;
+  children?: JSX.Element;
+}
+
+/** An item's indicator: mounted while checked, its state from one render effect. */
+export function FloorMenuItemIndicator(props: FloorMenuItemIndicatorProps) {
+  return (
+    <Show when={props.checked()}>
+      <span aria-hidden="true" data-checked="">
+        {props.children}
+      </span>
+    </Show>
+  );
+}
+
+function toggle(el: Element, name: string, on: boolean) {
+  if (on) {
+    el.setAttribute(name, '');
+  } else {
+    el.removeAttribute(name);
+  }
 }
