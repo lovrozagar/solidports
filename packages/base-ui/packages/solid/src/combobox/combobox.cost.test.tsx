@@ -168,6 +168,8 @@ describe('combobox row cost', () => {
 
 /** A multiple combobox's chip at D32's port; the slow path's in the comment. */
 const CHIP_BUDGET = 6; // slow 16
+/** A chip's remove button, net of the chip; the slow path's in the comment. */
+const CHIP_REMOVE_BUDGET = 2; // slow 10
 
 describe('combobox chip cost', () => {
   const { render } = createRenderer();
@@ -208,6 +210,20 @@ describe('combobox chip cost', () => {
     );
     expect(rendered.map((el) => renderPathOf(el))).toEqual(['native', 'native']);
     view.unmount();
+  });
+
+  it('a ChipRemove renders on the native path', () => {
+    const view = render(chips(true)(2));
+    flush();
+    const buttons = [...document.querySelectorAll('button')].filter((el) => el.textContent === '×');
+    expect(buttons.map((el) => renderPathOf(el))).toEqual(['native', 'native']);
+    view.unmount();
+  });
+
+  it('a ChipRemove stays within its native budget', () => {
+    const perChip = (remove: boolean) => nodes(chips(remove)(5)) - nodes(chips(remove)(4));
+    const cost = perChip(true) - perChip(false);
+    expect(cost, `Combobox.ChipRemove ${cost} nodes`).toBe(CHIP_REMOVE_BUDGET);
   });
 
   it('a Chip stays within its native budget', () => {
