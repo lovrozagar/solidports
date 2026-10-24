@@ -34,6 +34,8 @@ All under `packages/base-ui/packages/solid/src/select/`.
 - The values slot and the selected-index claim are one render effect that compares against the slot it last wrote, where the slow path keeps two memo-and-effect pairs.
 - `createNativeListItem` takes the typeahead `label` and `textRef`.
 - `Select.ItemText` renders a plain `<div>` with its text refs. `Select.ItemIndicator` renders natively on the client through the shared item indicator (`utils/native/itemIndicator.tsx`, `SELECTED_ITEM_INDICATOR_KIND` in `utils/ItemIndicator.tsx`), which Combobox's shares: a `<span aria-hidden>` with `data-selected` and the transition attributes, `✔️` unless the consumer passes children. As upstream's wrapper gates it, it mounts while its item is selected or `keepMounted`, so a plain indicator unmounts on deselect and a reselect creates it again, each mount with its own transition; a `keepMounted` one keeps its element through an exit and a reselect (`utils/ItemIndicator.parity.test.tsx`). A mounted indicator costs 3 nodes against 20 on the slow path, an unselected one 1, as before (`utils/ItemIndicator.cost.test.tsx`). Any `render` takes the slow path.
+- The indicator's parity session kills four mutants (`keepsExit` on, no default children, no `data-selected`, `keepMounted` ignored). One survives: a lazy transition shared across mounts instead of one per mount renders the same DOM in jsdom and Chromium, so the two are observably equivalent; per-mount stays, as it mirrors the slow path's per-mount `useTransitionStatus`.
+- Owed at the family's exit (plan 3 leaf 5.6): a hand-written floor entry for `ItemIndicator` in `test/floor/select.tsx`. During the sweep its budget is exact, beside the measured slow count.
 
 ## Reactive cost
 
