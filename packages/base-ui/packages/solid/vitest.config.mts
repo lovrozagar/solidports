@@ -82,6 +82,8 @@ export default mergeConfig(
       setupFiles: [
         resolve(PACKAGE_DIR, 'test/disableAutoCleanup.ts'),
         resolve(PACKAGE_DIR, 'test/setupSolid.ts'),
+        // Which jsdom worker ended how, and in which file (`test/exitDiagnostics.ts`).
+        ...(IN_BROWSER ? [] : [resolve(PACKAGE_DIR, 'test/exitDiagnostics.ts')]),
       ],
       // The only browser project in its run: a taken port fails it rather than moving it.
       browser: {
