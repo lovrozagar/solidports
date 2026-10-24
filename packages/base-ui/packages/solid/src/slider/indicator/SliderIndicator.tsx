@@ -85,9 +85,9 @@ export function SliderIndicator(componentProps: SliderIndicator.Props): JSX.Elem
   };
 
   // Native fast path (`context/architecture/render-pipeline.md`): a plain `<div>` with its position
-  // style, no props view (D32). Client renders only: while hydrating, an inset indicator's style
-  // follows the slider's prehydration script.
-  if (canRenderNative(componentProps)) {
+  // style, no props view (D32), on the server and while hydrating too: an inset indicator stays as
+  // the prehydration script left it until the slider measures it (`test/hydration/slider.*`).
+  if (canRenderNative(componentProps, undefined, true)) {
     return renderNativeElement(DIV, componentProps, {
       own: OWN_KEYS,
       state,
