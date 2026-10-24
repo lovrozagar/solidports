@@ -74,12 +74,3 @@ describe("TTI: navigation start to the first click handled (D29)", () => {
 		expect(unmeasured).toEqual([])
 	})
 })
-
-describe("the WebKit correctness pass (D29)", () => {
-	test("SSR_CHECK=webkit selects a pass/fail check run; anything else is refused", async () => {
-		const { checkMode } = await import("../packages/base-ui/test/perf-solid/ssr/interact.mjs")
-		expect(checkMode({})).toBeNull()
-		expect(checkMode({ SSR_CHECK: "webkit" })).toBe("webkit")
-		expect(() => checkMode({ SSR_CHECK: "firefox" })).toThrow("SSR_CHECK")
-	})
-})

@@ -45,19 +45,56 @@ export function recordInteractions(win = window) {
 }
 
 /**
- * The SSR runner's check mode (D29): `SSR_CHECK=webkit` runs the interactive cases in WebKit for
- * correctness only (no dead trigger, no hydration error), not timed against React.
+ * The SSR runner's check mode (D29): `SSR_CHECK=chromium` or `SSR_CHECK=webkit` runs the
+ * interactive cases in that browser for correctness only (`checkInteraction`), timing nothing.
+ * test-all's benchmark suite and CI's benchmark job run it in Chromium.
  * @param {Record<string, string | undefined>} env
- * @returns {'webkit' | null}
+ * @returns {'chromium' | 'webkit' | null}
  */
 export function checkMode(env) {
   if (env.SSR_CHECK === undefined || env.SSR_CHECK === '') {
     return null;
   }
-  if (env.SSR_CHECK !== 'webkit') {
-    throw new Error(`SSR_CHECK=${env.SSR_CHECK}: the only check run is SSR_CHECK=webkit`);
+  if (env.SSR_CHECK !== 'chromium' && env.SSR_CHECK !== 'webkit') {
+    throw new Error(
+      `SSR_CHECK=${env.SSR_CHECK}: the check runs in SSR_CHECK=chromium or SSR_CHECK=webkit`,
+    );
   }
-  return 'webkit';
+  return env.SSR_CHECK;
+}
+
+/**
+ * One interactive case's correctness check on one cold load (`measureInteraction`): its problems,
+ * none when it passes. It fails on a dead trigger, a load that measured no TTI, a page error, or a
+ * hydration warning in the console, and never on a timing.
+ * @param {import('playwright').Browser} browser
+ * @param {string} url
+ * @param {{ trigger: string, effect: object, undo: unknown }} interaction
+ * @param {{ measure?: typeof measureInteraction }} [options] `measure` stands in for the load in tests
+ * @returns {Promise<string[]>}
+ */
+export async function checkInteraction(browser, url, interaction, { measure = measureInteraction } = {}) {
+  const problems = [];
+  try {
+    const { ttiMs, page } = await measure(browser, url, interaction, {
+      cdp: false,
+      onPage: (opened) => {
+        opened.on('console', (message) => {
+          if (/hydrat|mismatch|unclaimed/i.test(message.text())) {
+            problems.push(message.text().slice(0, 200));
+          }
+        });
+        opened.on('pageerror', (error) => problems.push(`pageerror: ${String(error).slice(0, 200)}`));
+      },
+    });
+    if (!Number.isFinite(ttiMs)) {
+      problems.push('no TTI measured');
+    }
+    await page.close();
+  } catch (error) {
+    problems.push(String(error?.message ?? error).slice(0, 200));
+  }
+  return problems;
 }
 
 /** How long a trigger may stay dead before the case fails. */
@@ -135,9 +172,15 @@ export async function measureInteraction(browser, url, interaction, options = {}
       ),
     effectSeen: () => page.evaluate((effect) => window.__perfEffectShows(effect), interaction.effect),
   };
-  const { ttiMs, clicks } = await firstHandledClick(driver, {
-    timeoutMs: options.timeoutMs ?? TTI_TIMEOUT_MS,
-  });
+  let landed;
+  try {
+    landed = await firstHandledClick(driver, { timeoutMs: options.timeoutMs ?? TTI_TIMEOUT_MS });
+  } catch (error) {
+    // The caller closes the page it gets back; a failed load returns none.
+    await page.close();
+    throw error;
+  }
+  const { ttiMs, clicks } = landed;
   const metrics = cdp ? await cdp.send('Performance.getMetrics') : { metrics: [] };
   /** The latest interaction's latency, once its paint has come. */
   const lastLatency = async () =>
