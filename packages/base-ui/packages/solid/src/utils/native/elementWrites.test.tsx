@@ -419,3 +419,38 @@ describe('native attribute effect: a second source’s handlers through the part
     expect(calls).toEqual(['source-enter']);
   });
 });
+
+describe('native attribute effect: a part without handlerFor keeps its own binding', () => {
+  const { render } = createRenderer();
+
+  /** `DispatchPart` without `handlerFor`: the kit's binding as every other native part has it. */
+  function PlainPart(props: { target: DispatchTarget; [key: string]: unknown }) {
+    return renderNativeElement(DIV, props, {
+      own: new Set(['target']),
+      attributes: (w: SetAttribute, target: DispatchTarget) => w.set('tabindex', target.hot()),
+      attributeOverrides: (w: SetAttribute, target: DispatchTarget) => {
+        for (const [key, value] of Object.entries(target.source() ?? {})) {
+          w.set(key, value);
+        }
+      },
+      handlerTarget: props.target,
+      reactive: true,
+    }) as unknown as web.JSX.Element;
+  }
+
+  it("binds the consumer's handler itself and an override's handler as the element's own listener", () => {
+    const calls: string[] = [];
+    const [hot] = createSignal(0);
+    const [source] = createSignal<Record<string, unknown> | undefined>({
+      onFocus: () => calls.push('source-focus'),
+    });
+    const onFocus = vi.fn((event: FocusEvent) => calls.push(`consumer-focus:${event.type}`));
+    render(() => (
+      <PlainPart target={{ hot, source, calls }} onFocus={onFocus} data-testid="part" />
+    ));
+    fireEvent.focus(screen.getByTestId('part'));
+    // No part dispatch: the consumer's handler first, the override's as a listener of its own.
+    expect(calls).toEqual(['consumer-focus:focus', 'source-focus']);
+    expect(onFocus).toHaveBeenCalledTimes(1);
+  });
+});
