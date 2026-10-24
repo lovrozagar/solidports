@@ -98,6 +98,13 @@ export interface NativeElementSpec<State extends object> {
    * `handlerTarget`, so a part passes a module-level function and no closure per element.
    */
   attributes?: ((set: SetAttribute, target: any) => void) | undefined;
+  /**
+   * Attributes of a second props source that win over the consumer's (as a props source merged to
+   * the consumer's right does), with `handlerTarget`; runs inside the attribute effect. A key it
+   * stops setting gets the consumer's value back, or the part's own, or is removed. Not `class` or
+   * `style` (`styleOverride` is the style's).
+   */
+  attributeOverrides?: ((set: SetAttribute, target: any) => void) | undefined;
   /** Whether the state or the part attributes can change (an attribute effect is created). */
   reactive: boolean;
   /**
@@ -433,9 +440,16 @@ function ownServerObject() {
   return serverObject;
 }
 
+/** The keys the element's `attributeOverrides` set this write, which its other writes skip. */
+let serverOverrides: Record<string, unknown> | undefined;
+
 const setServerAttribute: SetAttribute = {
   set(key, value) {
-    if (value == null || serverKeys.has(key)) {
+    if (
+      value == null ||
+      serverKeys.has(key) ||
+      (serverOverrides !== undefined && key in serverOverrides)
+    ) {
       return;
     }
     if (key in serverObject || key === 'class' || key === 'style') {
@@ -447,6 +461,34 @@ const setServerAttribute: SetAttribute = {
     writeTop += 1;
   },
 };
+
+/** Collects a part's `attributeOverrides` into one record (undefined values dropped). */
+class OverrideCollector implements SetAttribute {
+  declare record: Record<string, unknown> | undefined;
+
+  set(key: string, value: unknown) {
+    if (value !== undefined) {
+      (this.record ??= {})[key] = value;
+    }
+  }
+}
+
+const overrideCollector = new OverrideCollector();
+
+/** The record `spec`'s overrides set now, or undefined when they set none. */
+function collectOverrides<State extends object>(
+  spec: NativeElementSpec<State>,
+): Record<string, unknown> | undefined {
+  const collect = spec.attributeOverrides;
+  if (collect === undefined) {
+    return undefined;
+  }
+  overrideCollector.record = undefined;
+  collect(overrideCollector, spec.handlerTarget);
+  const record = overrideCollector.record;
+  overrideCollector.record = undefined;
+  return record;
+}
 
 /**
  * The markup of the writes from `start` to `end`: each key once, its last write winning (the
@@ -516,13 +558,19 @@ function renderServerElement<State extends object>(
     );
   }
   const source = props as Record<string, any>;
-  const consumer = classifyConsumerProps(props, spec.own);
+  const consumer = classifyConsumerProps(
+    props,
+    spec.own,
+    undefined,
+    spec.attributeOverrides !== undefined,
+  );
   const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
   const reactive = top ? keysNotIn(consumer.reactive, top) : consumer.reactive;
 
   const previousObject = serverObject;
   const previousShared = serverObjectShared;
   const previousKeys = serverKeys;
+  const previousOverrides = serverOverrides;
   const start = writeTop;
   serverObject = element.attributes ?? NO_ATTRIBUTES;
   serverObjectShared = true;
@@ -553,8 +601,19 @@ function renderServerElement<State extends object>(
     }
 
     writePass += 1;
+    // The overrides first, so the part's own writes skip their keys; written last, over the
+    // consumer's values.
+    serverOverrides = collectOverrides(spec);
     stateWriterOf(spec)?.(writtenStateOf(spec), setServerAttribute);
     spec.attributes?.(setServerAttribute, spec.handlerTarget);
+    const overrides = serverOverrides;
+    if (overrides !== undefined) {
+      for (const key in overrides) {
+        if (isServerAttribute(key, overrides[key])) {
+          ownServerObject()[key] = overrides[key];
+        }
+      }
+    }
 
     if ('class' in props) {
       const value = resolveClass(source.class, consumerState(spec, source.class));
@@ -585,6 +644,7 @@ function renderServerElement<State extends object>(
     serverObject = previousObject;
     serverObjectShared = previousShared;
     serverKeys = previousKeys;
+    serverOverrides = previousOverrides;
   }
 
   let children: unknown;
@@ -961,6 +1021,8 @@ class ElementWriter<State extends object> implements SetAttribute {
   declare private readonly writtenState: object | undefined;
   declare private readonly hasClass: boolean;
   declare private readonly hasStyle: boolean;
+  /** The keys `attributeOverrides` set in the current write (only while it writes). */
+  declare private overrides: Record<string, unknown> | undefined;
   /**
    * How many keys `previous` holds. A diffing run that wrote fewer of them than are held dropped
    * one, the only run that walks `previous`.
@@ -987,6 +1049,7 @@ class ElementWriter<State extends object> implements SetAttribute {
     this.writtenState = writtenState;
     this.hasClass = 'class' in props;
     this.hasStyle = 'style' in props;
+    this.overrides = undefined;
     this.held = 0;
   }
 
@@ -1169,7 +1232,11 @@ class ElementWriter<State extends object> implements SetAttribute {
   }
 
   set(key: string, value: unknown) {
-    if ((this.keepUndefined || value !== undefined) && !this.keys.has(key)) {
+    if (
+      (this.keepUndefined || value !== undefined) &&
+      !this.keys.has(key) &&
+      (this.overrides === undefined || !(key in this.overrides))
+    ) {
       this.put(key, value);
     }
   }
@@ -1180,9 +1247,31 @@ class ElementWriter<State extends object> implements SetAttribute {
     this.keepUndefined = keepUndefined;
     const spec = this.spec;
     const source = this.props;
+    // The overrides first: the part's own writes and the consumer's keys skip theirs.
+    const overrides = collectOverrides(spec);
+    this.overrides = overrides;
     this.writeState?.(this.writtenState!, this);
     spec.attributes?.(this, spec.handlerTarget);
-    if (runWriter === this) {
+    if (overrides !== undefined) {
+      const reactive = this.reactive;
+      for (let i = 0; i < reactive.length; i += 1) {
+        const key = reactive[i];
+        if (!(key in overrides)) {
+          const value = source[key];
+          if (runWriter === this) {
+            this.diff(key, value);
+          } else {
+            into[key] = value;
+          }
+        }
+      }
+      for (const key in overrides) {
+        if (Object.hasOwn(overrides, key)) {
+          this.put(key, overrides[key]);
+        }
+      }
+      this.overrides = undefined;
+    } else if (runWriter === this) {
       const reactive = this.reactive;
       for (let i = 0; i < reactive.length; i += 1) {
         this.diff(reactive[i], source[reactive[i]]);
@@ -1334,6 +1423,7 @@ function createClientWriter<State extends object>(
     props,
     spec.own,
     spec.handlers || spec.handlersIfPassed ? tableHandled(spec) : undefined,
+    spec.attributeOverrides !== undefined,
   );
   const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
   const reactive = top ? keysNotIn(consumer.reactive, top) : consumer.reactive;
@@ -1376,6 +1466,7 @@ function createClientWriter<State extends object>(
   const partStyle = spec.partStyle;
   const needsEffect =
     spec.reactive ||
+    spec.attributeOverrides !== undefined ||
     styleOverride !== undefined ||
     partStyle !== undefined ||
     reactive.length > 0 ||

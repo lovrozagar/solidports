@@ -155,6 +155,11 @@ export function classifyConsumerProps(
   props: object,
   own: ReadonlySet<string>,
   wrap?: (key: string, consumer: () => Handler | undefined) => unknown,
+  /**
+   * Every attribute key goes through the effect, a static one too: a part's `attributeOverrides`
+   * can hide a key and later drop it, and the effect then writes the consumer's value back.
+   */
+  allReactive = false,
 ): ConsumerProps {
   // Runs in the part's body, which `createComponent` already runs untracked; literal values are
   // plain data properties, so no read here tracks anything.
@@ -183,7 +188,7 @@ export function classifyConsumerProps(
     if (handler) {
       const consumer = () => readHandler(source, key);
       (literal ??= {})[key] = wrap?.(key, consumer) ?? composeHandler(consumer);
-    } else if (isStaticKey(source, key)) {
+    } else if (!allReactive && isStaticKey(source, key)) {
       (literal ??= {})[key] = source[key];
     } else {
       (reactive ??= []).push(key);
