@@ -115,9 +115,7 @@ describe('native attribute effect: writes only what changed', () => {
 
   it("re-sets a form control's value on every run, as Solid does", () => {
     const [hot, setHot] = createSignal(0);
-    render(() => (
-      <HotPart tag="input" target={{ hot, value: () => 'kept' }} data-testid="part" />
-    ));
+    render(() => <HotPart tag="input" target={{ hot, value: () => 'kept' }} data-testid="part" />);
     const input = screen.getByTestId('part') as HTMLInputElement;
     expect(input.value).toBe('kept');
     input.value = 'typed';
@@ -141,9 +139,7 @@ describe('native attribute effect: writes only what changed', () => {
   it('removes an attribute a re-run no longer writes', () => {
     const [hot, setHot] = createSignal(0);
     const [value, setValue] = createSignal<string | undefined>('a');
-    render(() => (
-      <HotPart target={{ hot, value }} data-testid="part" />
-    ));
+    render(() => <HotPart target={{ hot, value }} data-testid="part" />);
     const part = screen.getByTestId('part');
     expect(part.getAttribute('value')).toBe('a');
     setValue(undefined);
@@ -186,11 +182,134 @@ describe('native attribute effect: writes only what changed', () => {
       last.focus();
       await Promise.resolve();
       flush();
-      expect(await assignedKeysSettled(() => fireEvent.keyDown(last, { key: 'ArrowLeft' }))).toEqual([
-        'tabindex',
-        'tabindex',
-      ]);
+      expect(
+        await assignedKeysSettled(() => fireEvent.keyDown(last, { key: 'ArrowLeft' })),
+      ).toEqual(['tabindex', 'tabindex']);
       expect(document.activeElement).toBe(inputs[inputs.length - 2]);
     },
   );
+});
+
+interface OverrideTarget {
+  hot: () => number;
+  overrides: () => Record<string, unknown> | undefined;
+}
+
+/** A part whose second props source wins over the consumer's attributes (`attributeOverrides`). */
+function OverridePart(props: { target: OverrideTarget; [key: string]: unknown }) {
+  return renderNativeElement(DIV, props, {
+    own: new Set(['target']),
+    attributes: (w: SetAttribute, target: OverrideTarget) => {
+      w.set('tabindex', target.hot());
+      // The part's own write of a key the override sets stays below it.
+      w.set('title', 'part');
+    },
+    attributeOverrides: (w: SetAttribute, target: OverrideTarget) => {
+      for (const [key, value] of Object.entries(target.overrides() ?? {})) {
+        w.set(key, value);
+      }
+    },
+    handlerTarget: props.target,
+    reactive: true,
+  }) as unknown as web.JSX.Element;
+}
+
+describe('native attribute effect: overrides above the consumer', () => {
+  const { render } = createRenderer();
+
+  it('writes a key both the consumer and the override set once, with the override value', () => {
+    const [hot, setHot] = createSignal(0);
+    const [title, setTitle] = createSignal('consumer');
+    const [overrides, setOverrides] = createSignal<Record<string, unknown> | undefined>({
+      title: 'override',
+    });
+    render(() => <OverridePart target={{ hot, overrides }} title={title()} data-testid="part" />);
+    const part = screen.getByTestId('part');
+    expect(part.getAttribute('title')).toBe('override');
+    setTitle('consumer 2');
+    setHot(1);
+    flush();
+    expect(part.getAttribute('title')).toBe('override');
+    setOverrides({ title: 'override 2' });
+    flush();
+    expect(part.getAttribute('title')).toBe('override 2');
+  });
+
+  it.skipIf(!isJSDOM)('passes assign an overridden key only when the override changes it', () => {
+    const [hot, setHot] = createSignal(0);
+    const [title, setTitle] = createSignal('consumer');
+    const [overrides, setOverrides] = createSignal<Record<string, unknown> | undefined>({
+      title: 'override',
+    });
+    render(() => <OverridePart target={{ hot, overrides }} title={title()} />);
+    // The consumer's change is hidden by the override: nothing to write.
+    expect(assignedKeys(() => setTitle('consumer 2'))).toEqual([]);
+    // Another key's change writes only that key.
+    expect(assignedKeys(() => setHot(1))).toEqual(['tabindex']);
+    expect(assignedKeys(() => setOverrides({ title: 'override 2' }))).toEqual(['title']);
+    // Dropping the override writes the consumer's value back, once.
+    expect(assignedKeys(() => setOverrides(undefined))).toEqual(['title']);
+  });
+
+  it("brings the consumer's value back when the override drops its key", () => {
+    const [hot] = createSignal(0);
+    const [title, setTitle] = createSignal('consumer');
+    const [overrides, setOverrides] = createSignal<Record<string, unknown> | undefined>({
+      title: 'override',
+    });
+    render(() => <OverridePart target={{ hot, overrides }} title={title()} data-testid="part" />);
+    const part = screen.getByTestId('part');
+    setTitle('consumer 2');
+    flush();
+    expect(part.getAttribute('title')).toBe('override');
+    setOverrides(undefined);
+    flush();
+    expect(part.getAttribute('title')).toBe('consumer 2');
+  });
+
+  it('brings a literal consumer value back when the override drops its key', () => {
+    const [hot] = createSignal(0);
+    const [overrides, setOverrides] = createSignal<Record<string, unknown> | undefined>({
+      'aria-label': 'override',
+    });
+    render(() => (
+      <OverridePart target={{ hot, overrides }} aria-label="literal" data-testid="part" />
+    ));
+    const part = screen.getByTestId('part');
+    expect(part.getAttribute('aria-label')).toBe('override');
+    setOverrides(undefined);
+    flush();
+    expect(part.getAttribute('aria-label')).toBe('literal');
+    setOverrides({ 'aria-label': 'again' });
+    flush();
+    expect(part.getAttribute('aria-label')).toBe('again');
+  });
+
+  it("brings the part's own value back when the override drops a key the consumer lacks", () => {
+    const [hot] = createSignal(0);
+    const [overrides, setOverrides] = createSignal<Record<string, unknown> | undefined>({
+      title: 'override',
+    });
+    render(() => <OverridePart target={{ hot, overrides }} data-testid="part" />);
+    const part = screen.getByTestId('part');
+    expect(part.getAttribute('title')).toBe('override');
+    setOverrides(undefined);
+    flush();
+    expect(part.getAttribute('title')).toBe('part');
+  });
+
+  it('removes a key only the override set once it drops it', () => {
+    const [hot] = createSignal(0);
+    const [overrides, setOverrides] = createSignal<Record<string, unknown> | undefined>(undefined);
+    render(() => <OverridePart target={{ hot, overrides }} data-testid="part" />);
+    const part = screen.getByTestId('part');
+    expect(part.hasAttribute('data-extra')).toBe(false);
+    setOverrides({ 'data-extra': 'x' });
+    flush();
+    expect(part.getAttribute('data-extra')).toBe('x');
+    setOverrides(undefined);
+    flush();
+    expect(part.hasAttribute('data-extra')).toBe(false);
+    expect(part.getAttribute('tabindex')).toBe('0');
+  });
 });

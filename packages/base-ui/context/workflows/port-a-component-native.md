@@ -1,7 +1,7 @@
 ---
 tags: [porting, native, perf, workflow, playbook]
 sources: [packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/native/static.cost.test.tsx, packages/base-ui/packages/solid/test/parityHarness.tsx, packages/base-ui/packages/solid/test/defineSsrFixtures.ts, packages/base-ui/scripts/bench-component.mjs, packages/base-ui/scripts/remote-mac.mjs]
-verified: 2026-10-23
+verified: 2026-10-24
 ---
 
 # Port a component to the native path
@@ -40,6 +40,7 @@ Until every family is on the native kit, the sweep takes precedence over the exi
 - State attributes: compile the writer once at module level (`compileStateWriter(keys, mapping)`). A part with no state on the slow path passes `state: EMPTY_OBJECT` with `stateAttributes: false`, so `class`/`style` functions receive the same empty state.
 - Contexts: `provideNativeContext`, which renders the provider on the server and rebuilds its owners while hydrating.
 - A part style below the consumer's goes in `partStyle`; return `undefined`, not `{}`, for no style: an empty object writes `style=""` where React writes nothing.
+- A second props source that wins over the consumer's attributes (a props source the slow path merges to the consumer's right, such as a toast's `actionProps`) goes in `attributeOverrides`, written last in each run. Its keys hide the consumer's and the part's own writes, and a key it stops setting gets the consumer's value back, then the part's, or is removed. With it, every consumer attribute goes through the effect, a static one too, so nothing written at creation is undone later. The server writes it the same way, each key once (`elementWrites.test.tsx`, `test/hydration/attribute-overrides.hydration.test.tsx`). Not for `class` or `style`: `styleOverride` is the style's.
 - Static styles in JSX: a literal object compiles into the template string at no cost; an identifier (`style={visuallyHidden}`) costs a render effect per element.
 - Owned children (a part that renders its own nodes after the consumer's): `children: () => [props.children, (cached ??= hint())]`, created once and in document order for hydration.
 - Fixtures write props out: a spread makes the props a proxy, which silently takes the slow path (the path assertions catch it).
