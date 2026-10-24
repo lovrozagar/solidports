@@ -369,6 +369,13 @@ fs.writeFileSync(
       filter: process.argv[3] ?? null,
       raw: list.filter((scenario) => scenario.tags.includes('raw')).map((scenario) => scenario.id),
       summary,
+      // Each variant's DOM summary per step, as compared above: what a mismatch differed in.
+      summaries: Object.fromEntries(
+        Object.entries(results).map(([id, byName]) => [
+          id,
+          Object.fromEntries(NAMES.map((name) => [name, byName[name]?.summaries ?? {}])),
+        ]),
+      ),
       notMeasured: Object.fromEntries(notMeasured),
       console: consoleEntries,
       problems,

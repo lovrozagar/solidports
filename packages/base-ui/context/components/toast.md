@@ -88,6 +88,7 @@ See the [optimization map](../perf/optimization-map.md).
 - `setToasts` skips no-op updates (`store.ts:630`) so reference-keyed lists do not remount.
 - Selector arguments are accessors (`store.ts:79`), so each selector subscribes to the id it reads.
 - Timers are created ownerless (`store.ts:198`) so an owning effect re-run never clears them.
+- Closing a toast: no divergence (checked 2026-10-24). The bench's `toast/50-action` once ended its click step with 48 toasts in React and 49 in Solid; that step clicked the first action ten times, a task apart, while the first toast was closing. `toast/close-timing`, `toast/close-timing-exit` and `toast/close-interactivity` (`test/perf-solid/shared/scenarios/toast.ts`) now pin what a user can do: in 5 of 5 local runs both libraries keep the closing toast mounted after the close's flush, clickable and first (never `inert`, never `aria-hidden`) until it leaves one frame after the close, or one frame after its `transitionend` with an exit animation, and repeated clicks reach the same toasts. Only when `data-ending-style` appears differs: Solid sets it in the close's microtask flush, React when its scheduler renders in a MessageChannel task, which a task boundary caught in 1 of 5 runs. That is scheduling, not behavior, so the scenarios' summaries leave it out, and frame counts too.
 
 ## Docs
 
