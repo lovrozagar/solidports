@@ -46,17 +46,20 @@ function initCheckboxItem(item: NativeMenuItemModel) {
     state: 'checked',
   });
   item.checked = checked;
-  item.select = (event) => {
-    const details = createChangeEventDetails(REASONS.itemPress, event, undefined, {
-      preventUnmountOnClose: NOOP,
-    });
-    const next = !untrack(checked);
-    props.onCheckedChange?.(next, details);
-    if (details.isCanceled) {
-      return;
-    }
-    setChecked(next);
-  };
+  item.setChecked = setChecked;
+}
+
+/** The checkbox item's click: `onCheckedChange`, then the toggle unless the details are canceled. */
+function toggleCheckboxItem(item: NativeMenuItemModel, event: MouseEvent) {
+  const details = createChangeEventDetails(REASONS.itemPress, event, undefined, {
+    preventUnmountOnClose: NOOP,
+  });
+  const next = !untrack(item.checked);
+  (item.props as MenuCheckboxItem.Props).onCheckedChange?.(next, details);
+  if (details.isCanceled) {
+    return;
+  }
+  item.setChecked(next);
 }
 
 function writeCheckboxItemAttributes(w: SetAttribute, item: NativeMenuItemModel) {
@@ -84,7 +87,7 @@ const CHECKBOX_ITEM_KIND = Object.freeze<NativeMenuItemKind>({
   closeOnClick: false,
   State: NativeMenuCheckboxItemState,
   init: initCheckboxItem,
-  click: (item, event) => item.select(event),
+  click: toggleCheckboxItem,
   attributes: writeCheckboxItemAttributes,
   provide: (item, render) =>
     provideNativeContext(

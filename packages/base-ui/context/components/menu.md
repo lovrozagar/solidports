@@ -6,7 +6,7 @@ verified: 2026-10-24
 
 # Menu
 
-Menu (with ContextMenu and Menubar) is fully ported; a plain menu's `Menu.Item` and `Menu.CheckboxItem` (with its indicator) render natively (D32), so opening menu/500 keeps 3.6 MB against React's 6.7 MB, while the other parts are still on the slow `useRenderElement` path.
+Menu (with ContextMenu and Menubar) is fully ported; a plain menu's `Menu.Item`, `Menu.CheckboxItem` and `Menu.RadioItem` (with their indicators) render natively (D32), so opening menu/500 keeps 3.6 MB against React's 6.7 MB, while the other parts are still on the slow `useRenderElement` path.
 
 ## Status
 
@@ -30,12 +30,13 @@ ContextMenu lives in `context-menu/` (Root, Trigger, Positioner; the rest re-exp
 
 ## Native fast path
 
-`Menu.Item` and `Menu.CheckboxItem` with its indicator in a plain menu (the D32 sweep, after Select), in Menu, ContextMenu and Menubar alike, on the client. The other parts still render through `useRenderElement`. See [render pipeline](../architecture/render-pipeline.md).
+`Menu.Item`, and `Menu.CheckboxItem` and `Menu.RadioItem` with their indicators, in a plain menu (the D32 sweep, after Select), in Menu, ContextMenu and Menubar alike, on the client. The other parts still render through `useRenderElement`. See [render pipeline](../architecture/render-pipeline.md).
 
 - The item renders its `<div role="menuitem">` through the kit when its props are plain, `nativeButton` is not `true` and the menu has no filter (`isUnfilteredItem`). The native path lives in `item/nativeMenuItem.tsx`, shared by the item kinds: what a kind changes (its own keys, `role`, state keys, the `closeOnClick` default) is one frozen module-level `NativeMenuItemKind` the model references, with no per-item flags or closures. One `NativeMenuItemModel` per item is the target of the module-level handler tables and of the attribute write; `useMenuItem`, `useMenuItemCommonProps` and `useButton`'s composite gates are inlined in the slow path's `mergeProps` order (button gate, consumer, the root's list navigation, the item).
 - CheckboxItem (`CHECKBOX_ITEM_KIND`): `role="menuitemcheckbox"`, `aria-checked`, `data-checked`/`data-unchecked` (`itemMapping`), `closeOnClick` false by default. Its `init` reads `checked`/`defaultChecked` through `useControlled` onto the model, and its click calls `onCheckedChange` and toggles unless the details are canceled; the model is the `MenuCheckboxItemContext` value its indicator reads. The gate checks for a filter with `useMenuFilterImpl()` without registering, since the slow path registers its item under the item's context.
-- CheckboxItemIndicator (`utils/nativeItemIndicator.tsx`, shared with RadioItemIndicator): a `<span aria-hidden>` mounted while its item is checked or `keepMounted`, its transition created lazily on the first check (`createLazyTransitionStatus`, Checkbox.Indicator's contract). Checked, with its item: 15 nodes against 53 on the slow path (floor 13).
-- Follow-up leaf: an item of a filtered menu (inside `Menu.FilterProvider`) keeps the slow path, with its visibility branch and filter children; a later unit ports it. RadioItem, LinkItem and SubmenuTrigger follow in batch 1.
+- RadioItem (`RADIO_ITEM_KIND`): `role="menuitemradio"`, `aria-checked`, `closeOnClick` false by default. Its `init` puts the radio group on the model: the group's `disabled` joins the item's, `checked` reads the group's keyed `isChecked`, and the click calls the group's `setValue`. Checked, with its indicator: 14 nodes against 52 on the slow path (floor 13).
+- CheckboxItemIndicator and RadioItemIndicator (`utils/nativeItemIndicator.tsx`): a `<span aria-hidden>` mounted while its item is checked or `keepMounted`, its transition created lazily on the first check (`createLazyTransitionStatus`, Checkbox.Indicator's contract). Checked, with its item: 15 nodes against 53 on the slow path (floor 13).
+- Follow-up leaf: an item of a filtered menu (inside `Menu.FilterProvider`) keeps the slow path, with its visibility branch and filter children; a later unit ports it. LinkItem and SubmenuTrigger follow in batch 1.
 
 ## Reactive cost
 

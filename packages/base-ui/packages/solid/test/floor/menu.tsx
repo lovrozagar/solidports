@@ -97,13 +97,15 @@ export function FloorMenuItem(props: FloorMenuItemProps) {
 }
 
 export interface FloorMenuCheckboxItemProps {
+  /** A radio item renders the same DOM with its own role. */
+  role?: 'menuitemcheckbox' | 'menuitemradio' | undefined;
   index: number;
   checked: Accessor<boolean>;
   children?: JSX.Element;
 }
 
 /**
- * An open checkbox item: one render effect writes its highlight and checked state; its id is
+ * An open checkbox (or radio) item: one render effect writes its highlight and checked state; its id is
  * generated once. Its indicator is the consumer's.
  */
 export function FloorMenuCheckboxItem(props: FloorMenuCheckboxItemProps) {
@@ -113,7 +115,7 @@ export function FloorMenuCheckboxItem(props: FloorMenuCheckboxItemProps) {
     <div
       id={`base-ui-${createUniqueId()}`}
       tabindex="-1"
-      role="menuitemcheckbox"
+      role={props.role ?? 'menuitemcheckbox'}
       aria-checked="false"
       onClick={[itemClick, record]}
       onKeyDown={[itemKeyDown, record]}

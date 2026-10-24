@@ -1,4 +1,4 @@
-import { Show } from 'solid-js';
+import { Show, untrack } from 'solid-js';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -9,11 +9,72 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
+import { NativeMenuItemState, renderNativeMenuItem } from '../item/nativeMenuItem';
+import type { NativeMenuItemKind, NativeMenuItemModel } from '../item/nativeMenuItem';
+import { canRenderNative } from '../../utils/native';
+import { compileStateWriter } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
+import { provideNativeContext } from '../../utils/native/context';
 import { useMenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
+import {
+  useMenuFilterImpl,
+  useMenuFilterItem,
+  withFilterChildren,
+} from '../filter-root/MenuFilterContext';
 import { itemMapping } from '../utils/stateAttributesMapping';
 import { MenuRadioItemContext } from './MenuRadioItemContext';
+
+/** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
+const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
+
+/** A radio item's state: the item's, plus whether its value is the group's. */
+class NativeMenuRadioItemState extends NativeMenuItemState {
+  get checked() {
+    return this.item.checked();
+  }
+}
+
+/**
+ * The item's group: its disabled state joins the item's, and `checked` reads the group's keyed
+ * membership, so a value change re-runs only the items that became or stopped being checked.
+ */
+function initRadioItem(item: NativeMenuItemModel) {
+  const group = useMenuRadioGroupContext();
+  const props = item.props as MenuRadioItem.Props;
+  item.group = group;
+  item.checked = () => group.isChecked(props.value);
+}
+
+/** The radio item's click: the group selects its value. */
+function selectRadioItem(item: NativeMenuItemModel, event: MouseEvent) {
+  const details = createChangeEventDetails(REASONS.itemPress, event, undefined, {
+    preventUnmountOnClose: NOOP,
+  });
+  item.group!.setValue((item.props as MenuRadioItem.Props).value, details);
+}
+
+function writeRadioItemAttributes(w: SetAttribute, item: NativeMenuItemModel) {
+  w.set('aria-checked', item.checked() ? 'true' : 'false');
+}
+
+/**
+ * A radio item's native kind: `role="menuitemradio"`, stays open on click by default, and provides
+ * its state to its indicator. The model is the context value (`checked`, `disabled` and
+ * `highlighted`).
+ */
+const RADIO_ITEM_KIND = Object.freeze<NativeMenuItemKind>({
+  own: new Set(['id', 'label', 'nativeButton', 'disabled', 'closeOnClick', 'value']),
+  literal: Object.freeze({ role: 'menuitemradio' }),
+  stateWriter: compileStateWriter(['checked', 'disabled', 'highlighted'], itemMapping),
+  closeOnClick: false,
+  State: NativeMenuRadioItemState,
+  init: initRadioItem,
+  click: selectRadioItem,
+  attributes: writeRadioItemAttributes,
+  provide: (item, render) =>
+    provideNativeContext(MenuRadioItemContext, item as unknown as MenuRadioItemContext, render),
+});
 
 /**
  * A menu item that works like a radio button in a given group.
@@ -22,6 +83,20 @@ import { MenuRadioItemContext } from './MenuRadioItemContext';
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
+  // Native fast path (`context/architecture/render-pipeline.md`): as Menu.Item's, with the radio
+  // kind (D32's sweep). A filtered menu keeps the slow path's visibility branch.
+  if (
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    untrack(() => componentProps.nativeButton) !== true &&
+    // Read without registering: the slow path registers its item under the item's context.
+    useMenuFilterImpl() === null
+  ) {
+    return renderNativeMenuItem(componentProps, RADIO_ITEM_KIND);
+  }
+  return SlowMenuRadioItem(componentProps);
+}
+
+function SlowMenuRadioItem(componentProps: MenuRadioItem.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'id',
     'label',
@@ -104,29 +179,29 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
       },
     });
     const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
-    props: [
-      ...itemSources.attributes,
-      propsSourceMemo(itemProps),
-      {
-        role: 'menuitemradio' as const,
-        get 'aria-checked'() {
-          return checked() ? 'true' : 'false';
+      props: [
+        ...itemSources.attributes,
+        propsSourceMemo(itemProps),
+        {
+          role: 'menuitemradio' as const,
+          get 'aria-checked'() {
+            return checked() ? 'true' : 'false';
+          },
+          onClick: handleClick,
         },
-        onClick: handleClick,
+        elementProps,
+        itemSources.handlers,
+      ],
+      ref: (el) => {
+        setItemRef(el);
+        listItem.setRef(el);
+        if (filterItem.ref) {
+          filterItem.ref.current = el ?? null;
+        }
       },
-      elementProps,
-      itemSources.handlers,
-    ],
-    ref: (el) => {
-      setItemRef(el);
-      listItem.setRef(el);
-      if (filterItem.ref) {
-        filterItem.ref.current = el ?? null;
-      }
-    },
-    state,
-    stateAttributesMapping: itemMapping,
-  });
+      state,
+      stateAttributesMapping: itemMapping,
+    });
     return <Show when={filterItem.visible()}>{element()}</Show>;
   };
 
