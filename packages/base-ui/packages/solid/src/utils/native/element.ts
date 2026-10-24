@@ -125,6 +125,11 @@ export interface NativeElementSpec<State extends object> {
   /** A part style combined above the consumer's (its keys win), e.g. a temporary `animation-name`. */
   styleOverride?: (() => JSX.CSSProperties | undefined) | undefined;
   /**
+   * A part class combined after the consumer's (`consumer part`), as the slow path's merge puts a
+   * props source's class beside the consumer's, e.g. a toast's `actionProps.class`.
+   */
+  partClass?: (() => string | undefined) | undefined;
+  /**
    * The part's write reads a value no signal tracks (a measured animation type), which can change
    * while hydrating without re-running the attribute effect: reconcile after hydration in any case.
    * Other parts reconcile only when their effect applied again while hydrating.
@@ -462,6 +467,14 @@ const setServerAttribute: SetAttribute = {
   },
 };
 
+/** A consumer's class with a part's after it, as the slow path's merge combines them. */
+function combineClass(consumer: unknown, part: string | undefined): unknown {
+  if (part === undefined || part === '') {
+    return consumer;
+  }
+  return consumer === undefined || consumer === '' ? part : `${consumer} ${part}`;
+}
+
 /** Collects a part's `attributeOverrides` into one record (undefined values dropped). */
 class OverrideCollector implements SetAttribute {
   declare record: Record<string, unknown> | undefined;
@@ -615,8 +628,14 @@ function renderServerElement<State extends object>(
       }
     }
 
-    if ('class' in props) {
-      const value = resolveClass(source.class, consumerState(spec, source.class));
+    const partClass = spec.partClass?.();
+    if ('class' in props || partClass !== undefined) {
+      const value = combineClass(
+        'class' in props
+          ? resolveClass(source.class, consumerState(spec, source.class))
+          : undefined,
+        partClass,
+      );
       if (value !== undefined) {
         ownServerObject().class = value;
       }
@@ -1279,8 +1298,12 @@ class ElementWriter<State extends object> implements SetAttribute {
     } else {
       readReactiveProps(source, this.reactive, into);
     }
-    if (this.hasClass) {
-      const value = resolveClass(source.class, consumerState(spec, source.class));
+    const partClass = spec.partClass?.();
+    if (this.hasClass || partClass !== undefined) {
+      const value = combineClass(
+        this.hasClass ? resolveClass(source.class, consumerState(spec, source.class)) : undefined,
+        partClass,
+      );
       if (keepUndefined || value !== undefined) {
         this.put('class', value);
       }
@@ -1467,6 +1490,7 @@ function createClientWriter<State extends object>(
   const needsEffect =
     spec.reactive ||
     spec.attributeOverrides !== undefined ||
+    spec.partClass !== undefined ||
     styleOverride !== undefined ||
     partStyle !== undefined ||
     reactive.length > 0 ||

@@ -301,3 +301,44 @@ describe('toast arrow cost', () => {
     expect(cost, `Toast.Arrow ${cost} nodes`).toBe(ARROW_BUDGET);
   });
 });
+
+/** Toast.Action at D32's port; the slow path's in the comment. */
+const ACTION_BUDGET = 9; // slow 20
+
+describe('toast action cost', () => {
+  const { render } = createRenderer();
+  const live: Toast.Root.ToastObject = { id: 'live', title: 'Saved' };
+
+  function nodes(ui: () => JSX.Element) {
+    count = 0;
+    hooks.onOwner = counting;
+    const view = render(ui);
+    flush();
+    hooks.onOwner = undefined;
+    const created = count;
+    view.unmount();
+    return created;
+  }
+
+  const actions = (n: number) => () => (
+    <Toast.Provider>
+      <Toast.Root toast={live}>
+        {Array.from({ length: n }, () => (
+          <Toast.Action data-testid="action">Undo</Toast.Action>
+        ))}
+      </Toast.Root>
+    </Toast.Provider>
+  );
+
+  it('a Toast.Action renders on the native path', () => {
+    const view = render(actions(1));
+    flush();
+    expect(renderPathOf(document.querySelector('[data-testid="action"]')!)).toBe('native');
+    view.unmount();
+  });
+
+  it('a Toast.Action stays within its native budget', () => {
+    const cost = nodes(actions(5)) - nodes(actions(4));
+    expect(cost, `Toast.Action ${cost} nodes`).toBe(ACTION_BUDGET);
+  });
+});

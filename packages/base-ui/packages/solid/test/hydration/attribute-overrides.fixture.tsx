@@ -28,17 +28,22 @@ function OverridePart(props: OverrideProps): JSX.Element {
     own: OWN_KEYS,
     attributes: (w: SetAttribute) => w.set('title', 'part'),
     attributeOverrides: writeOverrides,
+    partClass: () => 'part',
     handlerTarget: props,
     reactive: true,
   }) as unknown as JSX.Element;
 }
 
-/** The part with a literal consumer key the override replaces, and a key only the override sets. */
+/**
+ * The part with a literal consumer key the override replaces, a key only the override sets, and a
+ * part class beside the consumer's.
+ */
 export function AttributeOverridesFixture() {
   return (
     <OverridePart
       data-testid="override-part"
       aria-label="literal"
+      class="consumer"
       overrides={{ 'aria-label': 'override', title: 'override title', 'data-extra': 'x' }}
     />
   );

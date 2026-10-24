@@ -14,7 +14,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const EXPECTED = { 'aria-label': 'override', title: 'override title', 'data-extra': 'x' };
+const EXPECTED = {
+  'aria-label': 'override',
+  title: 'override title',
+  'data-extra': 'x',
+  class: 'consumer part',
+};
 
 describe('hydrated attribute overrides', () => {
   it("claims the server's element with the overridden attributes and no mismatch", () => {
