@@ -53,6 +53,12 @@ export const EXCLUSIVE_LOCK =
  */
 export const LOCK_TIMEOUT_SECONDS = Number(process.env.GATES_TIMEOUT ?? 1200);
 
+/**
+ * Seconds each step of a full WebKit parity run may take in Playwright's Docker image: 1.5 times
+ * the slower of two measured full runs' slowest step (`context/testing/suites.md`).
+ */
+const WEBKIT_STEP_TIMEOUT_SECONDS = 1425;
+
 // One entry per workflow step, grouped by job. `generated` lists the paths the step may rewrite;
 // it fails when it changes any of them (the workflow's `git diff --exit-code`, scoped so suites
 // running beside it cannot be blamed on it, and without discarding local changes first).
@@ -190,21 +196,32 @@ export const suites = [
     run: ['bun run test:solid:chromium --run --maxWorkers=2'],
   },
   // The browser parity workflow: upstream's suite and the Solid suite in Firefox and WebKit, failing
-  // on Solid-only failures (upstream's CI runs neither browser).
-  ...['firefox', 'webkit'].map((browser) => ({
-    job: 'Browser parity',
-    name: `parity-${browser}`,
-    browser,
-    cwd: baseUi,
-    heavy: true,
-    exclusive: true,
-    fullOnly: 'runs both suites whole in the browser',
-    run: [
-      `bun run test:${browser} --run --maxWorkers=2 --reporter=json --outputFile="$TEST_ALL_RUN_DIR/react-${browser}.json" || true`,
-      `bun run test:solid:${browser} --run --maxWorkers=2 --reporter=json --outputFile="$TEST_ALL_RUN_DIR/solid-${browser}.json" || true`,
-      `node scripts/browser-parity.mjs "$TEST_ALL_RUN_DIR/react-${browser}.json" "$TEST_ALL_RUN_DIR/solid-${browser}.json" --confirm ${browser}`,
-    ],
-  })),
+  // on Solid-only failures (upstream's CI runs neither browser). WebKit runs, its confirm reruns
+  // included, in Playwright's Docker image (`scripts/webkit-docker.sh`): local WebKit lacks the
+  // host's libraries. Each of its steps gets WEBKIT_STEP_TIMEOUT_SECONDS.
+  ...['firefox', 'webkit'].map((browser) => {
+    const docker = browser === 'webkit';
+    const report = (suite) => `"$TEST_ALL_RUN_DIR/${suite}-${browser}.json"`;
+    const suiteRun = (suite, script) =>
+      docker
+        ? `bash scripts/webkit-docker.sh ${script} ${report(suite)} || true`
+        : `bun run ${script} --run --maxWorkers=2 --reporter=json --outputFile=${report(suite)} || true`;
+    return {
+      job: 'Browser parity',
+      name: `parity-${browser}`,
+      browser,
+      cwd: baseUi,
+      heavy: true,
+      exclusive: true,
+      ...(docker ? { timeoutSeconds: WEBKIT_STEP_TIMEOUT_SECONDS } : {}),
+      fullOnly: 'runs both suites whole in the browser',
+      run: [
+        suiteRun('react', `test:${browser}`),
+        suiteRun('solid', `test:solid:${browser}`),
+        `${docker ? 'PARITY_RUNNER=scripts/webkit-docker.sh ' : ''}node scripts/browser-parity.mjs ${report('react')} ${report('solid')} --confirm ${browser}`,
+      ],
+    };
+  }),
   {
     job: 'E2E tests',
     name: 'e2e',
@@ -396,9 +413,6 @@ export function planSuites(options) {
       } else {
         run = [scopedParity(suite.browser, tests).join('\n')];
         note = `${tests.solidCount} Solid test files${tests.overBudget ? `, over the ${BROWSER_TEST_BUDGET}-file budget` : ''}`;
-        if (suite.browser === 'webkit' && !options.docker) {
-          unavailable = 'Docker is not available for WebKit';
-        }
       }
     } else if (options.changed != null) {
       selected = !suite.heavy || Boolean(suite.vitest);
@@ -414,6 +428,9 @@ export function planSuites(options) {
     if (selected && options.only && !options.only.includes(suite.name)) {
       selected = false;
       detail = 'not selected (--only)';
+    }
+    if (selected && suite.browser === 'webkit' && run.length > 0 && options.dockerUnavailable) {
+      unavailable = options.dockerUnavailable;
     }
     return {
       ...suite,
@@ -702,8 +719,28 @@ function scopedParityInputs(ref) {
             .map((entry) => `${dir}/${entry.name}`)
         : [],
   );
-  const docker = spawnSync('docker', ['info'], { stdio: 'ignore' }).status === 0;
-  return { browserTests, docker };
+  return { browserTests };
+}
+
+/**
+ * Why Docker cannot run WebKit, from `docker info`'s result, or null when it can. A socket that
+ * exists but refuses this user is a missing docker group, which a re-login (or `newgrp docker` for
+ * one shell) fixes.
+ */
+export function dockerUnavailable(info, socketExists) {
+  if (info.status === 0) return null;
+  if (socketExists && /permission denied/i.test(info.stderr ?? '')) {
+    return 'Docker permission: re-login or newgrp docker';
+  }
+  return 'Docker is not available for WebKit';
+}
+
+/** `dockerUnavailable` for this shell: runs `docker info` and checks its socket. */
+function probeDocker() {
+  const info = spawnSync('docker', ['info'], { encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'] });
+  const host = process.env.DOCKER_HOST ?? 'unix:///var/run/docker.sock';
+  const socket = host.startsWith('unix://') ? host.slice('unix://'.length) : null;
+  return dockerUnavailable(info, socket !== null && fs.existsSync(socket));
 }
 
 async function main() {
@@ -748,6 +785,10 @@ async function main() {
   const started = Date.now();
   if (options.changed != null) {
     Object.assign(options, scopedParityInputs(options.changed));
+  }
+  // Only when the WebKit suite can be selected: `--only` without it skips the probe.
+  if (!options.only || options.only.includes('parity-webkit')) {
+    options.dockerUnavailable = probeDocker();
   }
   const results = await runAll(
     planSuites(options),
