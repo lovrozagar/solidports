@@ -179,9 +179,10 @@ export function useRenderElement<
     // Read the `render` prop once per change: a JSX-valued prop is a getter that re-creates its
     // element on every read, and the branch below must not re-run for unrelated prop changes.
     // No `render` prop, or one that can never change: read it once, no memo.
-    // Server and hydration renders always take the memo paths below: the server and the client
-    // compile can disagree on which props are static, and both renders must create the same owners
-    // (hydration keys).
+    // Server and hydration renders take the memo paths below. The server and the client compile
+    // give every component call the same props shape (`test/ssr/compile-agreement.test.ts`), so a
+    // static `render` would create the same owners on both sides; the memo costs nothing there and
+    // keeps both renders' owners (hydration keys) the same if a compiler ever stops agreeing.
     const serverOrHydrating = isServer || isHydrating();
     const staticRenderProp =
       !serverOrHydrating &&
