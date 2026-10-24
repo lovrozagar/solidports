@@ -107,3 +107,60 @@ describe('combobox cost against the hand-written floor', () => {
     );
   });
 });
+
+/** A grid list's Row at D32's port; the slow path's in the comment. */
+const ROW_BUDGET = 3; // slow 12
+
+describe('combobox row cost', () => {
+  const { render } = createRenderer();
+
+  function nodes(ui: () => JSX.Element) {
+    count = 0;
+    hooks.onOwner = counting;
+    const view = render(ui);
+    flush();
+    hooks.onOwner = undefined;
+    const created = count;
+    view.unmount();
+    return created;
+  }
+
+  // An open grid list of rows, each with one item; `rows` false renders the items alone.
+  const grid = (rows: boolean) => (n: number) => () => (
+    <Combobox.Root open grid>
+      <Combobox.Input />
+      <Combobox.Portal>
+        <Combobox.Positioner>
+          <Combobox.Popup>
+            <Combobox.List>
+              {/* eslint-disable-next-line solid/prefer-for -- the list never changes */}
+              {itemsOf(n).map((it) =>
+                rows ? (
+                  <Combobox.Row>
+                    <Combobox.Item value={it}>{it.label}</Combobox.Item>
+                  </Combobox.Row>
+                ) : (
+                  <Combobox.Item value={it}>{it.label}</Combobox.Item>
+                ),
+              )}
+            </Combobox.List>
+          </Combobox.Popup>
+        </Combobox.Positioner>
+      </Combobox.Portal>
+    </Combobox.Root>
+  );
+
+  it('a Row renders on the native path', () => {
+    const view = render(grid(true)(2));
+    flush();
+    const rows = [...document.querySelectorAll('[role="row"]')];
+    expect(rows.map((el) => renderPathOf(el))).toEqual(['native', 'native']);
+    view.unmount();
+  });
+
+  it('a Row stays within its native budget', () => {
+    const perItem = (rows: boolean) => nodes(grid(rows)(5)) - nodes(grid(rows)(4));
+    const cost = perItem(true) - perItem(false);
+    expect(cost, `Combobox.Row ${cost} nodes`).toBe(ROW_BUDGET);
+  });
+});
