@@ -8,7 +8,7 @@
 # overlay's upper layer beside the report, never in the tree. The tree needs its own install: one
 # that resolves packages from another checkout links outside the container.
 #
-# `test:base-ui:all --changed` runs the scoped parity-webkit suite through it, and
+# `test:base-ui:all` runs its parity-webkit suite through it, scoped or full, and
 # `browser-parity.mjs` its confirm reruns (PARITY_RUNNER).
 #
 # Usage (from packages/base-ui): bash scripts/webkit-docker.sh <script> <report.json> [filters...]

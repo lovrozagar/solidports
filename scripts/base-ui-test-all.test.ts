@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path"
 import {
 	changedBrowserTestFiles,
 	commandFor,
+	dockerUnavailable,
 	failureDetail,
 	EXCLUSIVE_LOCK,
 	planSuites,
@@ -96,14 +97,17 @@ describe("test:base-ui:all machine lock", () => {
 		expect(probe.exitCode).toBe(0)
 	})
 
-	test("the measured benchmark gets an hour; every other exclusive suite the default 20 minutes", () => {
+	test("the measured benchmark gets an hour, WebKit parity its measured step time; every other exclusive suite the default 20 minutes", () => {
 		const timeouts = Object.fromEntries(
 			suites
 				.filter((s: { exclusive?: boolean }) => s.exclusive)
 				.map((s: { name: string; timeoutSeconds?: number }) => [s.name, s.timeoutSeconds]),
 		)
 		expect(timeouts.benchmark).toBe(3600)
-		expect(Object.entries(timeouts).filter(([name, t]) => name !== "benchmark" && t !== undefined)).toEqual([])
+		expect(timeouts["parity-webkit"]).toBeNumber()
+		expect(
+			Object.entries(timeouts).filter(([name, t]) => !["benchmark", "parity-webkit"].includes(name) && t !== undefined),
+		).toEqual([])
 	})
 
 	test("the vitest browser servers stay on one address, and the Solid project binds its port strictly", async () => {
@@ -322,7 +326,7 @@ describe("scoped browser parity under --changed", () => {
 		overBudget: false,
 	}
 	const plan = (extra: Record<string, unknown> = {}) =>
-		planSuites({ changed: "main", only: null, fullBench: false, browserTests, docker: true, ...extra })
+		planSuites({ changed: "main", only: null, fullBench: false, browserTests, dockerUnavailable: null, ...extra })
 
 	test("selects both parity suites with the changed files as exact filters", () => {
 		for (const browser of ["firefox", "webkit"]) {
@@ -387,15 +391,75 @@ describe("scoped browser parity under --changed", () => {
 	})
 
 	test("WebKit without Docker is not run, which fails --changed", () => {
-		const suite = parity(plan({ docker: false }), "webkit")
+		const suite = parity(plan({ dockerUnavailable: "Docker is not available for WebKit" }), "webkit")
 		expect(suite.selected).toBe(true)
 		expect(suite.unavailable).toBe("Docker is not available for WebKit")
 	})
 
 	test("a full run keeps the whole-suite parity", () => {
 		for (const browser of ["firefox", "webkit"]) {
-			const suite = parity(planSuites({ changed: null, only: null, fullBench: false }), browser)
+			const suite = parity(
+				planSuites({ changed: null, only: null, fullBench: false, dockerUnavailable: null }),
+				browser,
+			)
 			expect(suite.run).toEqual(suites.find((s) => s.name === `parity-${browser}`)!.run)
 		}
+	})
+})
+
+// A full run's WebKit parity runs both whole suites, and its confirm reruns, in Playwright's Docker
+// image too: the host's WebKit lacks its libraries on this machine, so a host run measured nothing.
+describe("full browser parity", () => {
+	const full = (extra: Record<string, unknown> = {}) =>
+		planSuites({ changed: null, only: null, fullBench: false, dockerUnavailable: null, ...extra })
+
+	test("runs WebKit's whole suites and its reruns in the Docker image, and Firefox locally", () => {
+		const webkit = parity(full(), "webkit").run
+		expect(webkit.filter((command) => command.startsWith("bash scripts/webkit-docker.sh"))).toEqual([
+			'bash scripts/webkit-docker.sh test:webkit "$TEST_ALL_RUN_DIR/react-webkit.json" || true',
+			'bash scripts/webkit-docker.sh test:solid:webkit "$TEST_ALL_RUN_DIR/solid-webkit.json" || true',
+		])
+		expect(webkit.join("\n")).not.toContain("bun run test:webkit")
+		expect(webkit.at(-1)).toStartWith("PARITY_RUNNER=scripts/webkit-docker.sh node scripts/browser-parity.mjs")
+		expect(parity(full(), "firefox").run.join("\n")).not.toContain("webkit-docker.sh")
+	})
+
+	test("WebKit without Docker is not run, with the probe's reason", () => {
+		const reason = "Docker permission: re-login or newgrp docker"
+		const suite = parity(full({ dockerUnavailable: reason }), "webkit")
+		expect(suite.selected).toBe(true)
+		expect(suite.unavailable).toBe(reason)
+		expect(parity(full({ dockerUnavailable: reason }), "firefox").unavailable).toBeUndefined()
+	})
+
+	test("a WebKit run bounds each step by its own timeout", () => {
+		const timeout = parity(full(), "webkit").timeoutSeconds
+		expect(timeout).toBeNumber()
+		expect(commandFor(parity(full(), "webkit"), "x", "/tmp/l.lock")).toContain(`timeout -k 30 ${timeout} `)
+	})
+})
+
+// Why Docker cannot run WebKit, from `docker info`: before a re-login adds the docker group, the
+// socket exists but refuses this user, which a re-login or `newgrp docker` fixes.
+describe("the Docker probe", () => {
+	const permission = "permission denied while trying to connect to the docker API at unix:///var/run/docker.sock"
+
+	test("passes when docker info succeeds", () => {
+		expect(dockerUnavailable({ status: 0, stderr: "" }, true)).toBeNull()
+	})
+
+	test("names the permission when the socket exists but refuses the user", () => {
+		expect(dockerUnavailable({ status: 1, stderr: permission }, true)).toBe(
+			"Docker permission: re-login or newgrp docker",
+		)
+	})
+
+	test("reports Docker unavailable otherwise", () => {
+		const unavailable = "Docker is not available for WebKit"
+		expect(dockerUnavailable({ status: 1, stderr: permission }, false)).toBe(unavailable)
+		expect(dockerUnavailable({ status: 1, stderr: "Cannot connect to the Docker daemon" }, true)).toBe(unavailable)
+		expect(dockerUnavailable({ status: null, error: new Error("spawnSync docker ENOENT"), stderr: "" }, false)).toBe(
+			unavailable,
+		)
 	})
 })
