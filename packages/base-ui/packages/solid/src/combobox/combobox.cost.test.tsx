@@ -25,6 +25,7 @@ afterEach(() => {
 });
 
 type Item = { value: string; label: string };
+const values = (n: number) => Array.from({ length: n }, (_, i) => `v${i}`);
 const itemsOf = (n: number): Item[] =>
   Array.from({ length: n }, (_, i) => ({ value: `v${i}`, label: `Item ${i}` }));
 
@@ -162,5 +163,55 @@ describe('combobox row cost', () => {
     const perItem = (rows: boolean) => nodes(grid(rows)(5)) - nodes(grid(rows)(4));
     const cost = perItem(true) - perItem(false);
     expect(cost, `Combobox.Row ${cost} nodes`).toBe(ROW_BUDGET);
+  });
+});
+
+/** A multiple combobox's chip at D32's port; the slow path's in the comment. */
+const CHIP_BUDGET = 6; // slow 16
+
+describe('combobox chip cost', () => {
+  const { render } = createRenderer();
+
+  function nodes(ui: () => JSX.Element) {
+    count = 0;
+    hooks.onOwner = counting;
+    const view = render(ui);
+    flush();
+    hooks.onOwner = undefined;
+    const created = count;
+    view.unmount();
+    return created;
+  }
+
+  // A closed multiple combobox with one chip per selected value, as the bench's multiple-1000
+  // fixture writes it (`remove`: with each chip's remove button).
+  const chips = (remove: boolean) => (n: number) => () => (
+    <Combobox.Root multiple defaultValue={values(n)}>
+      <Combobox.Chips>
+        {/* eslint-disable-next-line solid/prefer-for -- the chips never change */}
+        {values(n).map((value) => (
+          <Combobox.Chip>
+            {value}
+            {remove ? <Combobox.ChipRemove>×</Combobox.ChipRemove> : null}
+          </Combobox.Chip>
+        ))}
+        <Combobox.Input />
+      </Combobox.Chips>
+    </Combobox.Root>
+  );
+
+  it('a Chip renders on the native path', () => {
+    const view = render(chips(false)(2));
+    flush();
+    const rendered = [...document.querySelectorAll('[tabindex="-1"]')].filter(
+      (el) => el.tagName === 'DIV',
+    );
+    expect(rendered.map((el) => renderPathOf(el))).toEqual(['native', 'native']);
+    view.unmount();
+  });
+
+  it('a Chip stays within its native budget', () => {
+    const cost = nodes(chips(false)(5)) - nodes(chips(false)(4));
+    expect(cost, `Combobox.Chip ${cost} nodes`).toBe(CHIP_BUDGET);
   });
 });

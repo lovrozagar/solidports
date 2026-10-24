@@ -236,6 +236,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'combobox cost against the hand-written floor > the floor renders the same option DOM as an open Combobox.Item',
     'combobox cost against the hand-written floor > an open Combobox.Item renders on the native path',
     'combobox cost against the hand-written floor > an open Combobox.Item costs at most the floor item plus 25%',
+    'combobox chip cost > a Chip renders on the native path',
+    'combobox chip cost > a Chip stays within its native budget',
     'combobox row cost > a Row renders on the native path',
     'combobox row cost > a Row stays within its native budget',
     'item indicator cost > a mounted combobox indicator renders on the native path',
