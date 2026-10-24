@@ -14,6 +14,7 @@ import {
   FloorMenuCheckboxItem,
   FloorMenuItem,
   FloorMenuItemIndicator,
+  FloorMenuLinkItem,
   FloorMenuList,
 } from '../../test/floor/menu';
 
@@ -112,6 +113,7 @@ describe('menu cost against the hand-written floor', () => {
 const BUDGET = {
   checkbox: 15, // with its indicator; slow 53, floor 13
   radio: 14, // with its indicator; slow 52, floor 13
+  link: 2, // slow 23, floor 5
 };
 
 describe('menu item kinds against the hand-written floor', () => {
@@ -163,6 +165,10 @@ describe('menu item kinds against the hand-written floor', () => {
           ))}
         </Menu.RadioGroup>
       )),
+    link: (n: number) =>
+      menu(() =>
+        labels(n).map((label) => <Menu.LinkItem href="#a">{label}</Menu.LinkItem>),
+      ),
   };
   const floor = {
     checkbox: (n: number) => () => {
@@ -195,8 +201,25 @@ describe('menu item kinds against the hand-written floor', () => {
         </FloorMenuList>
       );
     },
+    link: (n: number) => () => {
+      const [active, setActive] = createSignal(-1);
+      return (
+        <FloorMenuList active={active} setActive={setActive} onActivate={() => {}}>
+          {/* eslint-disable-next-line solid/prefer-for -- the floor's menu never changes */}
+          {labels(n).map((label, index) => (
+            <FloorMenuLinkItem index={index} href="#a">
+              {label}
+            </FloorMenuLinkItem>
+          ))}
+        </FloorMenuList>
+      );
+    },
   };
-  const selector = { checkbox: '[role="menuitemcheckbox"]', radio: '[role="menuitemradio"]' };
+  const selector = {
+    checkbox: '[role="menuitemcheckbox"]',
+    radio: '[role="menuitemradio"]',
+    link: 'a[role="menuitem"]',
+  };
 
   /** The normalized HTML and render paths of each element `selector` matches, and of its indicator. */
   function parts(ui: () => JSX.Element, query: string) {
@@ -208,10 +231,10 @@ describe('menu item kinds against the hand-written floor', () => {
       wrapper.append(el.cloneNode(true));
       return normalizeTree(wrapper);
     });
-    const paths = els.flatMap((el) => [
-      renderPathOf(el),
-      renderPathOf(el.querySelector('span[aria-hidden]')!),
-    ]);
+    const paths = els.flatMap((el) => {
+      const indicator = el.querySelector('span[aria-hidden]');
+      return indicator ? [renderPathOf(el), renderPathOf(indicator)] : [renderPathOf(el)];
+    });
     view.unmount();
     return { html, paths };
   }
@@ -225,11 +248,13 @@ describe('menu item kinds against the hand-written floor', () => {
     );
   });
 
-  it.each(kinds)('a %s item and its indicator render on the native path', (kind) => {
-    expect(parts(library[kind](2), selector[kind]).paths).toEqual(Array(4).fill('native'));
+  it.each(kinds)('a %s item and any indicator render on the native path', (kind) => {
+    const { paths } = parts(library[kind](2), selector[kind]);
+    expect(paths.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(paths)).toEqual(new Set(['native']));
   });
 
-  it.each(kinds)('a %s item with its indicator stays within its native budget', (kind) => {
+  it.each(kinds)('a %s item with any indicator stays within its native budget', (kind) => {
     const cost = perCopy(library[kind]);
     const base = perCopy(floor[kind]);
     expect(cost, `${kind} ${cost} nodes, floor ${base}`).toBeLessThanOrEqual(BUDGET[kind]);

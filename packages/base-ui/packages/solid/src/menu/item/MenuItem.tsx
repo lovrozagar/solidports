@@ -14,7 +14,7 @@ import {
   withFilterChildren,
 } from '../filter-root/MenuFilterContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { NativeMenuItemState, renderNativeMenuItem } from './nativeMenuItem';
+import { createItemDiv, NativeMenuItemState, renderNativeMenuItem } from './nativeMenuItem';
 import type { NativeMenuItemKind } from './nativeMenuItem';
 import { REGULAR_ITEM, useMenuItem } from './useMenuItem';
 
@@ -28,6 +28,8 @@ const ITEM_KIND = Object.freeze<NativeMenuItemKind>({
   /** The item state's `data-*` attributes in the slow path's key order. */
   stateWriter: compileStateWriter(['disabled', 'highlighted'], undefined),
   closeOnClick: true,
+  element: createItemDiv,
+  link: false,
   State: NativeMenuItemState,
   init: undefined,
   click: undefined,

@@ -10,7 +10,7 @@ import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
-import { NativeMenuItemState, renderNativeMenuItem } from '../item/nativeMenuItem';
+import { createItemDiv, NativeMenuItemState, renderNativeMenuItem } from '../item/nativeMenuItem';
 import type { NativeMenuItemKind, NativeMenuItemModel } from '../item/nativeMenuItem';
 import { canRenderNative } from '../../utils/native';
 import { compileStateWriter } from '../../utils/native/element';
@@ -85,6 +85,8 @@ const CHECKBOX_ITEM_KIND = Object.freeze<NativeMenuItemKind>({
   literal: Object.freeze({ role: 'menuitemcheckbox' }),
   stateWriter: compileStateWriter(['checked', 'disabled', 'highlighted'], itemMapping),
   closeOnClick: false,
+  element: createItemDiv,
+  link: false,
   State: NativeMenuCheckboxItemState,
   init: initCheckboxItem,
   click: toggleCheckboxItem,

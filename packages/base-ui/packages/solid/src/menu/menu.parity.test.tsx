@@ -254,3 +254,81 @@ describe('native parity: menu radio items and indicators', () => {
     expect(await snapshots(true, steps)).toEqual(native);
   });
 });
+
+describe('native parity: menu link items', () => {
+  const { render } = createRenderer();
+
+  async function snapshots(slow: boolean, steps: (setDisabled: (d: boolean) => void) => Step[]) {
+    const [rootDisabled, setRootDisabled] = createSignal(false);
+    const events: string[] = [];
+    const link = (label: string, extra: Record<string, unknown> = {}) =>
+      part(Menu.LinkItem, slow, 'a', {
+        'data-label': label,
+        onClick: (event: MouseEvent) => {
+          events.push(`click:${label}`);
+          event.preventDefault();
+        },
+        children: label,
+        ...extra,
+      });
+    const view = render(() => (
+      <Menu.Root open disabled={rootDisabled()}>
+        <Menu.Trigger>Open</Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner>
+            <Menu.Popup>
+              {link('href', { href: '#href' })}
+              {link('bare')}
+              {link('closing', { href: '#closing', closeOnClick: true })}
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    ));
+    flush();
+    const record = () => {
+      const paths = [...document.body.querySelectorAll('a[role="menuitem"]')].map((el) =>
+        renderPathOf(el),
+      );
+      expect(paths).not.toContain(slow ? 'native' : 'slow');
+      const focused = document.activeElement;
+      return {
+        tree: normalizeTree(document.body).replace(/mui-cl-\d+/g, 'mui-cl-#'),
+        focused: focused?.getAttribute('data-label') ?? focused?.tagName ?? null,
+        events: events.join(','),
+        bodyPointerEvents: document.body.style.pointerEvents,
+      };
+    };
+    const trees = [record()];
+    for (const step of steps(setRootDisabled)) {
+      step();
+      flush();
+      // eslint-disable-next-line no-await-in-loop -- the steps run in order
+      await Promise.resolve();
+      flush();
+      trees.push(record());
+    }
+    view.unmount();
+    view.container.remove();
+    return trees;
+  }
+
+  it('LinkItem renders the same DOM, focus and events through a session', async () => {
+    const steps = (setRootDisabled: (d: boolean) => void): Step[] => [
+      () => fireEvent.mouseMove(byLabel('bare')),
+      () => byLabel('href').focus(),
+      () => fireEvent.keyDown(byLabel('href'), { key: 'Enter' }),
+      () => fireEvent.keyDown(byLabel('href'), { key: ' ' }),
+      () => byLabel('bare').focus(),
+      () => fireEvent.keyDown(byLabel('bare'), { key: 'Enter' }),
+      () => fireEvent.keyDown(byLabel('bare'), { key: ' ' }),
+      () => setRootDisabled(true),
+      () => fireEvent.click(byLabel('bare')),
+      () => fireEvent.keyDown(byLabel('bare'), { key: 'Enter' }),
+      () => setRootDisabled(false),
+      () => fireEvent.click(byLabel('closing')),
+    ];
+    const native = await snapshots(false, steps);
+    expect(await snapshots(true, steps)).toEqual(native);
+  });
+});

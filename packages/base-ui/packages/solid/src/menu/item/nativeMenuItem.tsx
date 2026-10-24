@@ -28,6 +28,9 @@ import type { MenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext
 
 type ItemEvent<T extends Event> = BaseUIEvent<T>;
 
+/** The `<div>` every item kind but the link renders. */
+export const createItemDiv = (): Element => (<div />) as unknown as Element;
+
 /** The props every native item kind reads. */
 export interface NativeMenuItemProps {
   id?: string | undefined;
@@ -46,8 +49,15 @@ export interface NativeMenuItemKind {
   readonly stateWriter: StateWriter;
   /** `closeOnClick` when the prop is absent. */
   readonly closeOnClick: boolean;
+  /** The element: compiled JSX, one per item. */
+  readonly element: () => Element;
+  /**
+   * A link item (`useButton` with `native: false` over an `<a>`): never disabled, and Enter on a
+   * link with an `href` is left to the browser.
+   */
+  readonly link: boolean;
   /** The item's state class: `class`/`style` functions and the state writer read it. */
-  readonly State: new (item: NativeMenuItemModel) => NativeMenuItemState;
+  readonly State: new (item: NativeMenuItemModel) => NativeMenuItemHighlightState;
   /** Sets the kind's per-item fields up, in the item's owner (it may read context). */
   readonly init: ((item: NativeMenuItemModel) => void) | undefined;
   /** The kind's own click, after the consumer's and before the root's list navigation. */
@@ -59,11 +69,11 @@ export interface NativeMenuItemKind {
 }
 
 /**
- * The item's state, as `class`/`style` functions and its `data-*` attributes read it: prototype
- * getters over the item, the keyed highlight read once per write pass (a keyed read registers a
- * release per read, and the attribute write reads it too).
+ * A link item's state, and every item state's base, as `class`/`style` functions and its `data-*`
+ * attributes read it: prototype getters over the item, the keyed highlight read once per write
+ * pass (a keyed read registers a release per read, and the attribute write reads it too).
  */
-export class NativeMenuItemState {
+export class NativeMenuItemHighlightState {
   declare protected readonly item: NativeMenuItemModel;
   declare private pass: number;
   declare private cachedHighlighted: boolean;
@@ -72,10 +82,6 @@ export class NativeMenuItemState {
     this.item = item;
     this.pass = -1;
     this.cachedHighlighted = false;
-  }
-
-  get disabled() {
-    return this.item.disabled();
   }
 
   get highlighted() {
@@ -88,6 +94,13 @@ export class NativeMenuItemState {
   }
 }
 
+/** An item's state: its highlight and whether it is disabled. */
+export class NativeMenuItemState extends NativeMenuItemHighlightState {
+  get disabled() {
+    return this.item.disabled();
+  }
+}
+
 /** A native open menu item: its model, the target of its module-level handlers and attribute write. */
 export class NativeMenuItemModel {
   declare readonly props: NativeMenuItemProps;
@@ -96,7 +109,7 @@ export class NativeMenuItemModel {
   declare readonly contextMenu: ContextMenuRootContext | null;
   declare readonly index: Accessor<number>;
   declare readonly id: Accessor<string | undefined>;
-  declare readonly state: NativeMenuItemState;
+  declare readonly state: NativeMenuItemHighlightState;
   declare element: HTMLElement | null;
   /** A checkbox or radio item's checked state (set by its kind's `init`). */
   declare checked: Accessor<boolean>;
@@ -125,9 +138,9 @@ export class NativeMenuItemModel {
 
   disabled() {
     return (
-      Boolean(this.props.disabled) ||
+      (!this.kind.link && Boolean(this.props.disabled)) ||
       this.group?.disabled() === true ||
-      this.root.store.select('disabled')
+      (!this.kind.link && this.root.store.select('disabled'))
     );
   }
 
@@ -216,10 +229,11 @@ export class NativeMenuItemModel {
 }
 
 /**
- * `useButton`'s keydown after the lower-priority handlers, for a non-native composite item that is
- * not a link: Space and Enter click the item (Space unless typeahead prevented it).
+ * `useButton`'s keydown after the lower-priority handlers, for a non-native composite item: Space
+ * and Enter click the item (Space unless typeahead prevented it); a link item with an `href`
+ * leaves Enter to the browser.
  */
-function compositeItemKeyDownAfter(event: ItemEvent<KeyboardEvent>) {
+function compositeItemKeyDownAfter(item: NativeMenuItemModel, event: ItemEvent<KeyboardEvent>) {
   if (event.baseUIHandlerPrevented || event.target !== event.currentTarget) {
     return;
   }
@@ -237,6 +251,9 @@ function compositeItemKeyDownAfter(event: ItemEvent<KeyboardEvent>) {
     return;
   }
   if (event.key !== 'Enter' || event.defaultPrevented) {
+    return;
+  }
+  if (item.kind.link && (currentTarget as HTMLAnchorElement).href) {
     return;
   }
   event.preventDefault();
@@ -270,7 +287,7 @@ const ITEM_HANDLERS: Readonly<Record<string, Dispatch<NativeMenuItemModel>>> = {
     'onKeyDown',
     (item, event) => {
       item.keyDown(event);
-      compositeItemKeyDownAfter(event);
+      compositeItemKeyDownAfter(item, event);
     },
     (item, event) => {
       // `useFocusableWhenDisabled`: a disabled item keeps Tab and blocks every other key.
@@ -311,8 +328,7 @@ const ITEM_HANDLERS_IF_PASSED: Readonly<Record<string, Dispatch<NativeMenuItemMo
 /** The item's own attributes below the consumer's: one write per pass. */
 function writeItemAttributes(w: SetAttribute, item: NativeMenuItemModel) {
   const { root } = item;
-  const state = item.state;
-  const highlighted = state.highlighted;
+  const highlighted = item.state.highlighted;
   w.set('id', item.id());
   // `-1` rather than omitting it, which leaves links and buttons in the tab order.
   w.set('tabindex', !root.virtualFocus() && root.store.select('open') && highlighted ? 0 : -1);
@@ -321,7 +337,7 @@ function writeItemAttributes(w: SetAttribute, item: NativeMenuItemModel) {
     root.store.select('webkitAriaSelected', () => highlighted) ? 'true' : undefined,
   );
   // `useFocusableWhenDisabled` for a non-native composite item.
-  w.set('aria-disabled', state.disabled ? 'true' : undefined);
+  w.set('aria-disabled', item.disabled() ? 'true' : undefined);
   item.kind.attributes?.(w, item);
 }
 
@@ -350,8 +366,7 @@ function renderElement(
   setListRef: (node: HTMLElement | null | undefined) => void,
 ): Element {
   const kind = model.kind;
-  const el = (<div />) as unknown as HTMLDivElement;
-  return renderNativeElement(el, props, {
+  return renderNativeElement(kind.element(), props, {
     own: kind.own,
     state: itemState,
     stateWriter: kind.stateWriter,

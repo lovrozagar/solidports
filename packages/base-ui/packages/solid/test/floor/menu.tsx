@@ -160,3 +160,36 @@ function toggle(el: Element, name: string, on: boolean) {
     el.removeAttribute(name);
   }
 }
+
+export interface FloorMenuLinkItemProps {
+  index: number;
+  href: string;
+  children?: JSX.Element;
+}
+
+/** An open link item: an `<a>` that writes its highlight from one render effect. */
+export function FloorMenuLinkItem(props: FloorMenuLinkItemProps) {
+  const context = useContext(FloorMenuContext)!;
+  const record: FloorMenuItemRecord = { context, index: props.index };
+  const el = (
+    <a
+      id={`base-ui-${createUniqueId()}`}
+      href={props.href}
+      tabindex="-1"
+      role="menuitem"
+      onClick={[itemClick, record]}
+      onKeyDown={[itemKeyDown, record]}
+      onMouseMove={[itemMove, record]}
+    >
+      {props.children}
+    </a>
+  ) as HTMLAnchorElement;
+  createRenderEffect(
+    () => context.isHighlighted(record.index),
+    (highlighted) => {
+      el.setAttribute('tabindex', highlighted ? '0' : '-1');
+      toggle(el, 'data-highlighted', highlighted);
+    },
+  );
+  return el;
+}
