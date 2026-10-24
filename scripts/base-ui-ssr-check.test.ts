@@ -3,7 +3,12 @@ import { existsSync } from "node:fs"
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { type Browser, chromium } from "playwright"
-import { checkInteraction, checkMode, TTI_TIMEOUT_MS } from "../packages/base-ui/test/perf-solid/ssr/interact.mjs"
+import {
+	checkInteraction,
+	checkMode,
+	checkSummary,
+	TTI_TIMEOUT_MS,
+} from "../packages/base-ui/test/perf-solid/ssr/interact.mjs"
 
 const hasChromium = existsSync(chromium.executablePath())
 
@@ -86,5 +91,37 @@ describe("the SSR interaction check's verdict", () => {
 		expect(checkMode({ SSR_CHECK: "chromium" })).toBe("chromium")
 		expect(checkMode({ SSR_CHECK: "webkit" })).toBe("webkit")
 		expect(() => checkMode({ SSR_CHECK: "firefox" })).toThrow("SSR_CHECK")
+	})
+})
+
+describe("the SSR interaction check's summary", () => {
+	const checked = [
+		{ key: "checkbox/1000", name: "react" },
+		{ key: "checkbox/1000", name: "solid" },
+		{ key: "menu/page", name: "react" },
+		{ key: "menu/page", name: "solid" },
+	]
+
+	test("one line per case and library checked, then the counts; problems fail it", () => {
+		const problems = ["checkbox/1000 [solid, chromium] trigger never became interactive: no click took effect"]
+		expect(checkSummary(checked, "chromium", problems)).toEqual({
+			lines: [
+				"checkbox/1000 [react, chromium] ok",
+				"checkbox/1000 [solid, chromium] FAIL",
+				"menu/page [react, chromium] ok",
+				"menu/page [solid, chromium] ok",
+				"SSR check: 2 cases × 2 libraries, 1 problem",
+			],
+			code: 1,
+		})
+		expect(checkSummary(checked, "chromium", [])).toMatchObject({ code: 0 })
+		expect(checkSummary(checked, "chromium", []).lines.at(-1)).toBe("SSR check: 2 cases × 2 libraries, 0 problems")
+	})
+
+	test("a check that checked nothing fails, so an empty run cannot read as a pass", () => {
+		expect(checkSummary([], "chromium", [])).toEqual({
+			lines: ["SSR check: 0 cases checked (no case matched with an interaction); nothing was checked"],
+			code: 1,
+		})
 	})
 })
