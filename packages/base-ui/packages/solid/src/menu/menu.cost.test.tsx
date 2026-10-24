@@ -111,6 +111,7 @@ describe('menu cost against the hand-written floor', () => {
 /** Each item kind's count at D32's port; the slow path's in the comment. */
 const BUDGET = {
   checkbox: 15, // with its indicator; slow 53, floor 13
+  radio: 14, // with its indicator; slow 52, floor 13
 };
 
 describe('menu item kinds against the hand-written floor', () => {
@@ -150,6 +151,18 @@ describe('menu item kinds against the hand-written floor', () => {
           </Menu.CheckboxItem>
         )),
       ),
+    radio: (n: number) =>
+      menu(() => (
+        <Menu.RadioGroup defaultValue="on">
+          {/* eslint-disable-next-line solid/prefer-for -- the menu never changes */}
+          {labels(n).map((label) => (
+            <Menu.RadioItem value="on">
+              {label}
+              <Menu.RadioItemIndicator>●</Menu.RadioItemIndicator>
+            </Menu.RadioItem>
+          ))}
+        </Menu.RadioGroup>
+      )),
   };
   const floor = {
     checkbox: (n: number) => () => {
@@ -166,8 +179,24 @@ describe('menu item kinds against the hand-written floor', () => {
         </FloorMenuList>
       );
     },
+    radio: (n: number) => () => {
+      const [active, setActive] = createSignal(-1);
+      return (
+        <FloorMenuList active={active} setActive={setActive} onActivate={() => {}}>
+          <div role="group">
+            {/* eslint-disable-next-line solid/prefer-for -- the floor's menu never changes */}
+            {labels(n).map((label, index) => (
+              <FloorMenuCheckboxItem role="menuitemradio" index={index} checked={always}>
+                {label}
+                <FloorMenuItemIndicator checked={always}>●</FloorMenuItemIndicator>
+              </FloorMenuCheckboxItem>
+            ))}
+          </div>
+        </FloorMenuList>
+      );
+    },
   };
-  const selector = { checkbox: '[role="menuitemcheckbox"]' };
+  const selector = { checkbox: '[role="menuitemcheckbox"]', radio: '[role="menuitemradio"]' };
 
   /** The normalized HTML and render paths of each element `selector` matches, and of its indicator. */
   function parts(ui: () => JSX.Element, query: string) {

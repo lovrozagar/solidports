@@ -24,6 +24,7 @@ import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifie
 import { REASONS } from '../../utils/reasons';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import type { MenuRootContext } from '../root/MenuRootContext';
+import type { MenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
 
 type ItemEvent<T extends Event> = BaseUIEvent<T>;
 
@@ -99,8 +100,10 @@ export class NativeMenuItemModel {
   declare element: HTMLElement | null;
   /** A checkbox or radio item's checked state (set by its kind's `init`). */
   declare checked: Accessor<boolean>;
-  /** A checkbox item's setter, or a radio item's group selection (set by its kind's `init`). */
-  declare select: (event: MouseEvent) => void;
+  /** A checkbox item's `useControlled` setter (set by its kind's `init`). */
+  declare setChecked: (checked: boolean) => void;
+  /** A radio item's group (set by its kind's `init`). */
+  declare group: MenuRadioGroupContext | undefined;
 
   constructor(
     props: NativeMenuItemProps,
@@ -121,7 +124,11 @@ export class NativeMenuItemModel {
   }
 
   disabled() {
-    return Boolean(this.props.disabled) || this.root.store.select('disabled');
+    return (
+      Boolean(this.props.disabled) ||
+      this.group?.disabled() === true ||
+      this.root.store.select('disabled')
+    );
   }
 
   highlighted() {

@@ -1,4 +1,6 @@
 import { splitComponentProps } from '../../solid-helpers';
+import { canRenderNative } from '../../utils/native';
+import { renderNativeItemIndicator } from '../utils/nativeItemIndicator';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -14,6 +16,15 @@ import { itemMapping } from '../utils/stateAttributesMapping';
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuRadioItemIndicator(componentProps: MenuRadioItemIndicator.Props) {
+  // Native fast path (`context/architecture/render-pipeline.md`): the shared item indicator
+  // (`utils/nativeItemIndicator.tsx`, D32's sweep).
+  if (canRenderNative(componentProps)) {
+    return renderNativeItemIndicator(componentProps, useMenuRadioItemContext());
+  }
+  return SlowMenuRadioItemIndicator(componentProps);
+}
+
+function SlowMenuRadioItemIndicator(componentProps: MenuRadioItemIndicator.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['keepMounted']);
   const keepMounted = () => local.keepMounted ?? false;
 
