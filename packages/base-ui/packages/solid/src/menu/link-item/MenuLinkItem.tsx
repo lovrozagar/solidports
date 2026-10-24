@@ -9,8 +9,35 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM } from '../item/useMenuItem';
 import { useMenuItemCommonProps } from '../item/useMenuItemCommonProps';
-import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
+import {
+  isUnfilteredItem,
+  useMenuFilterItem,
+  withFilterChildren,
+} from '../filter-root/MenuFilterContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
+import { NativeMenuItemHighlightState, renderNativeMenuItem } from '../item/nativeMenuItem';
+import type { NativeMenuItemKind } from '../item/nativeMenuItem';
+import { canRenderNative } from '../../utils/native';
+import { compileStateWriter } from '../../utils/native/element';
+
+/**
+ * A link item's native kind: an `<a role="menuitem">` that is never disabled, stays open on click
+ * by default, and leaves Enter to the browser when it has an `href`.
+ */
+const LINK_ITEM_KIND = Object.freeze<NativeMenuItemKind>({
+  own: new Set(['id', 'label', 'closeOnClick']),
+  literal: Object.freeze({ role: 'menuitem' }),
+  stateWriter: compileStateWriter(['highlighted'], undefined),
+  closeOnClick: false,
+  // eslint-disable-next-line jsx-a11y/anchor-is-valid -- the template: `href` comes from the consumer's props
+  element: () => (<a />) as unknown as Element,
+  link: true,
+  State: NativeMenuItemHighlightState,
+  init: undefined,
+  click: undefined,
+  attributes: undefined,
+  provide: undefined,
+});
 
 /**
  * A link in the menu that can be used to navigate to a different page or section.
@@ -19,12 +46,6 @@ import { useMenuRootContext } from '../root/MenuRootContext';
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
-  const elementProps = omitComponentProps(componentProps, ['id', 'label', 'closeOnClick'] as const);
-  const idProp = () => componentProps.id;
-  const closeOnClick = () => componentProps.closeOnClick ?? false;
-
-  const linkRef = useRef<HTMLAnchorElement | null | undefined>(null);
-
   const filterItem = useMenuFilterItem({
     get label() {
       return componentProps.label;
@@ -36,6 +57,23 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
       return componentProps.render;
     },
   });
+  // Native fast path (`context/architecture/render-pipeline.md`): as Menu.Item's, with the link
+  // kind (D32's sweep). A filtered menu keeps the slow path's visibility branch.
+  return isUnfilteredItem(filterItem) && canRenderNative(componentProps)
+    ? renderNativeMenuItem(componentProps, LINK_ITEM_KIND)
+    : SlowMenuLinkItem(componentProps, filterItem);
+}
+
+function SlowMenuLinkItem(
+  componentProps: MenuLinkItem.Props,
+  filterItem: ReturnType<typeof useMenuFilterItem>,
+) {
+  const elementProps = omitComponentProps(componentProps, ['id', 'label', 'closeOnClick'] as const);
+  const idProp = () => componentProps.id;
+  const closeOnClick = () => componentProps.closeOnClick ?? false;
+
+  const linkRef = useRef<HTMLAnchorElement | null | undefined>(null);
+
   const listItem = useCompositeListItem({ label: () => componentProps.label });
 
   const id = useBaseUiId(idProp);
