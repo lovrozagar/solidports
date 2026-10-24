@@ -1,6 +1,7 @@
 import { splitComponentProps } from '../../solid-helpers';
 import { canRenderNative } from '../../utils/native';
-import { renderNativeItemIndicator } from '../utils/nativeItemIndicator';
+import { renderNativeItemIndicator } from '../../utils/native/itemIndicator';
+import { MENU_ITEM_INDICATOR_KIND } from '../utils/nativeItemIndicator';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -17,9 +18,13 @@ import { itemMapping } from '../utils/stateAttributesMapping';
  */
 export function MenuCheckboxItemIndicator(componentProps: MenuCheckboxItemIndicator.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): the shared item indicator
-  // (`utils/nativeItemIndicator.tsx`, D32's sweep).
+  // (`utils/native/itemIndicator.tsx`, D32's sweep).
   if (canRenderNative(componentProps)) {
-    return renderNativeItemIndicator(componentProps, useMenuCheckboxItemContext());
+    return renderNativeItemIndicator(
+      componentProps,
+      useMenuCheckboxItemContext(),
+      MENU_ITEM_INDICATOR_KIND,
+    );
   }
   return SlowMenuCheckboxItemIndicator(componentProps);
 }
