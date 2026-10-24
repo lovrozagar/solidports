@@ -14,6 +14,7 @@ import { OTPField } from '@solidports/base-ui/otp-field';
 import { createRenderer, isJSDOM } from '#test-utils';
 import { renderNativeElement } from './element';
 import type { SetAttribute } from './element';
+import type { Dispatch } from './consumer';
 
 vi.mock('@solidjs/web', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@solidjs/web')>();
@@ -335,5 +336,86 @@ describe('native attribute effect: a part class beside the consumer’s', () => 
     flush();
     expect(screen.getByTestId('with').className).toBe('consumer');
     expect(screen.getByTestId('alone').hasAttribute('class')).toBe(false);
+  });
+});
+
+interface DispatchTarget {
+  hot: () => number;
+  source: () => Record<string, unknown> | undefined;
+  calls: string[];
+}
+
+/** The part's dispatch for any handler key: the source's handler, then the consumer's. */
+const dispatches = new Map<string, Dispatch<DispatchTarget>>();
+function dispatchFor(key: string): Dispatch<DispatchTarget> {
+  let dispatch = dispatches.get(key);
+  if (!dispatch) {
+    dispatch = (record, event) => {
+      const target = record.target;
+      const fromSource = target.source()?.[key] as ((event: Event) => void) | undefined;
+      fromSource?.(event);
+      (record.props as Record<string, ((event: Event) => void) | undefined>)[key]?.(event);
+    };
+    dispatches.set(key, dispatch);
+  }
+  return dispatch;
+}
+
+function DispatchPart(props: { target: DispatchTarget; [key: string]: unknown }) {
+  return renderNativeElement(DIV, props, {
+    own: new Set(['target']),
+    attributes: (w: SetAttribute, target: DispatchTarget) => w.set('tabindex', target.hot()),
+    attributeOverrides: (w: SetAttribute, target: DispatchTarget) => {
+      for (const [key, value] of Object.entries(target.source() ?? {})) {
+        w.set(key, value);
+      }
+    },
+    handlerFor: dispatchFor,
+    handlerTarget: props.target,
+    reactive: true,
+  }) as unknown as web.JSX.Element;
+}
+
+describe('native attribute effect: a second source’s handlers through the part’s dispatch', () => {
+  const { render } = createRenderer();
+
+  it("runs the source's handler before the consumer's, and binds a source-only key while it lasts", () => {
+    const calls: string[] = [];
+    const [hot] = createSignal(0);
+    const [source, setSource] = createSignal<Record<string, unknown> | undefined>({
+      onFocus: () => calls.push('source-focus'),
+      onPointerEnter: () => calls.push('source-enter'),
+    });
+    render(() => (
+      <DispatchPart
+        target={{ hot, source, calls }}
+        onFocus={() => calls.push('consumer-focus')}
+        data-testid="part"
+      />
+    ));
+    const part = screen.getByTestId('part');
+    fireEvent.focus(part);
+    fireEvent.pointerEnter(part);
+    expect(calls).toEqual(['source-focus', 'consumer-focus', 'source-enter']);
+    calls.length = 0;
+    setSource(undefined);
+    flush();
+    fireEvent.focus(part);
+    fireEvent.pointerEnter(part);
+    expect(calls).toEqual(['consumer-focus']);
+  });
+
+  it.skipIf(!isJSDOM)('binds a source-only handler key once, not on each run', () => {
+    const [hot, setHot] = createSignal(0);
+    const calls: string[] = [];
+    const [source] = createSignal<Record<string, unknown> | undefined>({
+      onPointerEnter: () => calls.push('source-enter'),
+    });
+    render(() => <DispatchPart target={{ hot, source, calls }} data-testid="part" />);
+    expect(assignedKeys(() => setHot(1))).toEqual(['tabindex']);
+    expect(assignedKeys(() => setHot(2))).toEqual(['tabindex']);
+    // Still bound after the runs that kept it.
+    fireEvent.pointerEnter(screen.getByTestId('part'));
+    expect(calls).toEqual(['source-enter']);
   });
 });

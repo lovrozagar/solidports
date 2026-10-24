@@ -116,6 +116,13 @@ export interface NativeElementSpec<State extends object> {
   /** Handlers as `handlers` binds them, for keys bound only when the consumer passes them. */
   handlersIfPassed?: Readonly<Record<string, Dispatch<any>>> | undefined;
   /**
+   * The part's dispatch for any other handler key (module-level, one per key): it binds every
+   * consumer handler key the tables do not, and every handler key `attributeOverrides` sets, so a
+   * second props source's handler runs in the part's order beside the consumer's. An override's
+   * handler key is never written as a listener of its own.
+   */
+  handlerFor?: ((key: string) => Dispatch<any>) | undefined;
+  /**
    * What `handlers`, `attributes` and a `state` factory act on: the part's model, the same object
    * for every key.
    */
@@ -1042,6 +1049,9 @@ class ElementWriter<State extends object> implements SetAttribute {
   declare private readonly hasStyle: boolean;
   /** The keys `attributeOverrides` set in the current write (only while it writes). */
   declare private overrides: Record<string, unknown> | undefined;
+  /** With `handlerFor`: the element's handler record, and the listeners bound for override keys. */
+  declare handlerRecord: HandlerRecord | undefined;
+  declare private overrideHandlers: Record<string, unknown> | undefined;
   /**
    * How many keys `previous` holds. A diffing run that wrote fewer of them than are held dropped
    * one, the only run that walks `previous`.
@@ -1069,7 +1079,45 @@ class ElementWriter<State extends object> implements SetAttribute {
     this.hasClass = 'class' in props;
     this.hasStyle = 'style' in props;
     this.overrides = undefined;
+    this.handlerRecord = undefined;
+    this.overrideHandlers = undefined;
     this.held = 0;
+  }
+
+  /**
+   * An override's handler key: nothing to write when the element's literal handlers already
+   * dispatch it (the dispatch reads the override when the event fires), else the part's dispatch
+   * for it, the same value every run so the listener is bound once and removed when the key goes.
+   */
+  private putOverrideHandler(key: string) {
+    if (key in this.literal) {
+      return;
+    }
+    if (this.overrideHandlers === undefined) {
+      this.overrideHandlers = {};
+    }
+    const bound = this.overrideHandlers;
+    // Bound already: Solid's `assign` holds its own wrapper for an event key, so the diff cannot
+    // tell the same listener apart. Count the key as written this run (so it is not removed) and
+    // write nothing.
+    if (bound[key] !== undefined && runWriter === this && key in this.previous) {
+      this.markWritten(key);
+      return;
+    }
+    if (bound[key] === undefined) {
+      bound[key] = [this.spec.handlerFor!(key), this.handlerRecord];
+    }
+    this.put(key, bound[key]);
+  }
+
+  /** A diffing run's bookkeeping for a key it keeps as it is. */
+  private markWritten(key: string) {
+    if (lastWritten.get(key) !== writeRun) {
+      lastWritten.set(key, writeRun);
+      if (key in this.previous) {
+        runMatched += 1;
+      }
+    }
   }
 
   /** The element the effect writes to, with a fresh record of what it wrote. */
@@ -1286,7 +1334,11 @@ class ElementWriter<State extends object> implements SetAttribute {
       }
       for (const key in overrides) {
         if (Object.hasOwn(overrides, key)) {
-          this.put(key, overrides[key]);
+          if (this.handlerRecord !== undefined && isConsumerHandlerKey(key)) {
+            this.putOverrideHandler(key);
+          } else {
+            this.put(key, overrides[key]);
+          }
         }
       }
       this.overrides = undefined;
@@ -1413,6 +1465,9 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
  */
 const tableWraps = new WeakMap<object, WeakMap<object, (key: string) => unknown>>();
 const NO_TABLE: Readonly<Record<string, unknown>> = Object.freeze({});
+/** Every consumer handler key is the part's to bind (`handlerFor`). */
+const claimEveryHandler = () => true;
+
 function tableHandled(spec: {
   handlers?: Readonly<Record<string, unknown>> | undefined;
   handlersIfPassed?: Readonly<Record<string, unknown>> | undefined;
@@ -1441,11 +1496,18 @@ function createClientWriter<State extends object>(
   hydrating = false,
 ): ElementWriter<State> {
   const source = props as Record<string, any>;
-  // The tables' keys are bound below, the always-bound ones whether or not the consumer passes them.
+  // The tables' keys are bound below, the always-bound ones whether or not the consumer passes them;
+  // with `handlerFor`, every consumer handler key is.
+  let claim: ((key: string) => unknown) | undefined;
+  if (spec.handlerFor) {
+    claim = claimEveryHandler;
+  } else if (spec.handlers || spec.handlersIfPassed) {
+    claim = tableHandled(spec);
+  }
   const consumer = classifyConsumerProps(
     props,
     spec.own,
-    spec.handlers || spec.handlersIfPassed ? tableHandled(spec) : undefined,
+    claim,
     spec.attributeOverrides !== undefined,
   );
   const keys = top ? withKeys(consumer.keys, top) : consumer.keys;
@@ -1470,14 +1532,25 @@ function createClientWriter<State extends object>(
   Object.assign(literal, consumer.literal, top);
   const handlers = spec.handlers;
   const handlersIfPassed = spec.handlersIfPassed;
-  if ((handlers || handlersIfPassed) && !isServer) {
+  const handlerFor = spec.handlerFor;
+  let record: HandlerRecord | undefined;
+  if ((handlers || handlersIfPassed || handlerFor) && !isServer) {
     // One record for every key.
-    const record = new HandlerRecord(props, spec.handlerTarget);
+    record = new HandlerRecord(props, spec.handlerTarget);
     if (handlers) {
       bindHandlers(literal, handlers, undefined, record, top, handlerFunctions);
     }
     if (handlersIfPassed) {
       bindHandlers(literal, handlersIfPassed, consumer.keys, record, top, handlerFunctions);
+    }
+    if (handlerFor) {
+      // The consumer's other handler keys, through the part's dispatch for that key.
+      for (const key of consumer.keys) {
+        if (literal[key] === true && !(top && key in top)) {
+          const dispatch = handlerFor(key);
+          literal[key] = handlerFunctions ? handlerFunction(dispatch, record) : [dispatch, record];
+        }
+      }
     }
   }
 
@@ -1507,6 +1580,9 @@ function createClientWriter<State extends object>(
   );
   writer.literal = literal;
   writer.needsEffect = needsEffect;
+  if (handlerFor && record) {
+    writer.handlerRecord = record;
+  }
   return writer;
 }
 

@@ -7,7 +7,6 @@ import type { Dispatch } from '../../utils/native';
 import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
 import type { NativeElementTemplate, SetAttribute } from '../../utils/native/element';
 import { runInLazyScope } from '../../utils/runInLazyScope';
-import { isEventHandlerKey } from '../../utils/isEventHandlerKey';
 import { isRenderableNode } from '../utils/isRenderableNode';
 import type { ToastRootContext } from '../root/ToastRootContext';
 import { omitComponentProps } from '../../solid-helpers';
@@ -161,13 +160,24 @@ const ACTION_HANDLERS: Readonly<Record<string, Dispatch<NativeToastActionModel>>
   onKeyUp: actionHandler('onKeyUp', runWhileEnabled),
 };
 
+/** Any other handler key, through the same order with no gate: one dispatch per key. */
+const otherHandlers = new Map<string, Dispatch<NativeToastActionModel>>();
+function handlerFor(key: string): Dispatch<NativeToastActionModel> {
+  let dispatch = otherHandlers.get(key);
+  if (dispatch === undefined) {
+    dispatch = actionHandler(key);
+    otherHandlers.set(key, dispatch);
+  }
+  return dispatch;
+}
+
 function writeActionAttributes(w: SetAttribute, model: NativeToastActionModel) {
   w.set('disabled', model.disabled() ? true : undefined);
 }
 
 /**
- * The `actionProps` attributes, above the consumer's. A handler key the table above binds is
- * dispatched there; any other goes to the element as its own listener.
+ * The `actionProps` attributes, above the consumer's. Their handler keys go through the part's
+ * dispatch (`handlerFor`), in the slow path's order beside the consumer's handler.
  */
 function writeActionOverrides(w: SetAttribute, model: NativeToastActionModel) {
   const actionProps = model.actionProps();
@@ -176,8 +186,7 @@ function writeActionOverrides(w: SetAttribute, model: NativeToastActionModel) {
       Object.hasOwn(actionProps, key) &&
       key !== 'children' &&
       key !== 'class' &&
-      key !== 'style' &&
-      !(isEventHandlerKey(key) && key in ACTION_HANDLERS)
+      key !== 'style'
     ) {
       w.set(key, actionProps[key]);
     }
@@ -206,6 +215,7 @@ function renderNativeToastAction(props: ToastAction.Props): JSX.Element {
           attributes: writeActionAttributes,
           attributeOverrides: writeActionOverrides,
           handlers: ACTION_HANDLERS,
+          handlerFor,
           handlerTarget: model,
           // The slow path's merge keeps the consumer's style and class over the source's.
           partStyle: () => model.actionProps().style as JSX.CSSProperties | undefined,
