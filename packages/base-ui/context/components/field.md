@@ -1,7 +1,7 @@
 ---
 tags: [field, fieldset, form, native, forms, perf]
-sources: [packages/base-ui/packages/solid/src/field, packages/base-ui/packages/solid/src/fieldset, packages/base-ui/packages/solid/src/form/Form.tsx, packages/base-ui/packages/solid/src/field/root/FieldRoot.tsx, packages/base-ui/packages/solid/src/field/control/FieldControl.tsx, packages/base-ui/packages/solid/src/field/error/FieldError.tsx, packages/base-ui/packages/solid/test/floor/field.tsx]
-verified: 2026-10-22
+sources: [packages/base-ui/packages/solid/test/hydration/field-item.hydration.test.tsx, packages/base-ui/packages/solid/src/field/item/FieldItem.parity.test.tsx, packages/base-ui/packages/solid/src/field, packages/base-ui/packages/solid/src/fieldset, packages/base-ui/packages/solid/src/form/Form.tsx, packages/base-ui/packages/solid/src/field/root/FieldRoot.tsx, packages/base-ui/packages/solid/src/field/control/FieldControl.tsx, packages/base-ui/packages/solid/src/field/error/FieldError.tsx, packages/base-ui/packages/solid/test/floor/field.tsx]
+verified: 2026-10-24
 ---
 
 # Field, Fieldset and Form
@@ -20,8 +20,9 @@ Field, Fieldset and Form are fully ported. With plain props, Form, Fieldset.Root
 - Field.Description (`field/description/FieldDescription.tsx`): a `<p>` with its id.
 - Field.Control (`field/control/FieldControl.tsx`): an `<input>` with the field's attributes, the validation source's `aria-describedby` and `aria-invalid` (own keys, merged with the consumer's) and its four handlers. Client renders only: see post-sweep leaves.
 - Field.Error (`field/error/FieldError.tsx`): a valid field's error builds no message memos, element or transition machinery (`createLazyTransitionStatus`). Once mounted it builds its element once (GOTCHA-020): a second error appearing in the same field re-read the branch, replaced the element and cleared the close-complete ref, so the first error stuck in its ending style.
+- Field.Item (`field/item/FieldItem.tsx`): inside its labelable provider, a `<div>` with the field's state and its own `disabled` (the field's or its own), written with Field.Root's `writeFieldState`, and the item context its control reads; on the client, the server and while hydrating (`test/hydration/field-item.hydration.test.tsx`; `item/FieldItem.parity.test.tsx`). Only the native path adds the inner component, so the slow path keeps its 18 nodes.
 
-Field.Item and Field.Validity stay on the slow path.
+Field.Validity stays on the slow path.
 
 ## Reactive cost
 
@@ -37,6 +38,7 @@ Field.Item and Field.Validity stay on the slow path.
 | Field.Control | 34 | 14 | 3 |
 | Field.Description | 11 | 4 | 3 |
 | Field.Error (valid) | 15 | 10 | 6 |
+| Field.Item | 18 | 9 | – |
 
 The floor's Fieldset.Root counts its JSX context provider, which the native part replaces with `provideNativeContext`.
 
@@ -53,7 +55,8 @@ Chromium heap the bench step keeps (production builds, a heap snapshot after a f
 ## Post-sweep leaves
 
 - Field.Control renders on the slow path on the server and while hydrating. The server prints the value as the `value` attribute, and hydration keeps a control's form-state attributes (`value`, `checked`), which `useRenderElement` reconciles and the native kit does not: the kit's hydration check flagged `value` against the client's `defaultValue`. Teaching the kit those attributes would make a hydrated control native too.
-- Field.Item and Field.Validity are still on the slow path.
+- Field.Validity is still on the slow path.
+- Owed at the family's exit (plan 3 leaf 5.6): a hand-written floor entry for Field.Item; until then its budget is exact, beside the measured slow count.
 
 ## Known issues and divergences
 
