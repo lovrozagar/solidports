@@ -61,6 +61,8 @@ describe('native parity: toast actions', () => {
                 onClick: () => events.push(`consumer-click:${toast.id}`),
                 onKeyDown: (event: KeyboardEvent) =>
                   events.push(`consumer-keydown:${toast.id}:${event.key}`),
+                // A handler key outside the button's own: the source's runs first here too.
+                onFocus: () => events.push(`consumer-focus:${toast.id}`),
                 // The second toast's action has no children of its own: it renders only while
                 // its `actionProps` carry some.
                 ...(toast.id === 'plain' ? {} : { children: 'Consumer' }),
@@ -130,9 +132,35 @@ describe('native parity: toast actions', () => {
         }),
       () => fireEvent.click(action('live')!),
       () => fireEvent.keyDown(action('live')!, { key: 'Enter' }),
+      // Handler keys outside the button's: one the consumer also passes, one it does not.
+      () =>
+        manager.update('live', {
+          actionProps: {
+            children: 'Redo',
+            onFocus: (event: FocusEvent) => events.push(`action-focus:${event.type}`),
+            onPointerEnter: () => events.push('action-pointerenter'),
+          } as never,
+        }),
+      () => fireEvent.focus(action('live')!),
+      () => fireEvent.pointerEnter(action('live')!),
+      // The source's handler can keep the consumer's from running.
+      () =>
+        manager.update('live', {
+          actionProps: {
+            children: 'Redo',
+            onFocus: (event: FocusEvent & { preventBaseUIHandler?: () => void }) => {
+              events.push('action-focus:prevent');
+              event.preventBaseUIHandler?.();
+            },
+          } as never,
+        }),
+      () => fireEvent.focus(action('live')!),
+      () => fireEvent.pointerEnter(action('live')!),
       // Absent: the consumer's props come back.
       () => manager.update('live', { actionProps: undefined }),
       () => fireEvent.click(action('live')!),
+      () => fireEvent.focus(action('live')!),
+      () => fireEvent.pointerEnter(action('live')!),
       () => manager.update('live', { actionProps: { 'aria-label': 'again' } as never }),
       // An action with no children renders only while `actionProps` carry some.
       () => manager.add({ id: 'plain', title: 'Plain' }),
