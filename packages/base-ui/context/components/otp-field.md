@@ -15,7 +15,7 @@ OTPField is fully ported. With plain props on the client, Root and every Input r
 - Root (`root/OTPFieldRoot.tsx`): a `<div role="group">` with its labels. It is built inside the context provider (within the composite list), where the slow path's element resolves, and once (GOTCHA-020). The native path reads its props directly; only the slow path splits them into views. The hidden form input stays the root's own JSX.
 - Input (`input/OTPFieldInput.tsx`): an `<input>` whose reactive attributes are written from the slot's props getters in one pass (`INPUT_ATTRIBUTE_KEYS`) and whose eight handlers forward to them.
 
-The native path covers client renders only: the server prints each slot's character as its `value`, which the slow path renders and hydration keeps.
+The native path covers the server and hydration too (D33 server batch): the server prints each slot's character as its `value` through the kit's `serverFormState`, and the hydrating client keeps it as the property and releases the attribute, as a client render has none. One more hydrated field (a root and two slots) creates 43 reactive nodes against 149 on the slow path (`test/hydration/otp-field.hydration.test.tsx`, exact).
 
 ## Reactive cost
 
@@ -38,7 +38,6 @@ An arrow key moves the active slot, which every slot's `tabindex` reads, so all 
 
 ## Post-sweep leaves
 
-- Server renders and hydration stay on the slow path (the slots' `value`).
 
 ## Docs
 
