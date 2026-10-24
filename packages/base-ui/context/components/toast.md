@@ -1,6 +1,6 @@
 ---
 tags: [toast, store, native, perf]
-sources: [packages/base-ui/packages/solid/src/toast/arrow/ToastArrow.parity.test.tsx, packages/base-ui/packages/solid/src/toast, packages/base-ui/packages/solid/src/toast/store.ts, packages/base-ui/packages/solid/src/toast/root/ToastRoot.tsx, packages/base-ui/packages/solid/src/toast/createToastManager.ts, packages/base-ui/packages/solid/test/floor/toast.tsx]
+sources: [packages/base-ui/packages/solid/src/toast/action/ToastAction.parity.test.tsx, packages/base-ui/packages/solid/src/toast/arrow/ToastArrow.parity.test.tsx, packages/base-ui/packages/solid/src/toast, packages/base-ui/packages/solid/src/toast/store.ts, packages/base-ui/packages/solid/src/toast/root/ToastRoot.tsx, packages/base-ui/packages/solid/src/toast/createToastManager.ts, packages/base-ui/packages/solid/test/floor/toast.tsx]
 verified: 2026-10-24
 ---
 
@@ -35,8 +35,8 @@ With plain props (`canRenderNative`, on the client, the server and while hydrati
 - Title and Description (`utils/useToastLabelPart.ts`, `renderNativeToastLabel`): rendered only while their content is renderable, under a `Show` that is their condition's only memo. They register their id with one effect, and a static `id` costs no memo.
 - Close (`close/ToastClose.tsx`): a `<button>` with `aria-hidden` while the stack is collapsed and the button unfocused. A Close that may be disabled keeps `useButton` on the slow path.
 - Arrow (`arrow/ToastArrow.tsx`, on the client): a `<div aria-hidden>` with its positioner's side, align and `uncentered` state, the positioner's arrow styles as the kit's `partStyle` (below the consumer's style, as the slow path's merge puts them), and a part ref that hands the element to the positioner's arrow middleware. 2 dev nodes against 14 on the slow path (`toast.cost.test.tsx`; `arrow/ToastArrow.parity.test.tsx`).
-
-Action stays on the slow path: the toast's `actionProps` are a props source that can change with any update.
+- Action (`action/ToastAction.tsx`, on the client): a `<button type="button" tabindex="0">` with `useButton`'s native-button gates inlined over one model, rendered only while its content (`actionProps.children`, else its own) is renderable, built once (GOTCHA-020). The toast's `actionProps` win over the consumer's props, as the slow path's merge puts them: their attributes through the kit's `attributeOverrides`, their `class` after the consumer's (`partClass`) and their `style` below the consumer's (`partStyle`). The button's five handler keys run the gate, then the `actionProps` handler, then the consumer's unless the former called `preventBaseUIHandler()`. A `toast().update()` that changes `actionProps` on a live toast re-writes only what changed. 9 dev nodes against 20 on the slow path (`toast.cost.test.tsx`; `action/ToastAction.parity.test.tsx`). Any `render` or `nativeButton={false}` takes the slow path.
+- Known divergence: an `actionProps` handler for a key outside the button's five (`onClick`, `onPointerDown`, `onMouseDown`, `onKeyDown`, `onKeyUp`) is written as the element's own listener, so it runs after the consumer's handler for that key instead of before. Upstream types `actionProps` as `ComponentPropsWithoutRef<'button'>`; its docs and tests pass `children`, `id`, `onClick` and `onKeyDown` only.
 
 ## Reactive cost
 

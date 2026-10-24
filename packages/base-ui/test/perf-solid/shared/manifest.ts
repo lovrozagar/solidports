@@ -381,6 +381,8 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'toast cost against the hand-written floor > Toast close costs at most its native budget',
     'toast arrow cost > a Toast.Arrow renders on the native path',
     'toast arrow cost > a Toast.Arrow stays within its native budget',
+    'toast action cost > a Toast.Action renders on the native path',
+    'toast action cost > a Toast.Action stays within its native budget',
   ],
   tooltip: [
     closedRoot('Tooltip'),

@@ -313,3 +313,27 @@ describe('native attribute effect: overrides above the consumer', () => {
     expect(part.getAttribute('tabindex')).toBe('0');
   });
 });
+
+describe('native attribute effect: a part class beside the consumer’s', () => {
+  const { render } = createRenderer();
+
+  function ClassPart(props: { extra: () => string | undefined; [key: string]: unknown }) {
+    return renderNativeElement(DIV, props, {
+      own: new Set(['extra']),
+      partClass: props.extra,
+      reactive: true,
+    }) as unknown as web.JSX.Element;
+  }
+
+  it("writes the part's class after the consumer's, and alone without one", () => {
+    const [extra, setExtra] = createSignal<string | undefined>('part');
+    render(() => <ClassPart extra={extra} class="consumer" data-testid="with" />);
+    render(() => <ClassPart extra={extra} data-testid="alone" />);
+    expect(screen.getByTestId('with').className).toBe('consumer part');
+    expect(screen.getByTestId('alone').className).toBe('part');
+    setExtra(undefined);
+    flush();
+    expect(screen.getByTestId('with').className).toBe('consumer');
+    expect(screen.getByTestId('alone').hasAttribute('class')).toBe(false);
+  });
+});
