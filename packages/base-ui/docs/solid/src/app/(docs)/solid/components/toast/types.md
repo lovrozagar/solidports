@@ -732,17 +732,6 @@ type ToastManagerPositionerProps = {
    */
   align?: Align;
   /**
-   * Allows you to replace the component's HTML element
-   * with a different tag, or compose it with another component.
-   *
-   * Accepts a `ReactElement` or a function that returns the element to render.
-   */
-  render?:
-    | keyof JSX.IntrinsicElements
-    | DynamicProps<ValidComponent>
-    | ((props: RenderFunctionHTMLProps<RenderFunctionProps>, state: State) => JSX.Element)
-    | null;
-  /**
    * Which side of the anchor element to align the toast against.
    * May automatically change to avoid collisions.
    * @default 'top'
@@ -865,6 +854,17 @@ type ToastManagerPositionerProps = {
    * ```
    */
   collisionAvoidance?: CollisionAvoidance;
+  /**
+   * Allows you to replace the component's HTML element
+   * with a different tag, or compose it with another component.
+   *
+   * Accepts a `ReactElement` or a function that returns the element to render.
+   */
+  render?:
+    | keyof JSX.IntrinsicElements
+    | DynamicProps<ValidComponent>
+    | ((props: RenderFunctionHTMLProps<RenderFunctionProps>, state: State) => JSX.Element)
+    | null;
 };
 ````
 
