@@ -454,3 +454,30 @@ describe('native attribute effect: a part without handlerFor keeps its own bindi
     expect(onFocus).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('native attribute effect: server form state is the server renderer’s alone', () => {
+  const { render } = createRenderer();
+  const INPUT = { tag: 'input', create: () => (<input />) as unknown as Element };
+
+  it('a client render never writes it: no attribute, no property, the writer never runs', () => {
+    const serverFormState = vi.fn((w: SetAttribute) => w.set('value', '7'));
+    const [hot, setHot] = createSignal('a');
+    function Slot(props: { [key: string]: unknown }) {
+      return renderNativeElement(INPUT, props, {
+        own: new Set(),
+        attributes: (w: SetAttribute) => w.set('data-hot', hot()),
+        serverFormState,
+        handlerTarget: props,
+        reactive: true,
+      }) as unknown as web.JSX.Element;
+    }
+    render(() => <Slot data-testid="slot" />);
+    setHot('b');
+    flush();
+    const slot = screen.getByTestId<HTMLInputElement>('slot');
+    expect(slot.getAttribute('data-hot')).toBe('b');
+    expect(slot.hasAttribute('value')).toBe(false);
+    expect(slot.value).toBe('');
+    expect(serverFormState).not.toHaveBeenCalled();
+  });
+});

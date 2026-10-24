@@ -30,6 +30,11 @@ import { HandlerRecord, isHandlerKey as isConsumerHandlerKey, isStaticKey } from
 import type { Dispatch } from './consumer';
 import { serverElement } from './serverElement';
 import { afterHydration, attributesOf, checkHydratedAttributes } from './hydrationState';
+import {
+  clientFormStateAttributes,
+  isFormControl,
+  releaseFormStateAttributes,
+} from '../releaseServerFormState';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
 import { warn } from '../warn';
 import {
@@ -105,6 +110,14 @@ export interface NativeElementSpec<State extends object> {
    * `style` (`styleOverride` is the style's).
    */
   attributeOverrides?: ((set: SetAttribute, target: any) => void) | undefined;
+  /**
+   * Form-state attributes only the server renderer writes (a control's current value, which the
+   * client holds as a property: an OTP slot's character), with `handlerTarget`. Never written on
+   * the client; a hydrating control releases them once `hydrate()` returns
+   * (`releaseFormStateAttributes`), as a client render has none. Only `value`, `checked` or
+   * `selected`.
+   */
+  serverFormState?: ((set: SetAttribute, target: any) => void) | undefined;
   /** Whether the state or the part attributes can change (an attribute effect is created). */
   reactive: boolean;
   /**
@@ -626,6 +639,7 @@ function renderServerElement<State extends object>(
     serverOverrides = collectOverrides(spec);
     stateWriterOf(spec)?.(writtenStateOf(spec), setServerAttribute);
     spec.attributes?.(setServerAttribute, spec.handlerTarget);
+    spec.serverFormState?.(setServerAttribute, spec.handlerTarget);
     const overrides = serverOverrides;
     if (overrides !== undefined) {
       for (const key in overrides) {
@@ -1403,6 +1417,13 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
 
   takeFirstWrite(written: Record<string, unknown>) {
     this.firstWrite = written;
+    const el = this.el;
+    if (isFormControl(el)) {
+      // The server's form-state attributes stay through hydration, then become what a client
+      // render has: its own `defaultValue` or `defaultChecked` attribute, the rest properties.
+      const keep = clientFormStateAttributes({ ...this.literal, ...written });
+      afterHydration(el, () => releaseFormStateAttributes(el, keep));
+    }
     if (process.env.NODE_ENV !== 'production') {
       // Now, while the element still holds the server markup.
       checkHydratedAttributes(this.el, this.templateAttributes, {
