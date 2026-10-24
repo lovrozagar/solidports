@@ -470,7 +470,6 @@ const PENDING: Partial<Record<ComponentName, readonly CoverageAxis[]>> = {
     'render-component',
   ],
   toast: [
-    'scale-1',
     'scale-1000',
     'static-props',
     'wrapper',

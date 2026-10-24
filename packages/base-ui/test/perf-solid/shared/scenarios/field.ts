@@ -1,4 +1,4 @@
-import { q, qa, type } from '../drivers';
+import { click, q, qa, type, yieldTask } from '../drivers';
 import type { Scenario } from '../types';
 
 const input = () => q<HTMLInputElement>('[data-testid="control"]');
@@ -42,6 +42,40 @@ const scenarios: Scenario[] = [
         name: 'type 50 chars',
         run: (ctx) => type(input(), text.slice(0, 50), ctx.lib.flush),
         verify: () => ({ ...typed(), errors: qa('[data-testid="error"]').length }),
+      },
+    ],
+  },
+  {
+    // D33 batch 3: Field.Item's first scenario, a field's checkbox group of 100 items.
+    id: 'field/checkbox-items-100',
+    fixture: 'field/checkbox-items-100',
+    components: ['field'],
+    tags: ['scale-100', 'reactive-props', 'pointer'],
+    steps: [
+      {
+        name: 'check 20 by click',
+        run: async (ctx) => {
+          const boxes = qa('[data-testid="item-checkbox"]');
+          for (let i = 0; i < 20; i += 1) {
+            click(boxes[i * 5]);
+            ctx.lib.flush();
+            await yieldTask();
+          }
+        },
+        settle: true,
+        verify: () => qa('[data-testid="item-checkbox"][data-checked]').length,
+      },
+      {
+        name: 'disable field',
+        run: (ctx) => ctx.lib.set('disabled', true),
+        settle: true,
+        verify: () => qa('[data-testid="field-item"][data-disabled]').length,
+      },
+      {
+        name: 'enable field',
+        run: (ctx) => ctx.lib.set('disabled', false),
+        settle: true,
+        verify: () => qa('[data-testid="field-item"][data-disabled]').length,
       },
     ],
   },
