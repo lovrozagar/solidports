@@ -548,9 +548,10 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props): JSX.El
       }) as unknown as BaseUIHTMLProps;
 
   // Native fast path (`context/architecture/render-pipeline.md`): a plain `<input>` with the
-  // field's attributes, validation and handlers, no props view (D32). Client renders only, as
-  // Field.Control: the server prints the value as the `value` attribute, which hydration keeps.
-  if (canRenderNative(componentProps)) {
+  // field's attributes, validation and handlers, no props view (D32), on the server and while
+  // hydrating too: the server prints the formatted value as the `value` attribute
+  // (`serverFormState`), which the hydrating client releases, keeping it as the property.
+  if (canRenderNative(componentProps, undefined, true)) {
     const consumer = componentProps as Record<string, unknown>;
     // The props below the validation source: the consumer's, over the input's own.
     const previous = {
@@ -575,6 +576,7 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props): JSX.El
       attributes: writeNumberFieldInputAttributes,
       handlers: INPUT_HANDLERS,
       handlerTarget: model,
+      serverFormState: isServer ? (w: SetAttribute) => w.set('value', inputValue()) : undefined,
       reactive: true,
       refs: [
         (el: HTMLInputElement | null) => {
