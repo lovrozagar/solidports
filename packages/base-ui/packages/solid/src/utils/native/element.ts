@@ -753,21 +753,6 @@ function renderServerElement<State extends object>(
 /** A template attribute's other spelling a consumer may pass. */
 const CASE_VARIANTS: Readonly<Record<string, string>> = { tabindex: 'tabIndex' };
 
-/** Whether the consumer passes a key a template's literal attributes hold, in either spelling. */
-function passesTemplateAttribute(props: object, attributes: Record<string, unknown>): boolean {
-  // eslint-disable-next-line guard-for-in -- a template's own attribute record
-  for (const key in attributes) {
-    if (key in props) {
-      return true;
-    }
-    const variant = CASE_VARIANTS[key];
-    if (variant !== undefined && variant in props) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /** A template with no literal attributes, for `tagTemplate`. */
 const BARE: NativeElementTemplate = { tag: '', attributes: undefined, create: () => null as never };
 
@@ -781,12 +766,29 @@ export function renderNativeElement<State extends object>(
   props: object,
   spec: NativeElementSpec<State>,
 ): Element {
-  if (isTemplate(element) && element.attributes && passesTemplateAttribute(props, element.attributes)) {
+  const attributes =
+    typeof (element as NativeElementTemplate).create === 'function'
+      ? (element as NativeElementTemplate).attributes
+      : undefined;
+  let passes = false;
+  if (attributes !== undefined) {
+    // Inline, once per element: whether the consumer passes a key the template
+    // holds, in either spelling.
+    // eslint-disable-next-line guard-for-in -- a template's own attribute record
+    for (const key in attributes) {
+      const variant = CASE_VARIANTS[key];
+      if (key in props || (variant !== undefined && variant in props)) {
+        passes = true;
+        break;
+      }
+    }
+  }
+  if (passes) {
     // The consumer's value for a template attribute wins, even `undefined` (which removes it, as on
     // the slow path): the element comes from its bare tag, the template's other literals become
     // part literals, below the consumer's props.
-    spec = { ...spec, literal: { ...element.attributes, ...spec.literal } };
-    element = tagTemplate(element.tag, BARE);
+    spec = { ...spec, literal: { ...attributes, ...spec.literal } };
+    element = tagTemplate((element as NativeElementTemplate).tag, BARE);
   }
   if ('render' in props && !isStaticKey(props, 'render')) {
     return renderDynamicRender(element, props, spec);
@@ -1108,6 +1110,11 @@ class ElementWriter<State extends object> implements SetAttribute {
    */
   declare literal: Record<string, unknown>;
   declare needsEffect: boolean;
+  /**
+   * Whether a write outside the effect writes anything (the part's state or attributes, `class` or
+   * `style`): a part with none of them, and nothing that changes, skips the write.
+   */
+  declare writes: boolean;
   /** The element and the attributes its effect last wrote (`attach`); unset on a consumer's element. */
   declare protected el: Element;
   declare protected previous: Record<string, unknown>;
@@ -1145,7 +1152,14 @@ class ElementWriter<State extends object> implements SetAttribute {
     reactive: readonly string[],
     writeState: StateWriter | undefined,
     writtenState: object | undefined,
+    el: Element | undefined,
   ) {
+    // The element the effect writes to, with a fresh record of what it wrote; none on a consumer's
+    // element.
+    if (el !== undefined) {
+      this.el = el;
+      this.previous = {};
+    }
     this.target = NO_ATTRIBUTES;
     this.pending = undefined;
     this.runs = 0;
@@ -1200,11 +1214,6 @@ class ElementWriter<State extends object> implements SetAttribute {
     }
   }
 
-  /** The element the effect writes to, with a fresh record of what it wrote. */
-  attach(el: Element) {
-    this.el = el;
-    this.previous = {};
-  }
 
   /**
    * Whether a run writes the whole record (`applyWrite`) instead of diffing as it writes: the first
@@ -1395,7 +1404,7 @@ class ElementWriter<State extends object> implements SetAttribute {
     const spec = this.spec;
     const source = this.props;
     // The overrides first: the part's own writes and the consumer's keys skip theirs.
-    const overrides = collectOverrides(spec);
+    const overrides = spec.attributeOverrides === undefined ? undefined : collectOverrides(spec);
     this.overrides = overrides;
     this.writeState?.(this.writtenState!, this);
     spec.attributes?.(this, spec.handlerTarget);
@@ -1427,7 +1436,7 @@ class ElementWriter<State extends object> implements SetAttribute {
       for (let i = 0; i < reactive.length; i += 1) {
         this.diff(reactive[i], source[reactive[i]]);
       }
-    } else {
+    } else if (this.reactive.length > 0) {
       readReactiveProps(source, this.reactive, into);
     }
     const partClass = spec.partClass?.();
@@ -1600,12 +1609,11 @@ const NO_TABLE: Readonly<Record<string, unknown>> = Object.freeze({});
 /** Every consumer handler key is the part's to bind (`handlerFor`). */
 const claimEveryHandler = () => true;
 
-function tableHandled(spec: {
-  handlers?: Readonly<Record<string, unknown>> | undefined;
-  handlersIfPassed?: Readonly<Record<string, unknown>> | undefined;
-}) {
-  const always = spec.handlers ?? NO_TABLE;
-  const ifPassed = spec.handlersIfPassed ?? NO_TABLE;
+/** The claim for a pair of tables, created and cached on the pair's first element. */
+function tableHandled(
+  always: Readonly<Record<string, unknown>>,
+  ifPassed: Readonly<Record<string, unknown>>,
+) {
   let byPassed = tableWraps.get(always);
   if (!byPassed) {
     byPassed = new WeakMap();
@@ -1626,6 +1634,7 @@ function createClientWriter<State extends object>(
   top?: Record<string, unknown>,
   handlerFunctions = false,
   hydrating = false,
+  el?: Element,
 ): ElementWriter<State> {
   const source = props as Record<string, any>;
   // The tables' keys are bound below, the always-bound ones whether or not the consumer passes them;
@@ -1634,7 +1643,10 @@ function createClientWriter<State extends object>(
   if (spec.handlerFor) {
     claim = claimEveryHandler;
   } else if (spec.handlers || spec.handlersIfPassed) {
-    claim = tableHandled(spec);
+    // Inline: the cached claim for this pair of module-level tables.
+    const always = spec.handlers ?? NO_TABLE;
+    const ifPassed = spec.handlersIfPassed ?? NO_TABLE;
+    claim = tableWraps.get(always)?.get(ifPassed) ?? tableHandled(always, ifPassed);
   }
   const consumer = classifyConsumerProps(
     props,
@@ -1667,27 +1679,41 @@ function createClientWriter<State extends object>(
   const handlerFor = spec.handlerFor;
   let record: HandlerRecord | undefined;
   if ((handlers || handlersIfPassed || handlerFor) && !isServer) {
-    // One record for every key.
-    record = new HandlerRecord(props, spec.handlerTarget);
+    // One record for every key, created by the first key bound: an element whose consumer passes
+    // none of a table's keys allocates none.
     if (handlers) {
-      bindHandlers(literal, handlers, undefined, record, top, handlerFunctions);
+      record = bindHandlers(literal, handlers, undefined, record, props, spec, top, handlerFunctions);
     }
     if (handlersIfPassed) {
-      bindHandlers(literal, handlersIfPassed, consumer.keys, record, top, handlerFunctions);
+      record = bindHandlers(
+        literal,
+        handlersIfPassed,
+        consumer.keys,
+        record,
+        props,
+        spec,
+        top,
+        handlerFunctions,
+      );
     }
     if (handlerFor) {
       // The consumer's other handler keys, through the part's dispatch for that key.
+      record ??= new HandlerRecord(props, spec.handlerTarget);
+      const bound = record;
       for (const key of consumer.keys) {
         if (literal[key] === true && !(top && key in top)) {
           const dispatch = handlerFor(key);
-          literal[key] = handlerFunctions ? handlerFunction(dispatch, record) : [dispatch, record];
+          literal[key] = handlerFunctions ? handlerFunction(dispatch, bound) : [dispatch, bound];
         }
       }
     }
   }
 
-  const writeState = stateWriterOf(spec);
-  const writtenState = writeState && writtenStateOf(spec);
+  const writeState =
+    spec.state === undefined || spec.stateAttributes === false
+      ? undefined
+      : (spec.stateWriter ?? compileStateAttributes(partState(spec)!, spec.mapping));
+  const writtenState = writeState && ((spec.stateWriter && spec.stateView) || partState(spec)!);
   const hasClass = 'class' in props;
   const hasStyle = 'style' in props;
   const styleOverride = spec.styleOverride;
@@ -1709,9 +1735,11 @@ function createClientWriter<State extends object>(
     reactive,
     writeState,
     writtenState,
+    el,
   );
   writer.literal = literal;
   writer.needsEffect = needsEffect;
+  writer.writes = writeState !== undefined || spec.attributes !== undefined || hasClass || hasStyle;
   if (handlerFor && record) {
     writer.handlerRecord = record;
   }
@@ -1725,19 +1753,24 @@ function createClientWriter<State extends object>(
  * does; the part's own element gets `[dispatch, record]` tuples. No closure here, so a call
  * allocates no context.
  */
-function bindHandlers(
+function bindHandlers<State extends object>(
   literal: Record<string, unknown>,
   table: Readonly<Record<string, Dispatch<any>>>,
   passed: ReadonlySet<string> | undefined,
-  record: HandlerRecord,
+  record: HandlerRecord | undefined,
+  props: object,
+  spec: NativeElementSpec<State>,
   top: Record<string, unknown> | undefined,
   functions: boolean,
-) {
+): HandlerRecord | undefined {
+  let bound = record;
   for (const key in table) {
     if (Object.hasOwn(table, key) && (!passed || passed.has(key)) && !(top && key in top)) {
-      literal[key] = functions ? handlerFunction(table[key], record) : [table[key], record];
+      bound ??= new HandlerRecord(props, spec.handlerTarget);
+      literal[key] = functions ? handlerFunction(table[key], bound) : [table[key], bound];
     }
   }
+  return bound;
 }
 
 function handlerFunction(dispatch: Dispatch<any>, record: HandlerRecord) {
@@ -1772,26 +1805,24 @@ function renderClientElement<State extends object>(
   // allocates no context for captured variables.
   const source = props as Record<string, any>;
   const hydrating = isHydrating();
-  const writer = createClientWriter(props, spec, undefined, top, false, hydrating);
+  const template = isTemplate(element) ? element : undefined;
+  const el = template ? template.create() : (element as Element);
+  const writer = createClientWriter(props, spec, undefined, top, false, hydrating, el);
   const literal = writer.literal;
   const needsEffect = writer.needsEffect;
   const consumerChildren = spec.consumerChildren !== false && 'children' in props;
-
-  const el = isTemplate(element) ? element.create() : element;
-  writer.attach(el);
   // Only an element created while hydrating has server markup to match (`HydratingWriter`). The
   // literal attributes are written once, outside the effect, and the template's own attributes are
   // never written (the compiled element carries them).
   const hydration = hydrating ? (writer as HydratingWriter<State>) : undefined;
   if (hydration) {
-    hydration.hydrate(
-      (isTemplate(element) && element.attributes) || NO_ATTRIBUTES,
-      spec.scriptedAttributes,
-    );
+    hydration.hydrate(template?.attributes || NO_ATTRIBUTES, spec.scriptedAttributes);
   }
 
   if (!needsEffect) {
-    writer.write(literal, false);
+    if (writer.writes) {
+      writer.write(literal, false);
+    }
     if (hydration && process.env.NODE_ENV !== 'production') {
       hydration.takeFirstWrite({});
     }
@@ -1821,7 +1852,11 @@ function renderClientElement<State extends object>(
   if (spec.children) {
     insert(el, spec.children);
   } else if (consumerChildren) {
-    insertConsumerChildren(el, props);
+    if (isStaticKey(props, 'children')) {
+      insert(el, source.children);
+    } else {
+      insertConsumerChildren(el, props);
+    }
   }
   return el;
 }
@@ -1844,12 +1879,8 @@ function attachPartRefs(el: Element, refs: readonly unknown[]) {
   });
 }
 
-/** Inserts the consumer's children: as they are when literal, else through an accessor. */
+/** Inserts the consumer's reactive children through an accessor (a closure here, not in the caller). */
 function insertConsumerChildren(el: Element, props: object) {
   const source = props as Record<string, any>;
-  if (isStaticKey(props, 'children')) {
-    insert(el, source.children);
-  } else {
-    insert(el, () => source.children);
-  }
+  insert(el, () => source.children);
 }

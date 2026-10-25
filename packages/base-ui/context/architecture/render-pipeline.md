@@ -93,7 +93,7 @@ Two renderers coexist: `renderNativeElement(spec)` in `native/index.ts` (`Checkb
 
 Native families: Button, Toggle, ToggleGroup, Checkbox (Root, Indicator), CheckboxGroup, Switch (Root, Thumb), Radio (Root, Indicator), RadioGroup, Collapsible, Accordion, Tabs, Separator, Progress (Track, Indicator), Meter (Track, Indicator). Of the 172 non-test files calling `useRenderElement(`, 145 have no native path.
 
-Guards: `utils/native/parity.test.tsx`, the ten per-family `*.parity.test.tsx` files (Accordion, Checkbox, Collapsible, Meter, Progress, Radio, Separator, Switch, Tabs, Toggle), the `utils/native/*.cost.test.tsx` budgets, and `useRenderElement.stableProps.test.tsx`.
+Guards: `utils/native/mountWork.cost.test.tsx` (library function invocations per plain Button mount, counted by V8, held to the pilot renderer's 18: every part on `element.ts` pays that path), `utils/native/parity.test.tsx`, the ten per-family `*.parity.test.tsx` files (Accordion, Checkbox, Collapsible, Meter, Progress, Radio, Separator, Switch, Tabs, Toggle), the `utils/native/*.cost.test.tsx` budgets, and `useRenderElement.stableProps.test.tsx`.
 
 ## Node counts
 

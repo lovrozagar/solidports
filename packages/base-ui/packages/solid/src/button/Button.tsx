@@ -1,6 +1,6 @@
 import { isStatic, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { mayBeTruthy, omitComponentProps } from '../solid-helpers';
+import { omitComponentProps } from '../solid-helpers';
 import { useCompositeRootContext } from '../internals/composite/root/CompositeRootContext';
 import { useButton } from '../internals/use-button/useButton';
 import { canRenderNative, partHandler } from '../utils/native';
@@ -76,12 +76,14 @@ const BUTTON = {
 
 const writeButtonState = compileStateWriter(['disabled'], undefined);
 
+const isDisabled = (props: Button.Props) => Boolean(props.disabled);
+const isFocusable = (props: Button.Props) => Boolean(props.focusableWhenDisabled);
+
 /**
- * What a native button's handlers, attributes and state read: its props, with `disabled` and
- * `focusableWhenDisabled` as prototype getters, so a button allocates this one object and no
- * closures. It is also the state view its `data-disabled` is written from.
+ * The state view a button that can be disabled writes its `data-disabled` from: `disabled` as a
+ * prototype getter over the props, one object per such button.
  */
-class ButtonModel {
+class ButtonStateView {
   declare readonly props: Button.Props;
 
   constructor(props: Button.Props) {
@@ -89,18 +91,14 @@ class ButtonModel {
   }
 
   get disabled(): boolean {
-    return Boolean(this.props.disabled);
-  }
-
-  get focusable(): boolean {
-    return Boolean(this.props.focusableWhenDisabled);
+    return isDisabled(this.props);
   }
 }
 
 /** The state `class`/`style` functions receive, built only when the consumer passes one. */
-const stateOf = (model: ButtonModel): Button.State => ({
+const stateOf = (props: Button.Props): Button.State => ({
   get disabled() {
-    return model.disabled;
+    return isDisabled(props);
   },
 });
 
@@ -108,23 +106,23 @@ const stateOf = (model: ButtonModel): Button.State => ({
  * The button's attributes, as `useButton` and `useFocusableWhenDisabled` produce them for a native
  * button: `aria-disabled` while focusable when disabled, else the `disabled` attribute.
  */
-function writeButtonAttributes(w: SetAttribute, model: ButtonModel) {
-  const disabled = model.disabled;
-  const focusable = model.focusable;
+function writeButtonAttributes(w: SetAttribute, props: Button.Props) {
+  const disabled = isDisabled(props);
+  const focusable = isFocusable(props);
   w.set('aria-disabled', focusable ? String(disabled) : undefined);
   w.set('disabled', !focusable && disabled ? true : undefined);
 }
 
 /** A disabled button cancels the event and runs no handler. */
-function preventWhileDisabled(model: ButtonModel, event: Event) {
-  if (model.disabled) {
+function preventWhileDisabled(props: Button.Props, event: Event) {
+  if (isDisabled(props)) {
     event.preventDefault();
     return false;
   }
   return true;
 }
 
-const runWhileEnabled = (model: ButtonModel) => !model.disabled;
+const runWhileEnabled = (props: Button.Props) => !isDisabled(props);
 
 /**
  * A button's handlers, composed as `useButton` composes them for a native button: the disabled
@@ -133,25 +131,25 @@ const runWhileEnabled = (model: ButtonModel) => !model.disabled;
  * never-disabled button binds them only for the keys the consumer passes.
  */
 const BUTTON_HANDLERS = {
-  onClick: partHandler<ButtonModel, MouseEvent>('onClick', undefined, preventWhileDisabled),
-  onPointerDown: partHandler<ButtonModel, PointerEvent>(
+  onClick: partHandler<Button.Props, MouseEvent>('onClick', undefined, preventWhileDisabled),
+  onPointerDown: partHandler<Button.Props, PointerEvent>(
     'onPointerDown',
     undefined,
     preventWhileDisabled,
   ),
-  onKeyDown: partHandler<ButtonModel, KeyboardEvent>('onKeyDown', undefined, (model, event) => {
+  onKeyDown: partHandler<Button.Props, KeyboardEvent>('onKeyDown', undefined, (props, event) => {
     // Allow Tabbing away from a focusable-when-disabled button; block every other key.
-    if (model.disabled && model.focusable && event.key !== 'Tab') {
+    if (isDisabled(props) && isFocusable(props) && event.key !== 'Tab') {
       event.preventDefault();
     }
-    return !model.disabled;
+    return !isDisabled(props);
   }),
 };
 
 /** The disabled gate for a consumer's `onMouseDown` and `onKeyUp`, bound only when passed. */
 const BUTTON_HANDLERS_IF_PASSED = {
-  onMouseDown: partHandler<ButtonModel>('onMouseDown', undefined, runWhileEnabled),
-  onKeyUp: partHandler<ButtonModel>('onKeyUp', undefined, runWhileEnabled),
+  onMouseDown: partHandler<Button.Props>('onMouseDown', undefined, runWhileEnabled),
+  onKeyUp: partHandler<Button.Props>('onKeyUp', undefined, runWhileEnabled),
 };
 
 /**
@@ -165,18 +163,24 @@ const ALL_BUTTON_HANDLERS_IF_PASSED = { ...BUTTON_HANDLERS, ...BUTTON_HANDLERS_I
  * button, inlined, on the client, the server and while hydrating.
  */
 function NativeButton(props: Button.Props): JSX.Element {
-  const gated = mayBeTruthy(props, 'disabled');
-  const model = new ButtonModel(props);
+  // The body runs untracked (`createComponent`): these reads subscribe to nothing.
+  const disabledIsStatic = isStatic(props, 'disabled');
+  const focusableIsStatic = isStatic(props, 'focusableWhenDisabled');
+  // A button that can never be disabled binds no gate and writes no `data-disabled`; one that can
+  // also never be focusable when disabled writes no attribute of its own at all.
+  const gated = !disabledIsStatic || Boolean(props.disabled);
+  const writes = gated || !focusableIsStatic || Boolean(props.focusableWhenDisabled);
   return renderNativeElement(BUTTON, props, {
     own: OWN_KEYS,
     state: stateOf,
-    stateView: model,
+    stateView: gated ? new ButtonStateView(props) : undefined,
     stateWriter: writeButtonState,
-    attributes: writeButtonAttributes,
-    reactive: !isStatic(props, 'disabled') || !isStatic(props, 'focusableWhenDisabled'),
+    stateAttributes: gated,
+    attributes: writes ? writeButtonAttributes : undefined,
+    reactive: !disabledIsStatic || !focusableIsStatic,
     handlers: gated ? BUTTON_HANDLERS : undefined,
     handlersIfPassed: gated ? BUTTON_HANDLERS_IF_PASSED : ALL_BUTTON_HANDLERS_IF_PASSED,
-    handlerTarget: model,
+    handlerTarget: props,
   }) as unknown as JSX.Element;
 }
 
