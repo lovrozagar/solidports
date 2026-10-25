@@ -19,6 +19,8 @@ let fixture: {
   renderWrites: (twice: boolean) => string;
   renderEscaped: (value: string) => string;
   renderCollision: () => string;
+  renderCaseCollision: (reactive: boolean) => string;
+  renderTemplateOverride: (type: string | undefined) => string;
 };
 let takeServerMarkup: (keys: string[], values: unknown[], start: number) => string;
 
@@ -104,6 +106,24 @@ describe('native element server markup', () => {
     expect(attributeValues(view, 'aria-expanded')).toEqual(['consumer']);
     expect(attributeValues(view, 'id')).toEqual(['consumer-id']);
     expect(view.match(/ data-panel-open/g)).toHaveLength(1);
+  });
+
+  it("lets a consumer prop replace a template attribute, an undefined one removing it", () => {
+    expect(attributeValues(fixture.renderTemplateOverride('submit'), 'type')).toEqual(['submit']);
+    const view = fixture.renderTemplateOverride(undefined);
+    expect(attributeNames(view)).not.toContain('type');
+    // The template's other literals stay.
+    expect(attributeValues(view, 'tabindex')).toEqual(['0']);
+  });
+
+  it("lets a consumer prop replace a template attribute it names in another case", () => {
+    for (const reactive of [false, true]) {
+      const view = fixture.renderCaseCollision(reactive);
+      // HTML attribute names are case-insensitive: the browser reads `tabIndex` as `tabindex`.
+      const names = attributeNames(view).filter((name) => name.toLowerCase() === 'tabindex');
+      expect(names, `reactive: ${reactive}`).toHaveLength(1);
+      expect(attributeValues(view, names[0]), `reactive: ${reactive}`).toEqual(['-1']);
+    }
   });
 
   it('keeps the last write of a key written twice, and warns in development', () => {

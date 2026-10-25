@@ -40,3 +40,34 @@ export function renderCollision() {
     w.set('data-panel-open', '');
   });
 }
+
+const BUTTON = {
+  tag: 'button',
+  attributes: { type: 'button', tabindex: '0' },
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- a bare test template
+  create: () => (<button type="button" tabindex="0" />) as unknown as Element,
+};
+
+/**
+ * A consumer prop that names a template attribute in another case (`tabIndex` for `tabindex`),
+ * static and reactive: the consumer's value replaces the template's, as on the client.
+ */
+export function renderCaseCollision(reactive: boolean) {
+  const props = reactive
+    ? {
+        get tabIndex() {
+          return -1;
+        },
+      }
+    : { tabIndex: -1 };
+  return renderToString(
+    () => renderNativeElement(BUTTON, props, { own: OWN, reactive: false }) as never,
+  );
+}
+
+/** A consumer `type` over the template's: `undefined` removes it, a value replaces it. */
+export function renderTemplateOverride(type: string | undefined) {
+  return renderToString(
+    () => renderNativeElement(BUTTON, { type }, { own: OWN, reactive: false }) as never,
+  );
+}
