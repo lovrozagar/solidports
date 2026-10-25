@@ -296,8 +296,9 @@ export const suites = [
     exclusive: true,
     // The measured run (`--full-bench`) takes about half an hour.
     timeoutSeconds: 3600,
-    // Then the SSR interaction check (D29): each interactive SSR case once per library in
-    // Chromium, failing on a dead trigger, a missing TTI or a page error, never on a timing.
+    // Then the SSR check (D29): every SSR case once per library in Chromium, failing on a hydrated
+    // DOM summary that differs from React's, a hydration warning or a page error, and each
+    // interactive case on a dead trigger or a missing TTI, never on a timing.
     run: [
       'bun run bench:solid:build',
       'WARMUP=0 HEAP_RUNS=1 node test/perf-solid/run.mjs 1',

@@ -7,6 +7,7 @@ import {
 	checkInteraction,
 	checkMode,
 	checkSummary,
+	summaryMismatches,
 	TTI_TIMEOUT_MS,
 } from "../packages/base-ui/test/perf-solid/ssr/interact.mjs"
 
@@ -120,8 +121,31 @@ describe("the SSR interaction check's summary", () => {
 
 	test("a check that checked nothing fails, so an empty run cannot read as a pass", () => {
 		expect(checkSummary([], "chromium", [])).toEqual({
-			lines: ["SSR check: 0 cases checked (no case matched with an interaction); nothing was checked"],
+			lines: ["SSR check: 0 cases checked (no case matched); nothing was checked"],
 			code: 1,
 		})
+	})
+})
+
+describe("the SSR check's hydrated DOM summary", () => {
+	// tabs/200 on 3f844320: the server-native Tabs.Panel left the panel unclaimed, so no tab ended up
+	// labelled. The check ran only interactive cases then, and passed (CI run 40162124626 went red).
+	const react = { nodes: 205, expanded: 0, checkboxes: 0, dialog: 0, tabsSelected: 1, labelled: 1 }
+	const variants = (solid: object) => [
+		{ name: "react", lib: "react", summary: react },
+		{ name: "solid", lib: "solid", summary: solid },
+	]
+
+	test("a summary that differs from React's is a mismatch, named for its variant", () => {
+		expect(summaryMismatches(undefined, variants({ ...react, labelled: 0 }))).toEqual([
+			{
+				name: "solid",
+				message: `hydrated DOM differs: react ${JSON.stringify(react)} ≠ solid ${JSON.stringify({ ...react, labelled: 0 })}`,
+			},
+		])
+	})
+
+	test("the same summary is none", () => {
+		expect(summaryMismatches(undefined, variants({ ...react }))).toEqual([])
 	})
 })

@@ -42,9 +42,9 @@ import {
   checkInteraction,
   checkMode,
   checkSummary,
+  summaryMismatches,
   measureInteraction,
 } from './interact.mjs';
-import { summariesMatch } from '../shared/known.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const KNOWN = JSON.parse(fs.readFileSync(path.join(here, '../known-differences.json'), 'utf8'));
@@ -68,7 +68,8 @@ const LAYOUT_METRICS = [
 const WARMUP = 3;
 // D29: TTI and INP under CPU throttling (`CPU_THROTTLE=4`, as a phone); off by default.
 const CPU_THROTTLE = Number(process.env.CPU_THROTTLE ?? 1);
-// D29: `SSR_CHECK=chromium` or `SSR_CHECK=webkit` checks the interactive cases in that browser,
+// D29: `SSR_CHECK=chromium` or `SSR_CHECK=webkit` checks every case in that browser: its hydrated DOM
+// summary against the first variant's, and the interaction of the cases that have one,
 // pass or fail, untimed (`checkInteraction`); test-all's benchmark suite and CI run it in Chromium.
 const CHECK = checkMode(process.env);
 
@@ -172,10 +173,9 @@ try {
   console.error(error.message);
   process.exit(1);
 }
-// The check runs only the cases with an interaction; a measured run, every matching case.
-const keys = first.cases
-  .filter((c) => matchesFilter(c, FILTER) && (!CHECK || c.interaction))
-  .map((c) => c.id);
+// Every matching case: the check hydrates each and compares its DOM summary with React's, and runs
+// the interaction of the cases that have one.
+const keys = first.cases.filter((c) => matchesFilter(c, FILTER)).map((c) => c.id);
 if (keys.length === 0 && CHECK) {
   // A check with nothing to check fails rather than passing empty.
   console.error(checkSummary([], CHECK, []).lines.join('\n'));
@@ -249,6 +249,25 @@ for (const key of keys) {
   }
 }
 
+/** The hydrated page's DOM summary, the counts a variant's hydration must agree on. */
+function domSummary() {
+  return {
+    nodes: document.body.querySelectorAll('*').length,
+    expanded: document.querySelectorAll('[aria-expanded="true"]').length,
+    checkboxes: document.querySelectorAll('[role="checkbox"]').length,
+    dialog: document.querySelectorAll('[role="dialog"]').length,
+    tabsSelected: document.querySelectorAll('[role="tab"][aria-selected="true"]').length,
+    labelled: document.querySelectorAll('[aria-labelledby]').length,
+  };
+}
+
+/** The variants whose DOM summary differs from the first variant's (`summaryMismatches`). */
+const mismatchesOf = (key, summaries) =>
+  summaryMismatches(
+    KNOWN[key]?.hydrate,
+    NAMES.map((name) => ({ name, lib: VARIANTS[name].lib, summary: summaries[name] })),
+  );
+
 // --- Hydration (Chromium) ---
 const problems = [];
 /** The cases and variants the check loaded (`checkSummary`). */
@@ -295,16 +314,47 @@ if (!process.env.SERVER_ONLY) {
     await assertScriptMetric(page, cdp);
     await page.close();
   }
-  // The check: each interactive case once per variant, failing on a dead trigger, a missing TTI, a
-  // page error or a hydration warning (`checkInteraction`); nothing timed.
+  // The check, nothing timed: each case once per variant, hydrated, its DOM summary compared with
+  // the first variant's (a hydration that leaves server elements unclaimed changes it: tabs/200's
+  // `labelled` read 0 against React's 1 on 3f844320), a hydration warning or page error failing it
+  // too; then each interactive case's interaction, failing on a dead trigger or a missing TTI
+  // (`checkInteraction`).
   for (const key of CHECK ? keys : []) {
+    const summaries = {};
+    for (const name of NAMES) {
+      const page = await browser.newPage();
+      const logs = [];
+      page.on('console', (message) => {
+        const text = message.text();
+        if (/hydrat|mismatch|unclaimed/i.test(text)) {
+          logs.push(text.slice(0, 200));
+        }
+      });
+      page.on('pageerror', (error) => logs.push(`pageerror: ${String(error).slice(0, 200)}`));
+      await page.goto(`http://localhost:${port}/${name}/?fixture=${encodeURIComponent(key)}`);
+      await page.waitForFunction(() => '__hydrate' in window);
+      await page.evaluate(async (fixture) => {
+        await window.__hydrate(fixture).committed;
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0)));
+        });
+      }, key);
+      summaries[name] = await page.evaluate(domSummary);
+      for (const log of new Set(logs)) {
+        problems.push(`${key} [${name}, ${CHECK}] ${log}`);
+      }
+      await page.close();
+      checked.push({ key, name });
+    }
+    for (const mismatch of mismatchesOf(key, summaries)) {
+      problems.push(`${key} [${mismatch.name}, ${CHECK}] ${mismatch.message}`);
+    }
     const interaction = first.cases.find((c) => c.id === key)?.interaction;
     for (const name of interaction ? NAMES : []) {
       const url = `http://localhost:${port}/${name}/?fixture=${encodeURIComponent(key)}&auto=1`;
       for (const problem of await checkInteraction(browser, url, interaction)) {
         problems.push(`${key} [${name}, ${CHECK}] ${problem}`);
       }
-      checked.push({ key, name });
     }
   }
   for (const key of CHECK ? [] : keys) {
@@ -364,14 +414,7 @@ if (!process.env.SERVER_ONLY) {
           total[name].push(result.totalMs);
         }
         if (run === WARMUP) {
-          summaries[name] = await page.evaluate(() => ({
-            nodes: document.body.querySelectorAll('*').length,
-            expanded: document.querySelectorAll('[aria-expanded="true"]').length,
-            checkboxes: document.querySelectorAll('[role="checkbox"]').length,
-            dialog: document.querySelectorAll('[role="dialog"]').length,
-            tabsSelected: document.querySelectorAll('[role="tab"][aria-selected="true"]').length,
-            labelled: document.querySelectorAll('[aria-labelledby]').length,
-          }));
+          summaries[name] = await page.evaluate(domSummary);
           for (const log of new Set(logs)) {
             problems.push(`${key} [${name}] ${log}`);
           }
@@ -462,24 +505,8 @@ if (!process.env.SERVER_ONLY) {
         ? median(entry.samples.firstCloseScriptMs)
         : null;
     }
-    for (const name of NAMES.slice(1)) {
-      const expected = JSON.stringify(summaries[NAMES[0]]);
-      const actual = JSON.stringify(summaries[name]);
-      // A React/Solid difference `known-differences.json` names for the case's `hydrate` step,
-      // React's summary first in either variant order.
-      if (
-        !summariesMatch(
-          KNOWN[key]?.hydrate,
-          expected,
-          actual,
-          VARIANTS[NAMES[0]].lib,
-          VARIANTS[name].lib,
-        )
-      ) {
-        problems.push(
-          `${key}: hydrated DOM differs: ${NAMES[0]} ${JSON.stringify(summaries[NAMES[0]])} ≠ ${name} ${JSON.stringify(summaries[name])}`,
-        );
-      }
+    for (const mismatch of mismatchesOf(key, summaries)) {
+      problems.push(`${key}: ${mismatch.message}`);
     }
     results[key].summaries = summaries;
   }

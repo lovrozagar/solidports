@@ -288,8 +288,9 @@ jobs:
     name: Benchmark tests
     runs-on: ubuntu-latest
     # A correctness smoke, as test-all's benchmark suite: every scenario and step once, failing on a
-    # step error, an unlisted warning or a DOM summary mismatch, then every interactive SSR case once
-    # per library (SSR_CHECK=chromium), failing on a dead trigger, a missing TTI or a page error. A shared runner's numbers gate
+    # step error, an unlisted warning or a DOM summary mismatch, then every SSR case once per library
+    # (SSR_CHECK=chromium), failing on a hydrated DOM summary unlike React's, a dead trigger, a missing
+    # TTI or a page error. A shared runner's numbers gate
     # nothing (no thresholds; runs drift 20-30%); the measured bench runs on the Mac (D13, D16).
     timeout-minutes: 30
     steps:
