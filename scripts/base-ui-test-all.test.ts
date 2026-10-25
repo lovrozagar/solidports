@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path"
 import {
 	changedBrowserTestFiles,
 	changedDocsPages,
+	changedLibrarySource,
 	docsGraph,
 	importedDirs,
 	commandFor,
@@ -564,5 +565,37 @@ describe("--changed: docs-validate scoped to the docs pages a range can reach", 
 		expect(full.selected).toBe(true)
 		expect(full.run).toEqual(["bun run docs:validate"])
 		expect(docsSuite({ full: null, pages: [] }).selected).toBe(false)
+	})
+})
+
+describe("--changed: the docs build and its hydration crawl on a library source change", () => {
+	const LIB = ["packages", "base-ui", "packages", "solid", "src"].join("/")
+	test("a non-test library source file is the change that selects them; tests and fixtures are not", () => {
+		expect(changedLibrarySource([`${LIB}/tabs/panel/TabsPanel.tsx`])).toBe(`${LIB}/tabs/panel/TabsPanel.tsx`)
+		expect(
+			changedLibrarySource([
+				`${LIB}/tabs/panel/TabsPanel.test.tsx`,
+				`${LIB}/tabs/root/TabsRoot.ssr-fixtures.tsx`,
+				"packages/base-ui/packages/solid/test/hydration/tabs.fixture.tsx",
+				"packages/base-ui/docs/solid/src/app/page.tsx",
+			]),
+		).toBeNull()
+	})
+
+	const docsApp = (librarySource: string | null) =>
+		planSuites({ changed: "main", only: null, fullBench: false, librarySource, dockerUnavailable: null }).filter(
+			(suite) => suite.name === "docs-build" || suite.name === "docs-hydration",
+		)
+
+	test("planSuites selects both on a library source change, and neither without one", () => {
+		// A server-native Tabs.Panel broke the docs' hydration on main (CI run 40162124626), which
+		// --changed never ran.
+		const selected = docsApp(`${LIB}/tabs/panel/TabsPanel.tsx`)
+		expect(selected.map((suite) => [suite.name, suite.selected])).toEqual([
+			["docs-build", true],
+			["docs-hydration", true],
+		])
+		expect(selected[0].note).toBe(`library source changed: ${LIB}/tabs/panel/TabsPanel.tsx`)
+		expect(docsApp(null).map((suite) => suite.selected)).toEqual([false, false])
 	})
 })

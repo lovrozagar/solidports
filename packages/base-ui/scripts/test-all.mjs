@@ -72,8 +72,10 @@ const WEBKIT_STEP_TIMEOUT_SECONDS = 1425;
 // or changed a source file beside (CI's parity caught new tests only after the push: a WebKit
 // mousemove test, and a Firefox pointer-lock test in run 39799938293); their `fullOnly` names the
 // whole run that only a full run or CI does. docs-validate runs on the docs pages the range can
-// change (`changedDocsPages`; CI caught a stale toast types page, 66627259). Every other heavy suite names in `fullOnly` why only a
-// full run or CI runs it.
+// change (`changedDocsPages`; CI caught a stale toast types page, 66627259). docs-build and
+// docs-hydration run whole when the range changes a library source file (`changedLibrarySource`;
+// CI caught a server-native Tabs.Panel's docs hydration, 40162124626). Every other heavy suite
+// names in `fullOnly` why only a full run or CI runs it.
 export const suites = [
   { job: 'Linting', name: 'format', cwd: '.', run: ['bun run fmt:check'] },
   { job: 'Linting', name: 'oxlint', cwd: '.', run: ['bun run lint'] },
@@ -531,6 +533,23 @@ function scopedParity(browser, browserTests) {
   ];
 }
 
+/**
+ * The first library source file of a range's paths (relative to the repo root): a non-test file
+ * under the Solid package's `src`, which selects the docs build and its hydration crawl under
+ * `--changed`. Tests and SSR fixtures change no page; null when the range has none.
+ */
+export function changedLibrarySource(names) {
+  const prefix = `${baseUi}/packages/solid/src/`;
+  return (
+    names.find(
+      (name) =>
+        name.startsWith(prefix) &&
+        /\.(?:ts|tsx|js|jsx|mts|mjs|css)$/.test(name) &&
+        !/\.(?:test|ssr-fixtures)\.[^/]+$/.test(name),
+    ) ?? null
+  );
+}
+
 /** The suites with this run's commands, each marked selected or not (with the reason). */
 export function planSuites(options) {
   return suites.map((suite) => {
@@ -561,6 +580,14 @@ export function planSuites(options) {
         selected = false;
         detail = 'not selected (--changed: no docs page reached)';
       }
+    } else if (
+      options.changed != null &&
+      (suite.name === 'docs-build' || suite.name === 'docs-hydration') &&
+      options.librarySource
+    ) {
+      // The production docs build and its hydration crawl, whole (about 5 minutes together): a
+      // library source change can break a page's hydration that no unit fixture has the shape of.
+      note = `library source changed: ${options.librarySource}`;
     } else if (options.changed != null) {
       selected = !suite.heavy || Boolean(suite.vitest);
       detail = selected ? undefined : `not selected (--changed: ${suite.fullOnly})`;
@@ -856,6 +883,7 @@ function scopedParityInputs(ref) {
   ];
   const base = path.join(root, baseUi);
   const docsPages = changedDocsPages(names, docsGraph());
+  const librarySource = changedLibrarySource(names);
   const browserTests = changedBrowserTestFiles(
     names,
     (file) => fs.existsSync(path.join(base, file)),
@@ -867,7 +895,7 @@ function scopedParityInputs(ref) {
             .map((entry) => `${dir}/${entry.name}`)
         : [],
   );
-  return { browserTests, docsPages };
+  return { browserTests, docsPages, librarySource };
 }
 
 /**
