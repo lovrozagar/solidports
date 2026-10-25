@@ -1,24 +1,12 @@
-import { getOwner, isStatic, untrack } from 'solid-js';
-import { insert } from '@solidjs/web';
+import { isStatic, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { omitComponentProps } from '../solid-helpers';
-import { makeEventPreventable } from '../merge-props/mergeProps';
+import { mayBeTruthy, omitComponentProps } from '../solid-helpers';
 import { useCompositeRootContext } from '../internals/composite/root/CompositeRootContext';
 import { useButton } from '../internals/use-button/useButton';
-import {
-  applyRefs,
-  attachNativeAttributes,
-  canRenderNative,
-  classifyConsumerProps,
-  HandlerRecord,
-  partHandler,
-  readReactiveProps,
-  resolveClass,
-  resolveStyle,
-  stateAttr,
-} from '../utils/native';
-import type { Dispatch } from '../utils/native';
-import type { BaseUIComponentProps, BaseUIEvent, NativeButtonProps } from '../utils/types';
+import { canRenderNative, partHandler } from '../utils/native';
+import { compileStateWriter, renderNativeElement } from '../utils/native/element';
+import type { SetAttribute } from '../utils/native/element';
+import type { BaseUIComponentProps, NativeButtonProps } from '../utils/types';
 import { useRenderElement } from '../utils/useRenderElement';
 
 /** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
@@ -38,11 +26,11 @@ const OWN_KEYS: ReadonlySet<string> = new Set([
  */
 export function Button(componentProps: Button.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` outside a
-  // composite root, rendered with direct JSX. Everything else (a `render` prop, spread props, a
-  // composite item, a non-native button, the server and hydration) keeps `useRenderElement`.
+  // composite root, on the client, the server and while hydrating. Everything else (a `render`
+  // prop, spread props, a composite item, a non-native button) keeps `useRenderElement`.
   if (
     useCompositeRootContext(true) == null &&
-    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true) &&
     untrack(() => componentProps.nativeButton ?? true) === true
   ) {
     return NativeButton(componentProps);
@@ -78,191 +66,118 @@ export function Button(componentProps: Button.Props) {
   return element();
 }
 
-type ButtonEvent<T extends Event> = BaseUIEvent<T>;
+/** The button's element: a focusable `<button>`; the server renders the same literals. */
+const BUTTON = {
+  tag: 'button',
+  attributes: { type: 'button', tabindex: '0' },
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
+  create: () => (<button type="button" tabindex="0" />) as unknown as Element,
+};
 
-const isDisabled = (props: Button.Props) => Boolean(props.disabled);
-const isFocusableWhenDisabled = (props: Button.Props) => Boolean(props.focusableWhenDisabled);
+const writeButtonState = compileStateWriter(['disabled'], undefined);
 
-// The part's own handlers when the consumer passes none, shared by every native button and bound
-// per element with Solid's `[handler, data]` form (no closure per button).
-function gateActivation(props: Button.Props, event: Event) {
-  makeEventPreventable(event as ButtonEvent<Event>);
-  if (untrack(() => isDisabled(props))) {
-    event.preventDefault();
+/**
+ * What a native button's handlers, attributes and state read: its props, with `disabled` and
+ * `focusableWhenDisabled` as prototype getters, so a button allocates this one object and no
+ * closures. It is also the state view its `data-disabled` is written from.
+ */
+class ButtonModel {
+  declare readonly props: Button.Props;
+
+  constructor(props: Button.Props) {
+    this.props = props;
+  }
+
+  get disabled(): boolean {
+    return Boolean(this.props.disabled);
+  }
+
+  get focusable(): boolean {
+    return Boolean(this.props.focusableWhenDisabled);
   }
 }
-function gateKeyDown(props: Button.Props, event: KeyboardEvent) {
-  makeEventPreventable(event as ButtonEvent<KeyboardEvent>);
-  // Allow Tabbing away from a focusable-when-disabled button; block every other key.
-  if (untrack(() => isDisabled(props) && isFocusableWhenDisabled(props)) && event.key !== 'Tab') {
-    event.preventDefault();
-  }
+
+/** The state `class`/`style` functions receive, built only when the consumer passes one. */
+const stateOf = (model: ButtonModel): Button.State => ({
+  get disabled() {
+    return model.disabled;
+  },
+});
+
+/**
+ * The button's attributes, as `useButton` and `useFocusableWhenDisabled` produce them for a native
+ * button: `aria-disabled` while focusable when disabled, else the `disabled` attribute.
+ */
+function writeButtonAttributes(w: SetAttribute, model: ButtonModel) {
+  const disabled = model.disabled;
+  const focusable = model.focusable;
+  w.set('aria-disabled', focusable ? String(disabled) : undefined);
+  w.set('disabled', !focusable && disabled ? true : undefined);
 }
 
 /** A disabled button cancels the event and runs no handler. */
-function preventWhileDisabled(props: Button.Props, event: Event) {
-  if (isDisabled(props)) {
+function preventWhileDisabled(model: ButtonModel, event: Event) {
+  if (model.disabled) {
     event.preventDefault();
     return false;
   }
   return true;
 }
 
-const runWhileEnabled = (props: Button.Props) => !isDisabled(props);
+const runWhileEnabled = (model: ButtonModel) => !model.disabled;
 
 /**
- * The consumer's handlers behind the part's gate, created once and bound only for the keys the
- * consumer passes, over one record per button (its props are also the gates' target).
+ * A button's handlers, composed as `useButton` composes them for a native button: the disabled
+ * gate first, then the consumer's handler. The after-consumer keyboard logic of `useButton` is a
+ * no-op for a native button (the browser activates it). Bound on a button that can be disabled; a
+ * never-disabled button binds them only for the keys the consumer passes.
  */
-const BUTTON_HANDLERS: Readonly<Record<string, Dispatch<Button.Props>>> = {
-  onClick: partHandler<Button.Props, MouseEvent>('onClick', undefined, preventWhileDisabled),
-  onPointerDown: partHandler<Button.Props, PointerEvent>(
+const BUTTON_HANDLERS = {
+  onClick: partHandler<ButtonModel, MouseEvent>('onClick', undefined, preventWhileDisabled),
+  onPointerDown: partHandler<ButtonModel, PointerEvent>(
     'onPointerDown',
     undefined,
     preventWhileDisabled,
   ),
-  onMouseDown: partHandler<Button.Props>('onMouseDown', undefined, runWhileEnabled),
-  onKeyUp: partHandler<Button.Props>('onKeyUp', undefined, runWhileEnabled),
-  onKeyDown: partHandler<Button.Props, KeyboardEvent>('onKeyDown', undefined, (props, event) => {
-    if (isDisabled(props) && isFocusableWhenDisabled(props) && event.key !== 'Tab') {
+  onKeyDown: partHandler<ButtonModel, KeyboardEvent>('onKeyDown', undefined, (model, event) => {
+    // Allow Tabbing away from a focusable-when-disabled button; block every other key.
+    if (model.disabled && model.focusable && event.key !== 'Tab') {
       event.preventDefault();
     }
-    return !isDisabled(props);
+    return !model.disabled;
   }),
 };
-const claimButtonHandler = (key: string) => (key in BUTTON_HANDLERS ? true : undefined);
+
+/** The disabled gate for a consumer's `onMouseDown` and `onKeyUp`, bound only when passed. */
+const BUTTON_HANDLERS_IF_PASSED = {
+  onMouseDown: partHandler<ButtonModel>('onMouseDown', undefined, runWhileEnabled),
+  onKeyUp: partHandler<ButtonModel>('onKeyUp', undefined, runWhileEnabled),
+};
 
 /**
- * The part's attributes in the slow path's order (a consumer key always wins), the reactive
- * consumer keys and `class`/`style`. `disabled` is written as `true`/absent (the slow path writes
- * `false`, which the runtime removes the same way). On the literal path (`keepUndefined` false) a
- * key with no value is left out: a fresh element has nothing to remove.
+ * A never-disabled button's handlers: each one only for a key the consumer passes, so every button
+ * shares the same dispatchers (one record per button) rather than a closure per handler.
  */
-function buttonAttributes(
-  props: Button.Props,
-  keys: ReadonlySet<string>,
-  reactive: readonly string[],
-  state: Button.State | undefined,
-  target: Record<string, unknown>,
-  keepUndefined: boolean,
-) {
-  const disabled = isDisabled(props);
-  const focusable = isFocusableWhenDisabled(props);
-  const set = (key: string, value: unknown) => {
-    if (keepUndefined || value !== undefined) {
-      target[key] = value;
-    }
-  };
-  if (!keys.has('data-disabled')) {
-    set('data-disabled', stateAttr(disabled));
-  }
-  if (!keys.has('aria-disabled')) {
-    set('aria-disabled', focusable ? String(Boolean(disabled)) : undefined);
-  }
-  if (!keys.has('disabled')) {
-    set('disabled', !focusable && disabled ? true : undefined);
-  }
-  readReactiveProps(props, reactive, target);
-  if (state) {
-    if ('class' in props) {
-      set('class', resolveClass(props.class, state));
-    }
-    if ('style' in props) {
-      set('style', resolveStyle(props.style, state));
-    }
-  }
-  return target;
-}
+const ALL_BUTTON_HANDLERS_IF_PASSED = { ...BUTTON_HANDLERS, ...BUTTON_HANDLERS_IF_PASSED };
 
 /**
  * The native `<button>`: `useButton` + `useFocusableWhenDisabled` for a non-composite native
- * button, inlined. The after-consumer keyboard logic of `useButton` is a no-op for this case (a
- * native button activates itself), so each handler is the part's gate, then the consumer's.
+ * button, inlined, on the client, the server and while hydrating.
  */
 function NativeButton(props: Button.Props): JSX.Element {
-  // The body runs untracked (`createComponent`): reads here subscribe to nothing.
-  const owner = getOwner();
-  const consumer = classifyConsumerProps(props, OWN_KEYS, claimButtonHandler);
-  const keys = consumer.keys;
-  const hasHandler = (key: string) => keys.has(key) || keys.has(key.toLowerCase());
-  // `class`/`style` functions receive the state; nothing else reads it.
-  const state: Button.State | undefined =
-    'class' in props || 'style' in props
-      ? {
-          get disabled() {
-            return isDisabled(props);
-          },
-        }
-      : undefined;
-  const disabledIsStatic = !('disabled' in props) || isStatic(props, 'disabled');
-  const focusableIsStatic =
-    !('focusableWhenDisabled' in props) || isStatic(props, 'focusableWhenDisabled');
-  // A button that can never be disabled needs no gate of its own: the gates only act while disabled.
-  const mayBeDisabled = !disabledIsStatic || isDisabled(props);
-
-  // `type="button"` and `tabindex="0"` come from the cloned template unless the consumer sets them.
-  const templateStatics = !keys.has('type') && !keys.has('tabindex');
-  const literal: Record<string, unknown> = {};
-  if (!templateStatics) {
-    if (!keys.has('type')) {
-      literal.type = 'button';
-    }
-    if (!keys.has('tabindex')) {
-      literal.tabindex = 0;
-    }
-  }
-  Object.assign(literal, consumer.literal);
-  let record: HandlerRecord<Button.Props> | undefined;
-  for (const key of Object.keys(BUTTON_HANDLERS)) {
-    if (keys.has(key)) {
-      literal[key] = [BUTTON_HANDLERS[key], (record ??= new HandlerRecord(props, props))];
-    }
-  }
-  // `onMouseDown`/`onKeyUp` only gate the consumer's handler: nothing to do without one.
-  if (mayBeDisabled) {
-    if (!hasHandler('onClick')) {
-      literal.onClick = [gateActivation, props];
-    }
-    if (!hasHandler('onPointerDown')) {
-      literal.onPointerDown = [gateActivation, props];
-    }
-    if (!hasHandler('onKeyDown')) {
-      literal.onKeyDown = [gateKeyDown, props];
-    }
-  }
-
-  // One effect when anything can change; none when every input is a literal.
-  const needsEffect =
-    consumer.reactive.length > 0 ||
-    !disabledIsStatic ||
-    !focusableIsStatic ||
-    ('class' in props && (!isStatic(props, 'class') || typeof props.class === 'function')) ||
-    ('style' in props && (!isStatic(props, 'style') || typeof props.style === 'function'));
-  const dynamic = needsEffect
-    ? () => buttonAttributes(props, keys, consumer.reactive, state, {}, true)
-    : undefined;
-  if (!needsEffect) {
-    buttonAttributes(props, keys, consumer.reactive, state, literal, false);
-  }
-
-  // The element itself (a cloned template), its attributes, refs and children: no `ref` round trip.
-  const el = (templateStatics ? (
-    // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
-    <button type="button" tabindex="0" />
-  ) : (
-    // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
-    <button />
-  )) as unknown as HTMLButtonElement;
-  attachNativeAttributes(el, literal, dynamic, owner);
-  if (props.ref != null) {
-    applyRefs(el, props.ref);
-  }
-  if (isStatic(props, 'children')) {
-    insert(el, props.children);
-  } else {
-    insert(el, () => props.children);
-  }
-  return el as unknown as JSX.Element;
+  const gated = mayBeTruthy(props, 'disabled');
+  const model = new ButtonModel(props);
+  return renderNativeElement(BUTTON, props, {
+    own: OWN_KEYS,
+    state: stateOf,
+    stateView: model,
+    stateWriter: writeButtonState,
+    attributes: writeButtonAttributes,
+    reactive: !isStatic(props, 'disabled') || !isStatic(props, 'focusableWhenDisabled'),
+    handlers: gated ? BUTTON_HANDLERS : undefined,
+    handlersIfPassed: gated ? BUTTON_HANDLERS_IF_PASSED : ALL_BUTTON_HANDLERS_IF_PASSED,
+    handlerTarget: model,
+  }) as unknown as JSX.Element;
 }
 
 export interface ButtonState {
