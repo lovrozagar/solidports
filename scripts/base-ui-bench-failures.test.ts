@@ -33,25 +33,36 @@ describe("bench failures: what a push may carry", () => {
 	test("refuses the 4a-1a compare: an SSR exit and a hydrated-DOM mismatch, whatever the allowlist", () => {
 		const verdict = judgeFailures(failureEntries(A1A), BUTTON_ALLOWED)
 		expect(verdict.ok).toBe(false)
-		expect(verdict.refused).toEqual(["SSR bench exited 1", expect.stringContaining("hydrated DOM differs")])
-		expect(verdict.allowed).toHaveLength(2)
+		// The button rows regressed 0.60 and 0.58 ms there, beyond today's 0.30 and 0.37 allowances.
+		expect(verdict.refused).toEqual([
+			"SSR bench exited 1",
+			expect.stringContaining("hydrated DOM differs"),
+			expect.stringContaining("regressed beyond its allowance of 0.3)"),
+			expect.stringContaining("regressed beyond its allowance of 0.37)"),
+		])
+		expect(verdict.allowed).toHaveLength(0)
 		expect(verdict.suspended).toEqual([expect.stringContaining("exit bar: accordion/300 serverMs")])
 	})
 
 	test("carries timing rows only when the allowlist names them", () => {
-		const timingOnly = failureEntries(A1A).filter((entry) => entry.startsWith("regressed:"))
+		// The push of 3f844320..bbdde22c: both rows within their allowances.
+		const timingOnly = [
+			"regressed: button/button-1000 › mount sync 3.10 → 3.40 (95% CI of the shift 0.30 to 0.50, minimum effect 0.10, p 5.6e-6)",
+			"regressed: button/button-1000 › mount script 3.08 → 3.45 (95% CI of the shift 0.28 to 0.46, minimum effect 0.10, p 9.4e-6)",
+		]
 		expect(judgeFailures(timingOnly, BUTTON_ALLOWED).ok).toBe(true)
 		const unnamed = judgeFailures(timingOnly, { entries: [BUTTON_ALLOWED.entries[0]] })
 		expect(unnamed.ok).toBe(false)
-		expect(unnamed.refused).toEqual([expect.stringContaining("mount script 3.09 → 3.67 (")])
+		expect(unnamed.refused).toEqual([expect.stringContaining("mount script 3.08 → 3.45 (")])
 		expect(judgeFailures(timingOnly, null).ok).toBe(false)
 	})
 
 	const row = (metric: string, ci: string, verdict: string) =>
 		`| button/button-1000 › mount | ${metric} | 3.10 | 3.12 | 0.02 | ${ci} | 0.10 | 4.0e-1 | ${verdict} |`
 
-	test("an entry whose row the run bounded under its shift, not regressed, has expired, and refuses", () => {
-		const report = [row("sync", "-0.10 to 0.10", "same"), row("script", "-0.10 to 0.20", "same")].join("\n")
+	test("an entry whose row the run bounded within noise, not regressed, has expired, and refuses", () => {
+		// The shift's CI upper bound under the row's minimum effect (0.10): conclusively within noise.
+		const report = [row("sync", "-0.10 to 0.05", "same"), row("script", "-0.10 to 0.08", "same")].join("\n")
 		const verdict = judgeFailures(failureEntries(report), BUTTON_ALLOWED, measuredVerdicts(report))
 		expect(verdict.ok).toBe(false)
 		expect(verdict.expired).toEqual([
@@ -66,6 +77,25 @@ describe("bench failures: what a push may carry", () => {
 		const verdict = judgeFailures(failureEntries(report), BUTTON_ALLOWED, measuredVerdicts(report))
 		expect(verdict).toMatchObject({ ok: true, expired: [] })
 		expect(verdict.inconclusive).toHaveLength(2)
+	})
+
+	test("a CI between the row's minimum effect and the allowed shift is inconclusive, not expired", () => {
+		// Within the allowed 0.30 ms, but the row could still be +0.25 ms: not "within noise".
+		const report = [row("sync", "-0.05 to 0.25", "same"), row("script", "-0.05 to 0.25", "same")].join("\n")
+		const verdict = judgeFailures(failureEntries(report), BUTTON_ALLOWED, measuredVerdicts(report))
+		expect(verdict).toMatchObject({ ok: true, expired: [] })
+		expect(verdict.inconclusive).toHaveLength(2)
+	})
+
+	test("an allowance is a cap: a row that regressed beyond its allowed shift refuses", () => {
+		const worse =
+			"regressed: button/button-1000 › mount sync 3.10 → 3.60 (95% CI of the shift 0.40 to 0.60, minimum effect 0.10, p 1.0e-6)"
+		const within =
+			"regressed: button/button-1000 › mount sync 3.10 → 3.40 (95% CI of the shift 0.30 to 0.50, minimum effect 0.10, p 5.6e-6)"
+		const capped = judgeFailures([worse], BUTTON_ALLOWED)
+		expect(capped.ok).toBe(false)
+		expect(capped.refused).toEqual([`${worse} (regressed beyond its allowance of 0.3)`])
+		expect(judgeFailures([within], BUTTON_ALLOWED).ok).toBe(true)
 	})
 
 	test("an entry for a row the run did not measure is unused, not expired", () => {
@@ -91,6 +121,7 @@ describe("bench failures: what a push may carry", () => {
 		expect(timingRow("regressed: toggle/1000 › mount sync 6.30 → 6.90 (95% CI…)")).toEqual({
 			row: "toggle/1000 › mount",
 			metric: "sync",
+			shift: 0.6,
 		})
 	})
 
