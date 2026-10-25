@@ -129,6 +129,76 @@ async function roving(container: Element) {
   return { tabindex, focused };
 }
 
+/**
+ * The tabs' layout as a browser lays it out, for the prehydration script and the hydrated
+ * indicator's own measurement alike.
+ */
+/** Whether the stubbed layout has collapsed: every box empty, as a hidden list's are. */
+let layoutCollapsed = false;
+
+function stubTabsLayout() {
+  layoutCollapsed = false;
+  // The tabs' layout as a browser lays it out (jsdom has none, so every size would be 0 and the
+  // script would show nothing): two 40×20 tabs side by side in an 80×20 list. The client measures
+  // the second tab half a pixel further right than its rounded layout offset, as a browser's
+  // sub-pixel layout can, so a hydrated indicator that kept the script's position settles apart
+  // from one that measured its own.
+  const tabOf = (el: HTMLElement) => el.closest('[role="tab"]') as HTMLElement | null;
+  const isList = (el: Element) => !layoutCollapsed && el.getAttribute('role') === 'tablist';
+  const isTab = (el: HTMLElement) => !layoutCollapsed && tabOf(el) === el;
+  const indexOf = (tab: HTMLElement) =>
+    [...(tab.parentElement?.querySelectorAll('[role="tab"]') ?? [])].indexOf(tab);
+  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function width(
+    this: HTMLElement,
+  ) {
+    if (isList(this)) {
+      return 80;
+    }
+    return isTab(this) ? 40 : 0;
+  });
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function height(
+    this: HTMLElement,
+  ) {
+    return isList(this) || isTab(this) ? 20 : 0;
+  });
+  vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(function left(
+    this: HTMLElement,
+  ) {
+    return isTab(this) ? indexOf(this) * 40 : 0;
+  });
+  vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function scrollWidth(
+    this: Element,
+  ) {
+    return isList(this) ? 80 : 0;
+  });
+  vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function scrollHeight(
+    this: Element,
+  ) {
+    return isList(this) ? 20 : 0;
+  });
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function rect(
+    this: Element,
+  ) {
+    const el = this as HTMLElement;
+    let box = { left: 0, width: 0, height: 0 };
+    if (isList(el)) {
+      box = { left: 0, width: 80, height: 20 };
+    } else if (isTab(el)) {
+      box = { left: indexOf(el) * 40.5, width: 40, height: 20 };
+    }
+    return {
+      x: box.left,
+      y: 0,
+      top: 0,
+      left: box.left,
+      right: box.left + box.width,
+      bottom: box.height,
+      width: box.width,
+      height: box.height,
+    } as DOMRect;
+  });
+}
+
 describe('hydrated Tabs', () => {
   it('wires each tab to its panel', async () => {
     const container = serverContainer('tabs.server.tsx');
@@ -205,64 +275,7 @@ describe('hydrated Tabs', () => {
    * position it set went missing or back to the server's, and the indicator's settled state.
    */
   async function hydrateScripted(slow: boolean) {
-    // The tabs' layout as a browser lays it out (jsdom has none, so every size would be 0 and the
-    // script would show nothing): two 40×20 tabs side by side in an 80×20 list. The client measures
-    // the second tab half a pixel further right than its rounded layout offset, as a browser's
-    // sub-pixel layout can, so a hydrated indicator that kept the script's position settles apart
-    // from one that measured its own.
-    const tabOf = (el: HTMLElement) => el.closest('[role="tab"]') as HTMLElement | null;
-    const isList = (el: HTMLElement) => el.getAttribute('role') === 'tablist';
-    const indexOf = (tab: HTMLElement) =>
-      [...(tab.parentElement?.querySelectorAll('[role="tab"]') ?? [])].indexOf(tab);
-    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function width(
-      this: HTMLElement,
-    ) {
-      if (isList(this)) {
-        return 80;
-      }
-      return tabOf(this) === this ? 40 : 0;
-    });
-    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function height(
-      this: HTMLElement,
-    ) {
-      return isList(this) || tabOf(this) === this ? 20 : 0;
-    });
-    vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(function left(
-      this: HTMLElement,
-    ) {
-      return tabOf(this) === this ? indexOf(this) * 40 : 0;
-    });
-    vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function scrollWidth(
-      this: Element,
-    ) {
-      return this.getAttribute('role') === 'tablist' ? 80 : 0;
-    });
-    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function scrollHeight(
-      this: Element,
-    ) {
-      return this.getAttribute('role') === 'tablist' ? 20 : 0;
-    });
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function rect(
-      this: Element,
-    ) {
-      const el = this as HTMLElement;
-      let box = { left: 0, width: 0, height: 0 };
-      if (isList(el)) {
-        box = { left: 0, width: 80, height: 20 };
-      } else if (tabOf(el) === el) {
-        box = { left: indexOf(el) * 40.5, width: 40, height: 20 };
-      }
-      return {
-        x: box.left,
-        y: 0,
-        top: 0,
-        left: box.left,
-        right: box.left + box.width,
-        bottom: box.height,
-        width: box.width,
-        height: box.height,
-      } as DOMRect;
-    });
+    stubTabsLayout();
     const container = serverContainer(`tabs-scripted-${slow ? 'slow' : 'native'}.server.tsx`);
     const indicator = container.querySelector<HTMLElement>('[data-testid="s-indicator"]')!;
     const state = (style: string | null, hidden: boolean) =>
@@ -344,6 +357,50 @@ describe('hydrated Tabs', () => {
     expect(native.clobbers).toEqual([]);
     // The hydrated indicator measured its own position, past the script's rounded one.
     expect(slow.settled['--active-tab-left']).not.toBe(native.script['--active-tab-left']);
+    expect(native.settled).toEqual(slow.settled);
+  });
+
+  /**
+   * Hydrates the scripted tabs on one path after the layout collapsed between the prehydration
+   * script and hydration (a late style hiding the list, a media query flipping): the script showed
+   * and positioned the indicator, and the hydrated tabs measure nothing, so the indicator's first
+   * write equals the server's record (hidden) while the DOM holds the script's result. Returns the
+   * indicator's path, whether the script showed it, and its settled state.
+   */
+  async function hydrateCollapsed(slow: boolean) {
+    stubTabsLayout();
+    const container = serverContainer(`tabs-scripted-${slow ? 'slow' : 'native'}.server.tsx`);
+    const indicator = container.querySelector<HTMLElement>('[data-testid="s-indicator"]')!;
+    runServerScripts(container);
+    const shown = !indicator.hasAttribute('hidden');
+    layoutCollapsed = true;
+    dispose = hydrate(() => <ScriptedTabs slow={slow} />, container);
+    await settle();
+    const result = {
+      path: renderPathOf(indicator),
+      connected: indicator.isConnected,
+      shown,
+      settled: indicatorState(
+        indicator,
+        indicator.getAttribute('style'),
+        indicator.hasAttribute('hidden'),
+      ),
+    };
+    dispose?.();
+    dispose = undefined;
+    document.body.innerHTML = '';
+    vi.restoreAllMocks();
+    return result;
+  }
+
+  it('hides the indicator the prehydration script showed when the hydrated tabs measure nothing, as the slow path does', async () => {
+    const slow = await hydrateCollapsed(true);
+    const native = await hydrateCollapsed(false);
+    expect([slow.path, native.path]).toEqual(['slow', 'native']);
+    expect([slow.connected, native.connected]).toEqual([true, true]);
+    // The script showed it, so the hydrated indicator has the script's result to undo.
+    expect([slow.shown, native.shown]).toEqual([true, true]);
+    expect(slow.settled.hidden).toBe(true);
     expect(native.settled).toEqual(slow.settled);
   });
 
