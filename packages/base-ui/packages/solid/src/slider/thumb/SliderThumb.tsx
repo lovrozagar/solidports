@@ -64,6 +64,8 @@ const THUMB_OWN_KEY_LIST = [
   'tabIndex',
 ] as const;
 const THUMB_OWN_KEYS: ReadonlySet<string> = new Set(THUMB_OWN_KEY_LIST);
+/** What an inset slider's prehydration script changes on the server's element: its style. */
+const SCRIPTED_ATTRIBUTES = ['style'];
 
 /** What the native thumb's attributes and handlers read: one object per thumb. */
 interface SliderThumbModel {
@@ -624,6 +626,8 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
       handlers: THUMB_HANDLERS,
       handlerTarget: model,
       partStyle: thumbStyle,
+      // An inset slider's prehydration script positions and shows the server's element.
+      scriptedAttributes: untrack(renderBeforeHydration) ? SCRIPTED_ATTRIBUTES : undefined,
       reactive: true,
       refs: [
         listItemRef,

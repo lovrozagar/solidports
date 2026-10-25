@@ -142,7 +142,8 @@ describe('hydrated Slider', () => {
    * slider settling. Returns each part's path, where a part the script showed was hidden again or
    * a position it set went missing or back to the server's, and each part's settled style.
    */
-  async function hydrateScripted(slow: boolean) {
+  async function hydrateScripted(slow: boolean, collapse = false) {
+    let collapsed = false;
     // The slider's layout as a browser lays it out (jsdom has none, so its sizes would be 0 and the
     // script would show nothing): a 200px control and 10px thumbs, for the script and the hydrated
     // slider's own measurement alike.
@@ -150,7 +151,9 @@ describe('hydrated Slider', () => {
       this: Element,
     ) {
       let width = 0;
-      if (this.hasAttribute('data-base-ui-slider-control')) {
+      if (collapsed) {
+        // Collapsed: every box is empty.
+      } else if (this.hasAttribute('data-base-ui-slider-control')) {
         width = 200;
       } else if (this.querySelector(':scope > input[type="range"]')) {
         width = 10;
@@ -182,6 +185,9 @@ describe('hydrated Slider', () => {
     runServerScripts(container);
     observer.takeRecords();
     const scriptStates = parts.map((part) => styleState(part.getAttribute('style')));
+    // The layout collapsing between the script and hydration (a late style hiding the slider): the
+    // hydrated slider measures nothing.
+    collapsed = collapse;
     const warn = vi.spyOn(console, 'warn');
     const error = vi.spyOn(console, 'error');
     dispose = hydrate(() => <ScriptedSliders slow={slow} />, container);
@@ -242,6 +248,18 @@ describe('hydrated Slider', () => {
     expect(native.clobbers).toEqual([]);
     // A writer that diffed against the server's markup instead of the DOM the script changed would
     // settle elsewhere than the slow path, which re-applies its attributes after hydration.
+    expect(native.settled).toEqual(slow.settled);
+  });
+
+  it('settles as the slow path does when the layout collapses between the script and hydration', async () => {
+    const slow = await hydrateScripted(true, true);
+    const native = await hydrateScripted(false, true);
+    expect(slow.paths).toEqual(SCRIPTED.map(() => 'slow'));
+    expect(native.paths).toEqual(SCRIPTED.map(() => 'native'));
+    // The script showed every scripted part, so the hydrated sliders have its result to undo.
+    expect(native.shown).toEqual(SCRIPTED.map(() => ''));
+    expect(native.mismatches).toEqual([]);
+    // Visibility and every position variable, part by part.
     expect(native.settled).toEqual(slow.settled);
   });
 
