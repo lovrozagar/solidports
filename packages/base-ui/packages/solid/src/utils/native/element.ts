@@ -158,7 +158,9 @@ export interface NativeElementSpec<State extends object> {
   /**
    * Attributes the part's prehydration script may set or remove on the server's element before
    * hydration (an indicator's position and `hidden`). The development check of the server's
-   * attributes skips them: the element no longer holds the server's markup there.
+   * attributes skips them: the element no longer holds the server's markup there. Once
+   * `hydrate()` returns, the element reconciles them (but `style`) against what it holds, not the
+   * server's record, so a value the client computes as the server did still undoes the script's.
    */
   scriptedAttributes?: readonly string[] | undefined;
   /** Part refs: called with the element on attach and with `null` on unmount. */
@@ -1489,6 +1491,12 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
       const keep = clientFormStateAttributes({ ...this.literal, ...written });
       afterHydration(el, () => releaseFormStateAttributes(el, keep));
     }
+    if (this.scriptedAttributes !== undefined) {
+      // A prehydration script may have changed these on the server's element: reconcile them
+      // against what it holds once `hydrate()` returns, even if the client's first write equals
+      // the server's record (a script that showed what the client hides).
+      this.scheduleReconcile();
+    }
     if (process.env.NODE_ENV !== 'production') {
       // Now, while the element still holds the server markup.
       checkHydratedAttributes(this.el, this.scriptedAttributes, this.templateAttributes, {
@@ -1539,10 +1547,30 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
   private reconcile() {
     const written = this.needsEffect ? attributesOf(untrack(() => this.write({}, true))) : {};
     const hydratedWrite = { ...attributesOf(this.literal), ...attributesOf(this.firstWrite ?? {}) };
+    const scripted = this.scriptedAttributes;
+    if (scripted !== undefined) {
+      // What the element holds now, not the server's record: the script's result. Not `style`: a
+      // part's style the client has not measured yet must not wipe the script's position, and its
+      // measured style differs from the server's anyway, so it is written when it comes.
+      for (const key of scripted) {
+        if (key !== 'style') {
+          hydratedWrite[key] = domAttribute(this.el, key);
+        }
+      }
+    }
     assign(this.el, { ...attributesOf(this.literal), ...written }, true, hydratedWrite, true);
     Object.assign(this.previous, written);
     this.countHeld();
   }
+}
+
+/** An attribute as a write holds it: `true` for a present boolean attribute, else its value. */
+function domAttribute(el: Element, key: string): unknown {
+  const value = el.getAttribute(key);
+  if (value === null) {
+    return undefined;
+  }
+  return value === '' ? true : value;
 }
 
 /**
