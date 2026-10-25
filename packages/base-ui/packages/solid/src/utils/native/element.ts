@@ -493,6 +493,31 @@ const setServerAttribute: SetAttribute = {
   },
 };
 
+/**
+ * A consumer key that names an attribute in another case (`tabIndex` for `tabindex`) is that
+ * attribute, as on the client, where the runtime sets it through the property: it replaces a
+ * template or part literal attribute of that name in the server's attribute object, and the
+ * part's own writes skip it. Returns the keys the part's writes skip: `keys`, plus each such
+ * key's lowercase name.
+ */
+function claimCaseVariants(keys: ReadonlySet<string>): ReadonlySet<string> {
+  let claimed: Set<string> | undefined;
+  for (const key of keys) {
+    if (isHandlerKey(key)) {
+      continue;
+    }
+    const lower = key.toLowerCase();
+    if (lower === key || keys.has(lower)) {
+      continue;
+    }
+    if (lower in serverObject) {
+      delete ownServerObject()[lower];
+    }
+    (claimed ??= new Set(keys)).add(lower);
+  }
+  return claimed ?? keys;
+}
+
 /** A consumer's class with a part's after it, as the slow path's merge combines them. */
 function combineClass(consumer: unknown, part: string | undefined): unknown {
   if (part === undefined || part === '') {
@@ -638,6 +663,7 @@ function renderServerElement<State extends object>(
     if (top) {
       Object.assign(ownServerObject(), top);
     }
+    serverKeys = claimCaseVariants(keys);
 
     writePass += 1;
     // The overrides first, so the part's own writes skip their keys; written last, over the
@@ -718,6 +744,27 @@ function renderServerElement<State extends object>(
   ) as unknown as Element;
 }
 
+/** A template attribute's other spelling a consumer may pass. */
+const CASE_VARIANTS: Readonly<Record<string, string>> = { tabindex: 'tabIndex' };
+
+/** Whether the consumer passes a key a template's literal attributes hold, in either spelling. */
+function passesTemplateAttribute(props: object, attributes: Record<string, unknown>): boolean {
+  // eslint-disable-next-line guard-for-in -- a template's own attribute record
+  for (const key in attributes) {
+    if (key in props) {
+      return true;
+    }
+    const variant = CASE_VARIANTS[key];
+    if (variant !== undefined && variant in props) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** A template with no literal attributes, for `tagTemplate`. */
+const BARE: NativeElementTemplate = { tag: '', attributes: undefined, create: () => null as never };
+
 /**
  * Renders `el` as the part's element for `props`: the consumer's literal keys and the handler
  * dispatchers once, the part's and the reactive keys from one effect (none when nothing can
@@ -728,6 +775,13 @@ export function renderNativeElement<State extends object>(
   props: object,
   spec: NativeElementSpec<State>,
 ): Element {
+  if (isTemplate(element) && element.attributes && passesTemplateAttribute(props, element.attributes)) {
+    // The consumer's value for a template attribute wins, even `undefined` (which removes it, as on
+    // the slow path): the element comes from its bare tag, the template's other literals become
+    // part literals, below the consumer's props.
+    spec = { ...spec, literal: { ...element.attributes, ...spec.literal } };
+    element = tagTemplate(element.tag, BARE);
+  }
   if ('render' in props && !isStaticKey(props, 'render')) {
     return renderDynamicRender(element, props, spec);
   }
