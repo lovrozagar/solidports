@@ -6,7 +6,7 @@ verified: 2026-10-25
 
 # Tabs
 
-Tabs renders every part natively when props are plain, on the client, the server and while hydrating; a native tab costs 3 dev nodes versus 27 on the slow path, but each highlight change still touches every tab.
+Tabs renders every part natively when props are plain, on the client, the server and while hydrating (the Panel on the client only); a native tab costs 3 dev nodes versus 27 on the slow path, but each highlight change still touches every tab.
 
 ## Status
 
@@ -26,9 +26,10 @@ Tabs renders every part natively when props are plain, on the client, the server
 
 Yes, per part, chosen once at setup:
 
-- Root (`TabsRoot.tsx:45`), List (`TabsList.tsx:123`), Panel (`TabsPanel.tsx:49`), Indicator (`TabsIndicator.tsx:180`): `canRenderNative(props, undefined, true)` (`packages/base-ui/packages/solid/src/utils/native/index.ts:82-112`): no store proxy from `{...props}`, no `render`, static `ref`, on the client, the server and while hydrating (D33 batch 4a-1). Each passes an element template (`{ tag, create }`), which the server renders as its tag.
+- Root (`TabsRoot.tsx:45`), List (`TabsList.tsx:123`), Indicator (`TabsIndicator.tsx:180`): `canRenderNative(props, undefined, true)` (`packages/base-ui/packages/solid/src/utils/native/index.ts:82-112`): no store proxy from `{...props}`, no `render`, static `ref`, on the client, the server and while hydrating (D33 batch 4a-1). Each passes an element template (`{ tag, create }`), which the server renders as its tag.
 - Tab (`TabsTab.tsx:52`): the same plus a static `nativeButton` that resolves to `true`.
-- Hydration (`test/hydration/tabs.hydration.test.tsx`): every part keeps the server's element on its path with no mismatch, and props that force the slow path (a reactive `render`, a spread beside other props, a dynamic `nativeButton`, a getter `ref`) do so on both sides. The hydrated tabs register in a client render's order: the same roving tabindex, and ArrowRight moves focus the same way. One more tab and its panel cost 3 hydrate nodes against 46 on the slow path (exact).
+- Panel (`TabsPanel.tsx:53`): `canRenderNative(props)`, client renders only. Its mount conditional (`createNativeConditional`) returns a function, which a parent element's JSX hole calls unscoped: a panel inside a plain `<div>` (the docs' hero demo) took the parent's hydration ids and left the server's panel unclaimed (CI run 40162124626, docs hydration). On the server and while hydrating the slow path's `Show` scopes it; a hydration-scoped native conditional is a post-sweep leaf.
+- Hydration (`test/hydration/tabs.hydration.test.tsx`): every part keeps the server's element on its path with no mismatch, and props that force the slow path (a reactive `render`, a spread beside other props, a dynamic `nativeButton`, a getter `ref`) do so on both sides. The hydrated tabs register in a client render's order: the same roving tabindex, and ArrowRight moves focus the same way. One more tab and its panel cost 13 hydrate nodes against 46 with Tabs on the slow path (exact), the panel on the slow path while hydrating.
 - The Indicator's prehydration script positions the server's indicator and shows it; the spec names `style` and `hidden` as its `scriptedAttributes`, which the kit's development check of the server's markup skips. From the script through the settled tabs, the indicator is never hidden again and no position the script set goes missing or back to the server's, and it settles where the slow path settles, measured, not the script's rounded position. When the layout collapses between the script and hydration (the hydrated tabs measure nothing), the indicator the script showed hides, as on the slow path.
 
 The native list calls `useCompositeRoot` directly instead of rendering `CompositeRoot`. Tabs and panels register with `createNativeListItem` and an index guess (`TabsTab.tsx:333`, `TabsPanel.tsx:232`). `useButton`'s composite keyboard logic is inlined in `TabsTab.tsx`. See [composite lists](../architecture/composite-lists.md).

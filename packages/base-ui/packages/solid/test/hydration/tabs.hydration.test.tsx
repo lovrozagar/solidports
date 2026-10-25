@@ -13,6 +13,7 @@ import { hydrate, render } from '@solidjs/web';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderPathOf } from '../../src/utils/renderPath';
 import {
+  DocsTabs,
   forwardedRef,
   getterRef,
   ScriptedTabs,
@@ -27,10 +28,11 @@ const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
 
 /**
  * Reactive nodes one more hydrated tab and its panel create, exact: SLOW with Tabs on the slow
- * path (measured before the port, 2026-10-25), NATIVE on the native path.
+ * path (measured before the port, 2026-10-25), NATIVE with the tab native and the panel on the slow
+ * path while hydrating (its mount conditional is client-only), 3 once the panel is too.
  */
 const SLOW_PER_TAB = 46;
-const NATIVE_PER_TAB = 3;
+const NATIVE_PER_TAB = 13;
 
 const PATHS = {
   'a-root': 'native',
@@ -39,9 +41,9 @@ const PATHS = {
   'a-tab-two': 'native',
   'a-tab-three': 'native',
   'a-indicator': 'native',
-  'a-panel-one': 'native',
-  'a-panel-two': 'native',
-  'a-panel-three': 'native',
+  'a-panel-one': 'slow',
+  'a-panel-two': 'slow',
+  'a-panel-three': 'slow',
   'd-ref-forward': 'native',
   'd-render-getter': 'slow',
   'd-spread': 'slow',
@@ -233,6 +235,22 @@ describe('hydrated Tabs', () => {
     ).toEqual(PATHS);
     expect(forwardedRef()).toBe(query('d-ref-forward'));
     expect(getterRef()).toBe(query('d-getter-ref'));
+  });
+
+  it("claims the docs demo's panels and their children, with no mismatch", async () => {
+    const container = serverContainer('tabs-docs.server.tsx');
+    const keyed = [...container.querySelectorAll('[_hk]')];
+    expect(container.querySelector('[data-testid="docs-panel-overview"]')).not.toBeNull();
+    const error = vi.spyOn(console, 'error');
+    const warn = vi.spyOn(console, 'warn');
+    dispose = hydrate(() => <DocsTabs />, container);
+    await settle();
+    const messages = [...warn.mock.calls, ...error.mock.calls].map(String);
+    expect(messages.filter((message) => /hydrat|mismatch|unclaimed/i.test(message))).toEqual([]);
+    // Every keyed server element is still the one in the document: none was left unclaimed.
+    expect(keyed.filter((el) => !el.isConnected).map((el) => el.outerHTML.slice(0, 80))).toEqual(
+      [],
+    );
   });
 
   it('registers the hydrated tabs in a client render’s order', async () => {

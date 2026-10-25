@@ -101,7 +101,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | components/slider.md | Slider | `slider`, `native`, `forms`, `perf` | Slider is fully ported. With plain props on the client, Root, Label, Value, Control, Track, Indicator and Thumb render… |
 | components/static-parts.md | Static parts | `separator`, `progress`, `meter`, `native`, `perf` | Separator and the Progress and Meter Tracks and Indicators render natively on the client, the server and while hydratin… |
 | components/switch.md | Switch | `switch`, `native`, `perf`, `forms` | Switch.Root and Switch.Thumb render natively by default at 13 dev nodes against 57 on the slow path, and every interact… |
-| components/tabs.md | Tabs | `tabs`, `native`, `composite`, `perf` | Tabs renders every part natively when props are plain, on the client, the server and while hydrating; a native tab cost… |
+| components/tabs.md | Tabs | `tabs`, `native`, `composite`, `perf` | Tabs renders every part natively when props are plain, on the client, the server and while hydrating (the Panel on the… |
 | components/toast.md | Toast | `toast`, `store`, `native`, `perf` | Toast is fully ported and beats React on add, update and dismiss. A plain toast's Root, Content, Title, Description and… |
 | components/toggle.md | Toggle and ToggleGroup | `toggle`, `native`, `composite`, `perf` | Toggle renders a native `<button>` alone, in a ToggleGroup or in a Toolbar at 6 dev nodes against 27 on the slow path;… |
 | components/tooltip.md | Tooltip | `tooltip`, `popup`, `floating`, `perf` | Tooltip is fully ported; a plain `Tooltip.Trigger` renders natively (D32) and builds its hover and focus interactions o… |
