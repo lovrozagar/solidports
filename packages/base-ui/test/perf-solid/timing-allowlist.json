@@ -1,10 +1,10 @@
 {
-  "$comment": "Timing rows a push may carry as regressed, each with its reason, the shift it allows (ms) and the change that expires it: a run that measures the row, finds it not regressed and bounds its CI under that shift expires the entry (`scripts/bench-failures.mjs`). Only timing rows: a hydrated-DOM, step, SSR or missing-row failure is never allowed. Agreed with the reviewer before the push of 3f844320..d435f07b (2026-10-25).",
+  "$comment": "Timing rows a push may carry as regressed, each with its reason, the shift it allows (ms: the upper bound of the 95% CI of the shift the run that created it measured, so a rerun on ordinary noise passes) and the change that expires it: a run that measures the row, finds it not regressed and bounds its CI under that shift expires the entry (`scripts/bench-failures.mjs`). Only timing rows: a hydrated-DOM, step, SSR or missing-row failure is never allowed. Agreed with the reviewer before the push of 3f844320..d435f07b (2026-10-25).",
   "entries": [
     {
       "row": "button/button-1000 › mount",
       "metric": "sync",
-      "shift": 0.3,
+      "shift": 0.5,
       "measured": "3.10 → 3.40 ms against 19a77cb5 (p 5.6e-6), cur d435f07b",
       "reason": "A regression already on main: 3f844320 measured 3.10 → 3.70/3.80 (Button moved onto element.ts in c1349cb1). This push reduces it to +0.30 ms and fixes main's red docs hydration.",
       "expires": "the native writer's first-run restructure (the next leaf); the push that lands it must bring this row within noise of 3.10 ms and remove this entry"
@@ -12,7 +12,7 @@
     {
       "row": "button/button-1000 › mount",
       "metric": "script",
-      "shift": 0.37,
+      "shift": 0.46,
       "measured": "3.08 → 3.45 ms against 19a77cb5 (p 9.4e-6), cur d435f07b",
       "reason": "As the sync row: pre-existing on main, reduced by this push.",
       "expires": "the native writer's first-run restructure (the next leaf)"

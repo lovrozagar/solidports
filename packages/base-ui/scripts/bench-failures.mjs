@@ -122,8 +122,9 @@ export function judgeFailures(
     const timing = timingRow(entry);
     const key = timing && `${timing.row}\u0000${timing.metric}`;
     const allowance = key ? named.get(key) : undefined;
-    if (allowance && typeof allowance.shift === 'number' && timing.shift > allowance.shift) {
-      // The allowance is a cap: a row that regressed further is a new regression.
+    if (allowance && typeof allowance.shift === 'number' && timing.shift >= allowance.shift) {
+      // The allowance is a cap, the CI upper bound its creating run measured: a row that regressed
+      // that far or further is a new regression.
       refused.push(`${entry} (regressed beyond its allowance of ${allowance.shift})`);
       used.add(key);
     } else if (allowance) {
