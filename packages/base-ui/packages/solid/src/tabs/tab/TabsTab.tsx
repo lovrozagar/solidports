@@ -25,6 +25,14 @@ import type { TabsRoot } from '../root/TabsRoot';
 import { useTabsRootContext } from '../root/TabsRootContext';
 
 /** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
+/** The tab's element: a `<button>`; the server renders the same literals. */
+const BUTTON = {
+  tag: 'button',
+  attributes: { type: 'button' },
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
+  create: () => (<button type="button" />) as unknown as Element,
+};
+
 const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'value', 'id', 'nativeButton']);
@@ -41,7 +49,7 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` and `useCompositeItem` for a native composite item are inlined.
   if (
-    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true) &&
     untrack(() => componentProps.nativeButton ?? true) === true
   ) {
     return NativeTabsTab(componentProps);
@@ -387,10 +395,7 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
     },
   };
 
-  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
-  const el = (<button type="button" />) as unknown as HTMLButtonElement;
-
-  return renderNativeElement(el, props, {
+  return renderNativeElement(BUTTON, props, {
     own: OWN_KEYS,
     state,
     mapping: tabsStateAttributesMapping,

@@ -23,6 +23,9 @@ import { tabsStateAttributesMapping } from './stateAttributesMapping';
 
 type TabMap = Map<Node, CompositeMetadata<TabsTab.Metadata>>;
 /** The part's own props: never forwarded to the element. */
+/** The part's element: the server renders the same tag. */
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+
 const OWN_KEYS: ReadonlySet<string> = new Set([
   'defaultValue',
   'onValueChange',
@@ -39,14 +42,14 @@ const OWN_KEYS: ReadonlySet<string> = new Set([
 export function TabsRoot(componentProps: TabsRoot.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX and the root context on one owner; the panel list stays `CompositeList`.
-  if (canRenderNative(componentProps)) {
+  if (canRenderNative(componentProps, undefined, true)) {
     const root = createTabsRoot(componentProps);
      
     return provideNativeContext(TabsRootContext, root.tabsContextValue, () =>
       createComponent(CompositeList<TabsPanel.Metadata>, {
         refs: { elements: root.tabPanelRefs },
         get children() {
-          return renderNativeElement((<div />) as unknown as Element, componentProps, {
+          return renderNativeElement(DIV, componentProps, {
             own: OWN_KEYS,
             state: root.state,
             mapping: tabsStateAttributesMapping,

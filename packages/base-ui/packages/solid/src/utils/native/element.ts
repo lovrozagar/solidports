@@ -155,6 +155,12 @@ export interface NativeElementSpec<State extends object> {
    * Other parts reconcile only when their effect applied again while hydrating.
    */
   reconcileAfterHydration?: boolean | undefined;
+  /**
+   * Attributes the part's prehydration script may set or remove on the server's element before
+   * hydration (an indicator's position and `hidden`). The development check of the server's
+   * attributes skips them: the element no longer holds the server's markup there.
+   */
+  scriptedAttributes?: readonly string[] | undefined;
   /** Part refs: called with the element on attach and with `null` on unmount. */
   refs?: readonly unknown[] | undefined;
   /** Children the part owns; otherwise the consumer's `children` are inserted. */
@@ -1408,11 +1414,16 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
   declare firstWrite: Record<string, unknown> | undefined;
   declare private scheduled: boolean;
   declare private templateAttributes: Record<string, unknown>;
+  declare private scriptedAttributes: readonly string[] | undefined;
 
-  hydrate(templateAttributes: Record<string, unknown>) {
+  hydrate(
+    templateAttributes: Record<string, unknown>,
+    scriptedAttributes: readonly string[] | undefined,
+  ) {
     this.firstWrite = undefined;
     this.scheduled = false;
     this.templateAttributes = templateAttributes;
+    this.scriptedAttributes = scriptedAttributes;
   }
 
   takeFirstWrite(written: Record<string, unknown>) {
@@ -1426,7 +1437,7 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
     }
     if (process.env.NODE_ENV !== 'production') {
       // Now, while the element still holds the server markup.
-      checkHydratedAttributes(this.el, this.templateAttributes, {
+      checkHydratedAttributes(this.el, this.scriptedAttributes, this.templateAttributes, {
         ...attributesOf(this.literal),
         ...attributesOf(written),
       });
@@ -1673,7 +1684,10 @@ function renderClientElement<State extends object>(
   // never written (the compiled element carries them).
   const hydration = hydrating ? (writer as HydratingWriter<State>) : undefined;
   if (hydration) {
-    hydration.hydrate((isTemplate(element) && element.attributes) || NO_ATTRIBUTES);
+    hydration.hydrate(
+      (isTemplate(element) && element.attributes) || NO_ATTRIBUTES,
+      spec.scriptedAttributes,
+    );
   }
 
   if (!needsEffect) {
