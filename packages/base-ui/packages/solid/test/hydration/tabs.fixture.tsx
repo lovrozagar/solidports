@@ -163,3 +163,30 @@ export function TabsBudget(props: { count: number }) {
     </Tabs.Root>
   );
 }
+
+/** The docs' hero demo: panels that mount only while active, each with an element child. */
+export function DocsTabs() {
+  return (
+    <Tabs.Root class="root" defaultValue="overview">
+      <Tabs.List class="list">
+        <Tabs.Tab class="tab" value="overview">
+          Overview
+        </Tabs.Tab>
+        <Tabs.Tab class="tab" value="projects">
+          Projects
+        </Tabs.Tab>
+        <Tabs.Indicator class="indicator" />
+      </Tabs.List>
+      <div class="viewport">
+        <Tabs.Panel class="panel" value="overview" data-testid="docs-panel-overview">
+          <p class="paragraph" data-testid="docs-p-overview">
+            Workspace stats and activity.
+          </p>
+        </Tabs.Panel>
+        <Tabs.Panel class="panel" value="projects" data-testid="docs-panel-projects">
+          <p class="paragraph">Milestones and deadlines.</p>
+        </Tabs.Panel>
+      </div>
+    </Tabs.Root>
+  );
+}

@@ -46,7 +46,11 @@ export function TabsPanel(componentProps: TabsPanel.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; a hidden panel creates its transition, completion and registration machinery when it
   // first renders.
-  if (canRenderNative(componentProps, undefined, true)) {
+  // Client renders only: the native panel's mount conditional returns a function, which a parent
+  // element's JSX hole (a panel inside a plain `<div>`, as the docs' demo) calls unscoped, so on
+  // the server and while hydrating its branch would take the parent's hydration ids and miss the
+  // server's elements. The slow path's `Show` scopes it (`test/hydration/tabs.hydration.test.tsx`).
+  if (canRenderNative(componentProps)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeTabsPanel(componentProps);
   }
