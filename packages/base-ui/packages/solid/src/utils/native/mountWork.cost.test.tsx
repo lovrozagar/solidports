@@ -9,11 +9,11 @@
  * The counts are a growth guard; nodes and heap are the hard bar, and the paired mount timing
  * decides a renderer move.
  */
-import { Session } from 'node:inspector/promises';
 import { flush } from 'solid-js';
 import { render } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { isJSDOM } from '#test-utils';
 import { Button } from '@solidports/base-ui/button';
 import { Toggle } from '@solidports/base-ui/toggle';
 
@@ -29,8 +29,14 @@ const CASES: Record<string, { budget: number; render: (i: number) => JSX.Element
 };
 const LIBRARY = ['', 'packages', 'solid', 'src', ''].join('/');
 
-const session = new Session();
-session.connect();
+/** Node's inspector session, which only the jsdom run has (a browser run has no V8 coverage here). */
+type InspectorSession = {
+  connect(): void;
+  post(method: string, params?: object): Promise<any>;
+};
+let session: InspectorSession;
+// Not a literal, so a browser run's bundler leaves the import alone.
+const INSPECTOR = ['node', 'inspector/promises'].join(':');
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -71,7 +77,14 @@ async function mountInvocations(part: (i: number) => JSX.Element, count: number)
   return counts;
 }
 
-describe('native part mount work', () => {
+// jsdom only: the counts come from Node's inspector.
+describe.skipIf(!isJSDOM)('native part mount work', () => {
+  beforeAll(async () => {
+    const { Session } = await import(/* @vite-ignore */ INSPECTOR);
+    session = new Session() as InspectorSession;
+    session.connect();
+  });
+
   it.each(Object.keys(CASES))(
     'a plain %s invokes no more library functions per mount than the renderer it left',
     async (name) => {
