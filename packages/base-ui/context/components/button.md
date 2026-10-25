@@ -1,12 +1,12 @@
 ---
 tags: [button, native, perf]
 sources: [packages/base-ui/packages/solid/src/button/Button.tsx, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/native.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
-verified: 2026-10-16
+verified: 2026-10-25
 ---
 
 # Button
 
-Button is the reference native part: a plain `<button>` outside a composite root renders with direct JSX at 2 dev nodes; every other case falls back to `useRenderElement` at 11 or more.
+Button is the reference native part: a plain `<button>` outside a composite root renders through the native kit at 2 dev nodes, on the client, the server and while hydrating; every other case falls back to `useRenderElement` at 11 or more.
 
 ## Status
 
@@ -21,13 +21,13 @@ Button is the reference native part: a plain `<button>` outside a composite root
 
 ## Native fast path
 
-Yes (`Button.tsx:40-46`). All of these must hold at setup:
+Yes (`Button.tsx:31-37`). All of these must hold at setup:
 
 - No composite root context (`useCompositeRootContext(true) == null`), so a Button inside a Toolbar or Menu takes the slow path.
-- `canRenderNative(props, ['nativeButton'])` (`packages/base-ui/packages/solid/src/utils/native/index.ts:65-81`): not on the server, not hydrating, props not a Solid store proxy (any `{...props}` spread), no `render` key, a static `ref`, a static `nativeButton`.
+- `canRenderNative(props, ['nativeButton'], true)` (`packages/base-ui/packages/solid/src/utils/native/index.ts:82-112`): props not a Solid store proxy (any `{...props}` spread), no `render` key, a static `ref`, a static `nativeButton`, on the client, the server and while hydrating (D33 batch 4a-1).
 - `nativeButton` resolves to `true`.
 
-The native handler wrapper lowercases the key (`Button.tsx:106`), so `onclick` and `onClick` both run behind the disabled gate. See [render pipeline](../architecture/render-pipeline.md).
+The button renders through `renderNativeElement` (`utils/native/element.ts`) from a `<button type="button" tabindex="0">` template, with one `ButtonModel` per button as its handler target and state view. A button that can be disabled binds the disabled gates (`useButton`'s, inlined); a never-disabled one binds the same module-level dispatchers only for the handler keys the consumer passes. A consumer `type` or `tabIndex`, even `undefined`, wins over the template's, as on the slow path. Hydration (`test/hydration/button.hydration.test.tsx`): every plain button keeps the server's element on the native path with no mismatch and the attributes a client render has; a reactive `render`, a spread beside other props, a dynamic `nativeButton`, a getter `ref` and a composite root keep the slow path on both sides. One more hydrated button creates 1 reactive node against 22 on the slow path (exact). See [render pipeline](../architecture/render-pipeline.md).
 
 ## Reactive cost
 
@@ -69,7 +69,6 @@ Heap after mount: `button-1000` 2455 KB React vs 725 KB Solid; `button-nonnative
 ## Known issues and divergences
 
 - No part ref on the native path: the slow path's `buttonRef` serves composite items and the dev `nativeButton` warning, both excluded from the native path.
-- Server render and hydration always take the slow path, so server HTML and hydration keys match upstream.
 
 ## Docs
 

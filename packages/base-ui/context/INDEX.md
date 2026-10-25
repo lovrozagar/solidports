@@ -84,7 +84,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | path | title | tags | summary |
 | --- | --- | --- | --- |
 | components/accordion.md | Accordion | `accordion`, `native`, `disclosure`, `perf` | Accordion items are controlled collapsibles registered as native list items; with plain props every part renders native… |
-| components/button.md | Button | `button`, `native`, `perf` | Button is the reference native part: a plain `<button>` outside a composite root renders with direct JSX at 2 dev nodes… |
+| components/button.md | Button | `button`, `native`, `perf` | Button is the reference native part: a plain `<button>` outside a composite root renders through the native kit at 2 de… |
 | components/checkbox.md | Checkbox and CheckboxGroup | `checkbox`, `native`, `perf`, `forms` | Checkbox.Root, Checkbox.Indicator and CheckboxGroup all have a native fast path; the default checkbox costs 20 dev node… |
 | components/collapsible.md | Collapsible | `collapsible`, `native`, `disclosure`, `perf` | Collapsible renders all three parts natively when props are plain; the panel's measurement and transition machinery is… |
 | components/combobox.md | Combobox | `combobox`, `native`, `floating`, `composite`, `perf` | Combobox is fully ported; its listed items render natively (D32), so opening combobox/1000 keeps 5.7 MB against React's… |
