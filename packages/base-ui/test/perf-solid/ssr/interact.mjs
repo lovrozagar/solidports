@@ -5,6 +5,7 @@
 // effect of a click that landed is visible one frame later. A trigger that never responds fails the
 // case outright: a dead button after hydration is a broken page, not a slow sample (eab5146a's
 // Safari hydration failure).
+import { summariesMatch } from '../shared/known.mjs';
 
 /** The failure of a trigger whose click never takes effect. */
 export const DEAD_TRIGGER = 'trigger never became interactive';
@@ -46,7 +47,8 @@ export function recordInteractions(win = window) {
 
 /**
  * The SSR runner's check mode (D29): `SSR_CHECK=chromium` or `SSR_CHECK=webkit` runs the
- * interactive cases in that browser for correctness only (`checkInteraction`), timing nothing.
+ * cases in that browser for correctness only, timing nothing: each hydrated DOM summary against
+ * the first variant's (`summaryMismatches`) and each interaction (`checkInteraction`).
  * test-all's benchmark suite and CI's benchmark job run it in Chromium.
  * @param {Record<string, string | undefined>} env
  * @returns {'chromium' | 'webkit' | null}
@@ -77,7 +79,7 @@ export function checkSummary(checked, browser, problems) {
   if (checked.length === 0) {
     return {
       lines: [
-        'SSR check: 0 cases checked (no case matched with an interaction); nothing was checked',
+        'SSR check: 0 cases checked (no case matched); nothing was checked',
       ],
       code: 1,
     };
@@ -300,4 +302,25 @@ export async function firstHandledClick(driver, { timeoutMs }) {
       return { ttiMs: at, clicks };
     }
   }
+}
+
+/**
+ * The variants whose hydrated DOM summary differs from the first variant's, past what
+ * `known-differences.json` names for the case's `hydrate` step (`known`; React's summary first in
+ * either variant order). A hydration that leaves server elements unclaimed changes the summary:
+ * tabs/200's `labelled` read 0 against React's 1 on 3f844320, which the check missed while it ran
+ * the interactive cases only.
+ * @param {unknown} known
+ * @param {{ name: string, lib: string, summary: object }[]} variants
+ * @returns {{ name: string, message: string }[]}
+ */
+export function summaryMismatches(known, variants) {
+  const [first, ...rest] = variants;
+  const expected = JSON.stringify(first.summary);
+  return rest
+    .filter(({ lib, summary }) => !summariesMatch(known, expected, JSON.stringify(summary), first.lib, lib))
+    .map(({ name, summary }) => ({
+      name,
+      message: `hydrated DOM differs: ${first.name} ${expected} ≠ ${name} ${JSON.stringify(summary)}`,
+    }));
 }
