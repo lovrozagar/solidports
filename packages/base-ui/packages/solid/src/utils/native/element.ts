@@ -1763,6 +1763,12 @@ function createClientWriter<State extends object>(
     (hasClass && (!isStaticKey(props, 'class') || typeof source.class === 'function')) ||
     (hasStyle && (!isStaticKey(props, 'style') || typeof source.style === 'function'));
 
+  const writes = writeState !== undefined || spec.attributes !== undefined || hasClass || hasStyle;
+  if (!needsEffect && !writes && !hydrating && el !== undefined && !handlerFor) {
+    // A client element that writes only its literal attributes, once, and never again: no writer
+    // to keep (the most common native element, a plain Button); its literal is all the caller reads.
+    return { literal, needsEffect: false, writes: false } as ElementWriter<State>;
+  }
   const writer = new (hydrating ? HydratingWriter : ElementWriter)(
     keys,
     props,
@@ -1774,7 +1780,7 @@ function createClientWriter<State extends object>(
   );
   writer.literal = literal;
   writer.needsEffect = needsEffect;
-  writer.writes = writeState !== undefined || spec.attributes !== undefined || hasClass || hasStyle;
+  writer.writes = writes;
   if (handlerFor && record) {
     writer.handlerRecord = record;
   }
