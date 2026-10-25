@@ -158,9 +158,10 @@ export interface NativeElementSpec<State extends object> {
   /**
    * Attributes the part's prehydration script may set or remove on the server's element before
    * hydration (an indicator's position and `hidden`). The development check of the server's
-   * attributes skips them: the element no longer holds the server's markup there. Once
-   * `hydrate()` returns, the element reconciles them (but `style`) against what it holds, not the
-   * server's record, so a value the client computes as the server did still undoes the script's.
+   * attributes skips them: the element no longer holds the server's markup there. Writes diff
+   * them against what the element holds, not the server's record (a `style`, once the client has
+   * one, is written whole), and the element reconciles them once `hydrate()` returns, so a value
+   * the client computes as the server did still undoes the script's.
    */
   scriptedAttributes?: readonly string[] | undefined;
   /** Part refs: called with the element on attach and with `null` on unmount. */
@@ -418,6 +419,9 @@ const recordsOnly = (el: Element, next: Record<string, unknown>) =>
   el.isConnected &&
   !STATEFUL_TAGS.has(el.nodeName) &&
   (next.class == null || typeof next.class !== 'object');
+
+/** A style no property of which was written: Solid's style writer copies it, never changes it. */
+const EMPTY_STYLE: Readonly<Record<string, string>> = Object.freeze({});
 
 /** The part's state for consumer functions, created on first use from a factory and kept. */
 function partState<State extends object>(spec: NativeElementSpec<State>): State | undefined {
@@ -1539,24 +1543,38 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
         }
       }
       Object.assign(previous, next);
+      if (this.scriptedAttributes !== undefined) {
+        this.holdScripted(previous, next);
+      }
     } else {
       super.applyWrite(next);
+    }
+  }
+
+  /**
+   * A prehydration script may have changed the scripted attributes on the server's element, so a
+   * write must not diff them against the server's record (`base`), which would skip a value the
+   * client computes as the server did. As the slow path's one write after hydration
+   * (`useRenderElement`), each holds what the element holds now, and a `style` holds an empty style:
+   * the client's style properties are all written and none the script set is removed (Solid's style
+   * writer starts its own record from it). A style the client has not computed yet (a part that
+   * has not measured) holds nothing, so it writes nothing.
+   */
+  private holdScripted(base: Record<string, unknown>, next: Record<string, unknown>) {
+    for (const key of this.scriptedAttributes!) {
+      if (key !== 'style') {
+        base[key] = domAttribute(this.el, key);
+      } else {
+        base.style = next.style == null ? undefined : EMPTY_STYLE;
+      }
     }
   }
 
   private reconcile() {
     const written = this.needsEffect ? attributesOf(untrack(() => this.write({}, true))) : {};
     const hydratedWrite = { ...attributesOf(this.literal), ...attributesOf(this.firstWrite ?? {}) };
-    const scripted = this.scriptedAttributes;
-    if (scripted !== undefined) {
-      // What the element holds now, not the server's record: the script's result. Not `style`: a
-      // part's style the client has not measured yet must not wipe the script's position, and its
-      // measured style differs from the server's anyway, so it is written when it comes.
-      for (const key of scripted) {
-        if (key !== 'style') {
-          hydratedWrite[key] = domAttribute(this.el, key);
-        }
-      }
+    if (this.scriptedAttributes !== undefined) {
+      this.holdScripted(hydratedWrite, written);
     }
     assign(this.el, { ...attributesOf(this.literal), ...written }, true, hydratedWrite, true);
     Object.assign(this.previous, written);

@@ -1,3 +1,4 @@
+import { untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { canRenderNative } from '../../utils/native';
@@ -13,6 +14,8 @@ import { sliderStateAttributesMapping, writeSliderState } from '../root/stateAtt
 
 const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
 const OWN_KEYS: ReadonlySet<string> = new Set();
+/** What an inset slider's prehydration script changes on the server's element: its style. */
+const SCRIPTED_ATTRIBUTES = ['style'];
 
 function writeIndicatorAttributes(w: SetAttribute, renderBeforeHydration: () => boolean) {
   w.set('data-base-ui-slider-indicator', renderBeforeHydration() ? '' : undefined);
@@ -96,6 +99,8 @@ export function SliderIndicator(componentProps: SliderIndicator.Props): JSX.Elem
       attributes: writeIndicatorAttributes,
       handlerTarget: renderBeforeHydration,
       partStyle: style,
+      // An inset slider's prehydration script positions and shows the server's element.
+      scriptedAttributes: untrack(renderBeforeHydration) ? SCRIPTED_ATTRIBUTES : undefined,
       reactive: true,
     }) as unknown as JSX.Element;
   }
