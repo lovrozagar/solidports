@@ -18,7 +18,10 @@ const solidPlugin = createRequire(require.resolve('@solidjs/vite-plugin')).resol
   '@solidjs/babel-plugin',
 );
 
-/** Each form `canRenderNative` can meet: one component call per case, in this order. */
+/**
+ * Each form `canRenderNative` can meet: one component call per case, in this order. The staticKeys
+ * native parts pass (`nativeButton`, `parent`, `inputRef`, `handle`) come last, static and dynamic.
+ */
 const SOURCE = `
 let el;
 export function cases(props, v, sig, obj, key, a, b, flag) {
@@ -42,6 +45,15 @@ export function cases(props, v, sig, obj, key, a, b, flag) {
     <Part {...props} />,
     <Part {...props} id="x" />,
     <Part id="x" {...props} />,
+    <Part nativeButton />,
+    <Part nativeButton={false} />,
+    <Part nativeButton={flag()} />,
+    <Part parent />,
+    <Part parent={flag()} />,
+    <Part inputRef={a} />,
+    <Part inputRef={flag() ? a : b} />,
+    <Part handle={obj} />,
+    <Part handle={flag() ? obj : undefined} />,
   ];
 }
 `;
@@ -149,6 +161,17 @@ describe('the server and the client compile agree on which props are static', ()
       { x: 'plain', ref: 'plain' },
       'merge',
       'merge',
+      // A staticKey is static as a literal or an identifier and a getter as a call: a dynamic
+      // value takes the slow path on both sides.
+      { nativeButton: 'plain' },
+      { nativeButton: 'plain' },
+      { nativeButton: 'getter' },
+      { parent: 'plain' },
+      { parent: 'getter' },
+      { inputRef: 'plain' },
+      { inputRef: 'getter' },
+      { handle: 'plain' },
+      { handle: 'getter' },
     ]);
   });
 });
