@@ -1,7 +1,7 @@
 ---
 tags: [number-field, native, forms, perf]
 sources: [packages/base-ui/packages/solid/src/number-field, packages/base-ui/packages/solid/src/number-field/root/NumberFieldRoot.tsx, packages/base-ui/packages/solid/src/number-field/root/useNumberFieldStepperButton.tsx, packages/base-ui/packages/solid/src/number-field/input/NumberFieldInput.tsx, packages/base-ui/packages/solid/src/number-field/scrub-area/NumberFieldScrubArea.tsx, packages/base-ui/packages/solid/test/floor/numberField.tsx]
-verified: 2026-10-22
+verified: 2026-10-25
 ---
 
 # Number field
@@ -15,7 +15,7 @@ NumberField is fully ported. With plain props, Root, ScrubArea, Group, Input, In
 - Root (`root/NumberFieldRoot.tsx`): a `<div>` with the field's state attributes. It keeps its JSX provider (GOTCHA-019), so the native element is built inside the provider's children, where the slow path's element resolves, and once (GOTCHA-020). The native path reads its props directly; only the slow path splits them into views.
 - ScrubArea (`scrub-area/NumberFieldScrubArea.tsx`): a `<span role="presentation">` with its style and pointerdown handler, its context through `provideNativeContext`.
 - Group (`group/NumberFieldGroup.tsx`): a `<div role="group">`.
-- Input (`input/NumberFieldInput.tsx`): an `<input>` with the field's attributes, `prop:value`, the validation source's `aria-invalid` and `aria-describedby` over the consumer's, and its five handlers. Client renders only, as Field.Control.
+- Input (`input/NumberFieldInput.tsx`): an `<input>` with the field's attributes, `prop:value`, the validation source's `aria-invalid` and `aria-describedby` over the consumer's, and its five handlers. On the server and while hydrating too (D33 batch 4a-1): the server prints the formatted value as the `value` attribute (`serverFormState`), which the hydrating client releases, keeping it as the property. One more hydrated field (Root and Input) creates 21 reactive nodes against 54 with the input on the slow path (exact, `test/hydration/number-field.hydration.test.tsx`).
 - Increment and Decrement (`root/useNumberFieldStepperButton.tsx`): a `<button>` with `useButton`'s gates for a native button focusable while disabled inlined: `aria-disabled` while disabled or read-only, clicks and pointerdowns canceled then, keys other than Tab prevented, and the press-and-hold handlers. A stepper with `nativeButton={false}` keeps the slow path.
 
 ScrubAreaCursor, rendered only while scrubbing, stays on the slow path. All parts read one compiled state writer (`writeNumberFieldState`, `utils/stateAttributesMapping.ts`).
@@ -49,7 +49,6 @@ Chromium heap the bench step keeps (production builds, a heap snapshot after a f
 
 ## Post-sweep leaves
 
-- Input renders on the slow path on the server and while hydrating, for the form-state attributes the kit does not reconcile (see [Field](field.md)).
 - ScrubAreaCursor stays on the slow path.
 - File an upstream issue for the late pointer lock (see Pointer lock): `@base-ui/react`'s ScrubArea has the same race.
 
