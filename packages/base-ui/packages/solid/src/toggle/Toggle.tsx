@@ -10,13 +10,13 @@ import { dispatchClickWithModifiers } from '../utils/dispatchClickWithModifiers'
 import type { BaseUIEvent, BaseUIComponentProps, NativeButtonProps } from '../utils/types';
 import {
   canRenderNative,
-  createNativeElement,
   createCompositeItemRegistration,
-  renderNativeElement,
   runConsumerHandler,
   stateAttr,
 } from '../utils/native';
 import type { CompositeItemRegistration } from '../utils/native';
+import { renderNativeElement } from '../utils/native/element';
+import type { SetAttribute } from '../utils/native/element';
 import { createDepsEffect, splitComponentProps } from '../solid-helpers';
 import { useToggleGroupContext } from '../toggle-group/ToggleGroupContext';
 import type { ToolbarRoot } from '../toolbar/root/ToolbarRoot';
@@ -203,13 +203,24 @@ interface NativeToggleModel {
   groupContext: ReturnType<typeof useToggleGroupContext>;
   composite: CompositeRootContext | null;
   registration: CompositeItemRegistration | undefined;
-  el: HTMLElement | null;
 }
 
 type ToggleEvent<T extends Event> = BaseUIEvent<T>;
 
-const BUTTON_ATTRIBUTES = { type: 'button' };
-const BUTTON_TABBABLE_ATTRIBUTES = { type: 'button', tabindex: '0' };
+/** A toggle's element in a composite root (the root roves its tabindex); the server renders the same literals. */
+const BUTTON = {
+  tag: 'button',
+  attributes: { type: 'button' },
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
+  create: () => (<button type="button" />) as unknown as Element,
+};
+/** A toggle's element on its own: focusable in the tab order. */
+const BUTTON_TABBABLE = {
+  tag: 'button',
+  attributes: { type: 'button', tabindex: '0' },
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
+  create: () => (<button type="button" tabindex="0" />) as unknown as Element,
+};
 
 // The toggle's handlers, shared by every native toggle and bound per element with Solid's
 // `[handler, data]` form: `useButton`'s gates (native button, composite or not) around the
@@ -301,7 +312,7 @@ function toggleMouseMove(m: NativeToggleModel, event: MouseEvent) {
   if (runConsumerHandler(m.props, 'onMouseMove', event as ToggleEvent<MouseEvent>)) {
     return;
   }
-  const el = m.el;
+  const el = event.currentTarget as HTMLElement | null;
   if (!m.composite!.highlightItemOnHover() || !el) {
     return;
   }
@@ -310,6 +321,41 @@ function toggleMouseMove(m: NativeToggleModel, event: MouseEvent) {
     el.focus();
   }
 }
+
+/**
+ * The toggle's attributes: `useButton`'s disabled attributes (a composite native button stays
+ * focusable while disabled, as `useFocusableWhenDisabled`), the roving tabindex inside a group,
+ * and its pressed state.
+ */
+function writeToggleAttributes(w: SetAttribute, m: NativeToggleModel) {
+  const isDisabled = m.disabled();
+  if (m.composite) {
+    w.set('aria-disabled', isDisabled ? 'true' : 'false');
+  }
+  w.set('disabled', isDisabled ? true : undefined);
+  w.set('data-disabled', stateAttr(isDisabled));
+  if (m.registration) {
+    w.set('tabindex', m.composite!.isHighlighted(m.registration.index()) ? 0 : -1);
+  }
+  const isPressed = m.pressed();
+  w.set('aria-pressed', isPressed ? 'true' : 'false');
+  w.set('data-pressed', stateAttr(isPressed));
+}
+
+/** Every toggle's handlers, created once: each runs the consumer's handler itself. */
+const TOGGLE_HANDLERS = {
+  onClick: toggleClick,
+  onKeyDown: toggleKeyDown,
+  onKeyUp: toggleKeyUp,
+  onMouseDown: toggleMouseDown,
+  onPointerDown: togglePointerDown,
+};
+/** A toggle in a group's handlers: `useCompositeItem`'s focus and hover too. */
+const COMPOSITE_TOGGLE_HANDLERS = {
+  ...TOGGLE_HANDLERS,
+  onFocus: toggleFocus,
+  onMouseMove: toggleMouseMove,
+};
 
 /**
  * The native toggle: `useButton` (native button; composite when inside a composite root) and
@@ -381,62 +427,18 @@ function NativeToggle(props: Toggle.Props<string>): JSX.Element {
     groupContext,
     composite,
     registration,
-    el: null,
   };
-  const handlers: Record<string, unknown> = {
-    onClick: [toggleClick, model],
-    onKeyDown: [toggleKeyDown, model],
-    onKeyUp: [toggleKeyUp, model],
-    onMouseDown: [toggleMouseDown, model],
-    onPointerDown: [togglePointerDown, model],
-  };
-  if (registration) {
-    handlers.onFocus = [toggleFocus, model];
-    handlers.onMouseMove = [toggleMouseMove, model];
-  }
-  const disabledIsStatic =
-    (!('disabled' in props) || isStatic(props, 'disabled')) && groupContext == null;
-  const disabledAttributes = (set: (key: string, value: unknown) => void) => {
-    const isDisabled = disabled();
-    // `useFocusableWhenDisabled`: a composite native button is focusable while disabled.
-    if (composite) {
-      set('aria-disabled', isDisabled ? 'true' : 'false');
-    }
-    set('disabled', isDisabled ? true : undefined);
-    set('data-disabled', stateAttr(isDisabled));
-  };
-  const literal: Record<string, unknown> = {};
-  if (disabledIsStatic) {
-    disabledAttributes((key, value) => {
-      literal[key] = value;
-    });
-  }
-  const el = createNativeElement(
-    'button',
-    composite ? BUTTON_ATTRIBUTES : BUTTON_TABBABLE_ATTRIBUTES,
-  );
-  model.el = el;
-  const element = renderNativeElement({
-    el,
-    props,
+  return renderNativeElement(composite ? BUTTON : BUTTON_TABBABLE, props, {
     own: OWN_KEYS,
     state,
-    literal,
-    dynamic(target, set) {
-      if (!disabledIsStatic) {
-        disabledAttributes(set);
-      }
-      if (registration) {
-        set('tabindex', composite!.isHighlighted(registration.index()) ? 0 : -1);
-      }
-      const isPressed = pressed();
-      set('aria-pressed', isPressed ? 'true' : 'false');
-      set('data-pressed', stateAttr(isPressed));
-    },
-    handlers,
-    partRefs: registration ? [registration.attach] : undefined,
-  });
-  return element;
+    // Written by `writeToggleAttributes`, with the part's other attributes.
+    stateAttributes: false,
+    attributes: writeToggleAttributes,
+    reactive: true,
+    targetHandlers: registration ? COMPOSITE_TOGGLE_HANDLERS : TOGGLE_HANDLERS,
+    handlerTarget: model,
+    refs: registration ? [registration.attach] : undefined,
+  }) as unknown as JSX.Element;
 }
 
 export interface ToggleState {

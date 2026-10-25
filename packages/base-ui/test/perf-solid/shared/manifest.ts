@@ -370,6 +370,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   toggle: [
     'native toggles cost > Toggle: ≤ 5 nodes beyond a hand-written toggle button',
     GROUPED_TOGGLE,
+    'native part mount work > a plain Toggle invokes no more library functions per mount than the renderer it left',
   ],
   'toggle-group': [GROUPED_TOGGLE],
   toast: [

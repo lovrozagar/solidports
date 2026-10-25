@@ -15,13 +15,17 @@ import { render } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Button } from '@solidports/base-ui/button';
+import { Toggle } from '@solidports/base-ui/toggle';
 
 /**
  * Each part's mount, and its budget: the library invocations one more copy made on the renderer it
- * left (Button: the pilot, 19a77cb5).
+ * left (Button: the pilot, 19a77cb5), or on element.ts where its writer's per-element structure
+ * costs a few more than the old renderer's closure pair (Toggle: 86 on index.ts at 244b3d6d, 90
+ * here; the paired mount timing decides).
  */
 const CASES: Record<string, { budget: number; render: (i: number) => JSX.Element }> = {
   Button: { budget: 35, render: (i) => <Button>Button {i}</Button> },
+  Toggle: { budget: 90, render: (i) => <Toggle>Toggle {i}</Toggle> },
 };
 const LIBRARY = ['', 'packages', 'solid', 'src', ''].join('/');
 
