@@ -2,13 +2,9 @@ import { Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider/DirectionContext';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
-import {
-  canRenderNative,
-  createNativeElement,
-  renderCompositeRoot,
-  renderNativeElement,
-  stateAttr,
-} from '../utils/native';
+import { canRenderNative, partHandler, renderCompositeRoot } from '../utils/native';
+import type { Dispatch } from '../utils/native';
+import { compileStateWriter, renderNativeElement } from '../utils/native/element';
 import { provideContext, splitComponentProps } from '../solid-helpers';
 import { useToolbarRootContext } from '../toolbar/root/ToolbarRootContext';
 import { useToolbarGroupContext } from '../toolbar/group/ToolbarGroupContext';
@@ -167,7 +163,26 @@ const OWN_KEYS: ReadonlySet<string> = new Set([
   'value',
 ]);
 
-const GROUP_ATTRIBUTES = { role: 'group' };
+/** The group's element: a `<div role="group">`; the server renders the same literals. */
+const GROUP = {
+  tag: 'div',
+  attributes: { role: 'group' },
+  create: () => (<div role="group" />) as unknown as Element,
+};
+
+const writeGroupState = compileStateWriter(['disabled', 'multiple', 'orientation'], undefined);
+
+type CompositeHandlers = Record<string, ((event: Event) => void) | undefined>;
+
+/** The group's handlers in a composite root: the consumer's, then the root's (the target). */
+const COMPOSITE_HANDLERS: Readonly<Record<string, Dispatch<CompositeHandlers>>> = {
+  onFocusIn: partHandler<CompositeHandlers>('onFocusIn', (composite, event) =>
+    composite.onFocusIn?.(event),
+  ),
+  onKeyDown: partHandler<CompositeHandlers>('onKeyDown', (composite, event) =>
+    composite.onKeyDown?.(event),
+  ),
+};
 
 function NativeToggleGroup(
   props: ToggleGroup.Props<string>,
@@ -176,33 +191,27 @@ function NativeToggleGroup(
   loopFocus: () => boolean,
   orientation: () => Orientation,
 ): JSX.Element {
-  const dynamic = (target: Record<string, unknown>, set: (key: string, value: unknown) => void) => {
-    set('data-disabled', stateAttr(state.disabled));
-    set('data-multiple', stateAttr(state.multiple));
-    set('data-orientation', state.orientation);
-  };
   if (inToolbar) {
-    return renderNativeElement({
-      el: createNativeElement('div', GROUP_ATTRIBUTES),
-      props,
+    return renderNativeElement(GROUP, props, {
       own: OWN_KEYS,
       state,
-      dynamic,
-    });
+      stateWriter: writeGroupState,
+      reactive: true,
+    }) as unknown as JSX.Element;
   }
   const direction = useDirection();
   return renderCompositeRoot(
     { loopFocus, orientation, enableHomeAndEndKeys: true, direction },
     (root) =>
-      renderNativeElement({
-        el: createNativeElement('div', GROUP_ATTRIBUTES),
-        props,
+      renderNativeElement(GROUP, props, {
         own: OWN_KEYS,
         state,
-        dynamic,
-        handlers: root.handlers,
-        partRefs: [root.setRootRef],
-      }),
+        stateWriter: writeGroupState,
+        reactive: true,
+        handlers: COMPOSITE_HANDLERS,
+        handlerTarget: root.handlers,
+        refs: [root.setRootRef],
+      }) as unknown as JSX.Element,
   );
 }
 
