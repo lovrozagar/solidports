@@ -30,6 +30,9 @@ const stateAttributesMapping: StateAttributesMapping<TabsPanelState> = {
 };
 
 /** The part's own props: never forwarded to the element. */
+/** The part's element: the server renders the same tag. */
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+
 const OWN_KEYS: ReadonlySet<string> = new Set(['value', 'keepMounted']);
 const TABPANEL: Record<string, unknown> = { role: 'tabpanel' };
 
@@ -43,7 +46,7 @@ export function TabsPanel(componentProps: TabsPanel.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; a hidden panel creates its transition, completion and registration machinery when it
   // first renders.
-  if (canRenderNative(componentProps)) {
+  if (canRenderNative(componentProps, undefined, true)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeTabsPanel(componentProps);
   }
@@ -283,7 +286,7 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
   const shouldRender = () => keepMounted() || mounted();
 
   return createNativeConditional(owner, shouldRender, () =>
-    renderNativeElement((<div />) as unknown as Element, props, {
+    renderNativeElement(DIV, props, {
       own: OWN_KEYS,
       state,
       mapping: stateAttributesMapping,

@@ -52,9 +52,14 @@ export function attributesOf(written: Record<string, unknown>): Record<string, u
 /**
  * Dev only: the attributes a hydrated element holds (the server's markup) against the ones the
  * client's first write expected it to hold. A difference means the two sides computed the part's
- * attributes from different inputs, which the post-hydration diff would not see.
+ * attributes from different inputs, which the post-hydration diff would not see. `scripted` names
+ * attributes a prehydration script may already have changed, which the check skips.
  */
-export function checkHydratedAttributes(el: Element, ...expected: Record<string, unknown>[]) {
+export function checkHydratedAttributes(
+  el: Element,
+  scripted: readonly string[] | undefined,
+  ...expected: Record<string, unknown>[]
+) {
   const rendered = new Set<string>();
   for (const attributes of expected) {
     for (const key of Object.keys(attributes)) {
@@ -68,11 +73,15 @@ export function checkHydratedAttributes(el: Element, ...expected: Record<string,
   // A control's form state is the server's to print and the client's to hold as a property
   // (released after hydration), so a server-only `value`, `checked` or `selected` is expected.
   const keepsFormState = isFormControl(el);
+  const skipped = (name: string) => scripted !== undefined && scripted.includes(name);
   const server = el.getAttributeNames().filter((name) => name !== '_hk' && name !== 'data-hk');
   const extra = server.filter(
-    (name) => !rendered.has(name) && !(keepsFormState && FORM_STATE_ATTRIBUTES.has(name)),
+    (name) =>
+      !rendered.has(name) &&
+      !(keepsFormState && FORM_STATE_ATTRIBUTES.has(name)) &&
+      !skipped(name),
   );
-  const missing = [...rendered].filter((name) => !el.hasAttribute(name));
+  const missing = [...rendered].filter((name) => !el.hasAttribute(name) && !skipped(name));
   if (extra.length > 0 || missing.length > 0) {
     warn(
       `The server rendered <${el.localName}> with attributes the hydrating client did not compute (server only: ${extra.join(', ') || 'none'}; client only: ${missing.join(', ') || 'none'}).`,

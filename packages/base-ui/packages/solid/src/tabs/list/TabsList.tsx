@@ -21,6 +21,9 @@ import { TabsHighlightSync } from './TabsHighlightSync';
 import { TabsListContext } from './TabsListContext';
 
 /** The part's own props: never forwarded to the element. */
+/** The part's element: the server renders the same tag. */
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+
 const OWN_KEYS: ReadonlySet<string> = new Set(['activateOnFocus', 'loopFocus']);
 const TABLIST: Record<string, unknown> = { role: 'tablist' };
 /** Handler keys the composite root needs even without a consumer handler. */
@@ -117,7 +120,7 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
 
   // Native fast path (`context/architecture/render-pipeline.md`): `CompositeRoot`'s composition
   // (its hook, context and item list) with the `<div>` rendered through direct JSX.
-  if (canRenderNative(componentProps)) {
+  if (canRenderNative(componentProps, undefined, true)) {
     const direction = useDirection();
     const composite = useCompositeRoot<TabsTab.Metadata>({
       loopFocus,
@@ -153,7 +156,7 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
           get children() {
             return [
               createComponent(TabsHighlightSync, {}),
-              renderNativeElement((<div />) as unknown as Element, componentProps, {
+              renderNativeElement(DIV, componentProps, {
                 own: OWN_KEYS,
                 state,
                 mapping: tabsStateAttributesMapping,

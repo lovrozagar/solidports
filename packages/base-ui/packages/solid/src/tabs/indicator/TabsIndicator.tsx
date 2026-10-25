@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onSettled, Show } from 'solid-js';
+import { createMemo, createSignal, onSettled, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { getParentNode, isHTMLElement, isLastTraversableNode } from '@floating-ui/utils/dom';
 import { PrehydrationScript } from '../../internals/PrehydrationScript';
@@ -25,7 +25,12 @@ const stateAttributesMapping = {
 };
 
 /** The part's own props: never forwarded to the element. */
+/** The indicator's element: the server renders the same tag. */
+const SPAN = { tag: 'span', create: () => (<span />) as unknown as Element };
+
 const OWN_KEYS: ReadonlySet<string> = new Set(['renderBeforeHydration']);
+/** What the prehydration script changes on the server's indicator: its position and `hidden`. */
+const SCRIPTED_ATTRIBUTES = ['style', 'hidden'];
 const PRESENTATION: Record<string, unknown> = { role: 'presentation' };
 
 // `offsetLeft`/`offsetTop` are rounded to whole pixels and the error can compound
@@ -172,9 +177,9 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
 
   // Native fast path (`context/architecture/render-pipeline.md`): a `<span>` rendered with direct
   // JSX; the measurement memos above are the same in both paths.
-  const element = canRenderNative(componentProps)
+  const element = canRenderNative(componentProps, undefined, true)
     ? () =>
-        renderNativeElement((<span />) as unknown as Element, componentProps, {
+        renderNativeElement(SPAN, componentProps, {
           own: OWN_KEYS,
           state,
           mapping: stateAttributesMapping,
@@ -183,6 +188,8 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
           // Hidden until the layout is settled.
           attributes: (w) => w.set('hidden', !displayIndicator()),
           partStyle: style,
+          // The prehydration script positions the server's indicator and shows it.
+          scriptedAttributes: untrack(renderBeforeHydration) ? SCRIPTED_ATTRIBUTES : undefined,
         }) as unknown as JSX.Element
     : useRenderElement('span', componentProps, {
         state,
