@@ -56,7 +56,7 @@ export function failureEntries(text) {
   return entries;
 }
 
-const REGRESSED = /^regressed: (.+) (\S+) [\d.-]+ → [\d.-]+ \(/;
+const REGRESSED = /^regressed: (.+) (\S+) ([\d.-]+) → ([\d.-]+) \(/;
 
 /**
  * The verdict the report's compare table gave each row and metric it measured (`| row | metric |
@@ -73,6 +73,7 @@ export function measuredVerdicts(text) {
       verdicts.set(`${cells[1]}\u0000${cells[2]}`, {
         verdict: cells[9],
         high: ci ? Number(ci[2]) : Number.POSITIVE_INFINITY,
+        minEffect: Number(cells[7]),
       });
     }
   }
@@ -85,16 +86,19 @@ export function timingRow(entry) {
   if (!match || !TIMING_METRICS.has(match[2])) {
     return null;
   }
-  return { row: match[1], metric: match[2] };
+  // The shift in hundredths, as the report prints its values.
+  const shift = Math.round((Number(match[4]) - Number(match[3])) * 100) / 100;
+  return { row: match[1], metric: match[2], shift };
 }
 
 /**
  * The verdict on a report's failures against an allowlist (`{ entries: [{ row, metric }] }`):
  * `refused` lists every failure a push cannot carry, `allowed` the timing rows the allowlist names,
  * `suspended` the exit-bar entries D32 carries, `expired` the allowlist entries whose row the run
- * measured, did not find regressed, and bounded below the entry's `shift` (the CI's upper bound under
- * the regression it allows: conclusive), `inconclusive` the ones measured and not found regressed but
- * with a CI too wide to say so (reported, not refusing). An entry for a row the run did not measure
+ * measured, did not find regressed, and bounded within noise (the shift's CI upper bound under the
+ * row's own minimum effect: conclusive), `inconclusive` the ones measured and not found regressed
+ * but with a CI too wide to say so (reported, not refusing). An allowed row is capped at its entry's
+ * `shift`: one that regressed further refuses. An entry for a row the run did not measure
  * is unused: a toggle-only compare says nothing about button-1000.
  */
 export function judgeFailures(
@@ -106,7 +110,9 @@ export function judgeFailures(
   const allowed = [];
   const refused = [];
   const suspended = [];
-  const named = new Set((allowlist?.entries ?? []).map((entry) => `${entry.row}\u0000${entry.metric}`));
+  const named = new Map(
+    (allowlist?.entries ?? []).map((entry) => [`${entry.row}\u0000${entry.metric}`, entry]),
+  );
   const used = new Set();
   for (const entry of entries) {
     if (exitBarSuspended && entry.startsWith('exit bar: ')) {
@@ -115,7 +121,12 @@ export function judgeFailures(
     }
     const timing = timingRow(entry);
     const key = timing && `${timing.row}\u0000${timing.metric}`;
-    if (key && named.has(key)) {
+    const allowance = key ? named.get(key) : undefined;
+    if (allowance && typeof allowance.shift === 'number' && timing.shift > allowance.shift) {
+      // The allowance is a cap: a row that regressed further is a new regression.
+      refused.push(`${entry} (regressed beyond its allowance of ${allowance.shift})`);
+      used.add(key);
+    } else if (allowance) {
       allowed.push(entry);
       used.add(key);
     } else {
@@ -130,11 +141,11 @@ export function judgeFailures(
     if (used.has(key) || seen === undefined || seen.verdict === 'regressed') {
       continue;
     }
-    if (typeof entry.shift === 'number' && seen.high < entry.shift) {
+    if (seen.high < seen.minEffect) {
       expired.push(`${entry.row} ${entry.metric}: no longer regressed; remove its allowlist entry`);
     } else {
       inconclusive.push(
-        `${entry.row} ${entry.metric}: not regressed, but the CI reaches ${seen.high}, not under the allowed shift ${entry.shift}`,
+        `${entry.row} ${entry.metric}: not regressed, but the shift's CI reaches ${seen.high}, not under the row's minimum effect ${seen.minEffect}`,
       );
     }
   }
