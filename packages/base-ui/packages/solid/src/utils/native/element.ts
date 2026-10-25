@@ -126,6 +126,12 @@ export interface NativeElementSpec<State extends object> {
    * `handlerTarget`, so it allocates no closure per key.
    */
   handlers?: Readonly<Record<string, Dispatch<any>>> | undefined;
+  /**
+   * Handlers that take the part's `handlerTarget` and the event, and run the consumer's handler
+   * themselves (`runConsumerHandler`): bound as `[handler, handlerTarget]` tuples, every key whether
+   * or not the consumer passes it, with no handler record. Instead of `handlers`, not beside it.
+   */
+  targetHandlers?: Readonly<Record<string, (target: any, event: any) => unknown>> | undefined;
   /** Handlers as `handlers` binds them, for keys bound only when the consumer passes them. */
   handlersIfPassed?: Readonly<Record<string, Dispatch<any>>> | undefined;
   /**
@@ -1110,6 +1116,8 @@ class ElementWriter<State extends object> implements SetAttribute {
    */
   declare literal: Record<string, unknown>;
   declare needsEffect: boolean;
+  /** Whether the element hydrates (`HydratingWriter`), which decides its whole-record runs itself. */
+  declare protected hydrates: boolean;
   /**
    * Whether a write outside the effect writes anything (the part's state or attributes, `class` or
    * `style`): a part with none of them, and nothing that changes, skips the write.
@@ -1160,6 +1168,7 @@ class ElementWriter<State extends object> implements SetAttribute {
       this.el = el;
       this.previous = {};
     }
+    this.hydrates = false;
     this.target = NO_ATTRIBUTES;
     this.pending = undefined;
     this.runs = 0;
@@ -1233,7 +1242,8 @@ class ElementWriter<State extends object> implements SetAttribute {
    */
   compute(): number {
     this.runs += 1;
-    if (this.writesWholeRecord()) {
+    // `writesWholeRecord`, inline for a client element (a hydrating one asks its own).
+    if (this.runs === 1 || (this.hydrates && this.writesWholeRecord())) {
       this.pending = this.write({}, true);
       return this.runs;
     }
@@ -1277,7 +1287,15 @@ class ElementWriter<State extends object> implements SetAttribute {
     this.pending = undefined;
     if (!(pending instanceof PendingChange)) {
       this.applyWrite(pending);
-      this.countHeld();
+      // `countHeld`, inline: the keys the whole-record write left in `previous`.
+      let held = 0;
+      const previous = this.previous;
+      for (const key in previous) {
+        if (Object.hasOwn(previous, key)) {
+          held += 1;
+        }
+      }
+      this.held = held;
       return;
     }
     const before = pending.before;
@@ -1393,7 +1411,12 @@ class ElementWriter<State extends object> implements SetAttribute {
       !this.keys.has(key) &&
       (this.overrides === undefined || !(key in this.overrides))
     ) {
-      this.put(key, value);
+      // `put`, inline: every part attribute goes through here.
+      if (runWriter === this) {
+        this.diff(key, value);
+      } else {
+        this.target[key] = value;
+      }
     }
   }
 
@@ -1489,6 +1512,7 @@ class HydratingWriter<State extends object> extends ElementWriter<State> {
     templateAttributes: Record<string, unknown>,
     scriptedAttributes: readonly string[] | undefined,
   ) {
+    this.hydrates = true;
     this.firstWrite = undefined;
     this.scheduled = false;
     this.templateAttributes = templateAttributes;
@@ -1642,9 +1666,9 @@ function createClientWriter<State extends object>(
   let claim: ((key: string) => unknown) | undefined;
   if (spec.handlerFor) {
     claim = claimEveryHandler;
-  } else if (spec.handlers || spec.handlersIfPassed) {
+  } else if (spec.handlers || spec.handlersIfPassed || spec.targetHandlers) {
     // Inline: the cached claim for this pair of module-level tables.
-    const always = spec.handlers ?? NO_TABLE;
+    const always = spec.targetHandlers ?? spec.handlers ?? NO_TABLE;
     const ifPassed = spec.handlersIfPassed ?? NO_TABLE;
     claim = tableWraps.get(always)?.get(ifPassed) ?? tableHandled(always, ifPassed);
   }
@@ -1677,6 +1701,17 @@ function createClientWriter<State extends object>(
   const handlers = spec.handlers;
   const handlersIfPassed = spec.handlersIfPassed;
   const handlerFor = spec.handlerFor;
+  const targetHandlers = spec.targetHandlers;
+  if (targetHandlers && !isServer) {
+    const target = spec.handlerTarget;
+    for (const key in targetHandlers) {
+      if (Object.hasOwn(targetHandlers, key) && !(top && key in top)) {
+        literal[key] = handlerFunctions
+          ? targetHandlerFunction(targetHandlers[key], target)
+          : [targetHandlers[key], target];
+      }
+    }
+  }
   let record: HandlerRecord | undefined;
   if ((handlers || handlersIfPassed || handlerFor) && !isServer) {
     // One record for every key, created by the first key bound: an element whose consumer passes
@@ -1777,6 +1812,10 @@ function handlerFunction(dispatch: Dispatch<any>, record: HandlerRecord) {
   return (event: Event) => dispatch(record, event);
 }
 
+function targetHandlerFunction(handler: (target: any, event: any) => unknown, target: unknown) {
+  return (event: Event) => handler(target, event);
+}
+
 /** The keys `top` does not set (a closure here would give `createClientWriter` a context). */
 function keysNotIn(keys: readonly string[], top: Record<string, unknown>): readonly string[] {
   return keys.filter((key) => !(key in top));
@@ -1805,7 +1844,10 @@ function renderClientElement<State extends object>(
   // allocates no context for captured variables.
   const source = props as Record<string, any>;
   const hydrating = isHydrating();
-  const template = isTemplate(element) ? element : undefined;
+  const template =
+    typeof (element as NativeElementTemplate).create === 'function'
+      ? (element as NativeElementTemplate)
+      : undefined;
   const el = template ? template.create() : (element as Element);
   const writer = createClientWriter(props, spec, undefined, top, false, hydrating, el);
   const literal = writer.literal;

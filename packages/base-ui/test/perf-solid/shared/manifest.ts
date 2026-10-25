@@ -204,7 +204,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     BUTTON_NATIVE,
     BUTTON_REACTIVE,
     'render core cost > Button costs at most 3 reactive nodes',
-    'native Button mount work > invokes no more library functions per mount than the pilot renderer',
+    'native part mount work > a plain Button invokes no more library functions per mount than the renderer it left',
   ],
   checkbox: [
     'native toggles cost > Checkbox.Root + Indicator: ≤ 10 nodes beyond a hand-written checkbox',
