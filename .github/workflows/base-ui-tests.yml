@@ -56,7 +56,9 @@ jobs:
   # workflow, which compares the Solid suite with upstream's there.
   browser:
     name: Browser tests
-    runs-on: ubuntu-latest
+    # vitest 4 loses its Chromium iframe on ubuntu-26.04 (vitest-dev/vitest#11745); lift the pin
+    # once the suite passes there.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
