@@ -59,7 +59,8 @@ jobs:
   test:
     name: test ${{ needs.resolve.outputs.id }}
     needs: resolve
-    runs-on: ubuntu-latest
+    # Runs the Base UI Chromium suite: pinned with base-ui-tests.yml's browser job (vitest-dev/vitest#11745).
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4

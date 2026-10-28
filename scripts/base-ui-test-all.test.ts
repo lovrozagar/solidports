@@ -249,6 +249,24 @@ describe("test:base-ui:all covers CI's Base UI workflows", () => {
 			"parity-webkit",
 		])
 	})
+
+	// vitest 4's per-file Chromium iframe is torn down mid-load on GitHub's ubuntu-26.04 image
+	// (vitest-dev/vitest#11745): the run stops a few dozen files in, a different file each time, and
+	// Vitest 4 gets no fix. Every job that runs the Chromium suite stays on the last image it passed on.
+	test("every job that runs the Chromium suite runs on ubuntu-24.04", () => {
+		const jobs: string[] = []
+		for (const name of ["base-ui-tests.yml", "release.yml"]) {
+			const workflow = Bun.YAML.parse(
+				readFileSync(resolve(import.meta.dir, `../.github/workflows/${name}`), "utf8"),
+			) as { jobs: Record<string, { "runs-on": string; steps: Step[] }> }
+			for (const [job, { "runs-on": runsOn, steps }] of Object.entries(workflow.jobs)) {
+				if (steps.some((step) => (step.run ?? "").includes("test:solid:chromium"))) {
+					jobs.push(`${name} ${job}: ${runsOn}`)
+				}
+			}
+		}
+		expect(jobs).toEqual(["base-ui-tests.yml browser: ubuntu-24.04", "release.yml test: ubuntu-24.04"])
+	})
 })
 
 // `--changed` runs browser parity on the Solid test files the range changed, and on the test files
