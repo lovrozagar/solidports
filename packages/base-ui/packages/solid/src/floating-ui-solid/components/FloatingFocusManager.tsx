@@ -1,5 +1,5 @@
 import { getNodeName, isHTMLElement } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
+import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createDepsEffect, defaultProps, live } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
@@ -312,6 +312,16 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
   const [afterGuardRef, setAfterGuardRef] = createSignal<HTMLSpanElement | null>(null);
 
   const blurTimeout = useTimeout();
+  // Solid: the inside-portal mark lives on the root's data, which outlives this manager. An unmount
+  // that cancels the clearing timer would leave it set, and the next session's first outside click
+  // would read as inside the tree.
+  let insidePortalMarked = false;
+  void onCleanup(() => {
+    if (insidePortalMarked) {
+      insidePortalMarked = false;
+      dataRef().insidePortal = false;
+    }
+  });
   const pointerDownTimeout = useTimeout();
   const restoreFocusFrame = useAnimationFrame();
 
@@ -597,7 +607,9 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
           return;
         }
         dataRef().insidePortal = true;
+        insidePortalMarked = true;
         blurTimeout.start(0, () => {
+          insidePortalMarked = false;
           dataRef().insidePortal = false;
         });
       }
