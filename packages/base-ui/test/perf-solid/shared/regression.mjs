@@ -47,6 +47,9 @@ export const GATED = {
   inpFirstMs: { floor: 0.1 },
   inpMs: { floor: 0.1 },
   heapKB: { floor: 0, minBoth: 100 },
+  // What a page holds after the unmount (`heapSample`): a library that frees its tree reads about
+  // nothing, so the floor is absolute and no minimum applies; v1 also holds it at React's (00-rules).
+  heldKB: { floor: 100 },
   // What a step retains (collected heap after it minus before it): read, as the heap after mount,
   // only where both sides retain over 100 KB. Its growth with the garbage is not judged: it moves
   // with when the engine scavenged (perf/method.md).
@@ -224,7 +227,7 @@ function compareOrders(orders, rule) {
   const each = orders.map((order) => compare(order.base, order.cur, rule));
   const status = each.some((c) => c.status === 'insufficient')
     ? 'insufficient'
-    : each.find((c) => c.status !== 'judged')?.status ?? 'judged';
+    : (each.find((c) => c.status !== 'judged')?.status ?? 'judged');
   const mean = (read) => each.reduce((sum, c) => sum + read(c.result), 0) / each.length;
   const baseMedian = mean((r) => r.base);
   let ci;

@@ -11,7 +11,7 @@ describe("bench engines", () => {
 		const spec = engineSpec("chromium")
 		expect(spec).toMatchObject({ name: "chromium", cdp: true, heap: true })
 		expect(spec.launchArgs).toContain("--enable-precise-memory-info")
-		expect(measuredColumns(spec)).toEqual(["sync", "paint", "settled", "script", "layout", "style", "heapKB"])
+		expect(measuredColumns(spec)).toEqual(["sync", "paint", "settled", "script", "layout", "style", "heapKB", "heldKB"])
 	})
 
 	test("Firefox and WebKit measure the in-page columns only", () => {

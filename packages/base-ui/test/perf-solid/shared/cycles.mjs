@@ -10,10 +10,14 @@
 // instead, as what it retains: the collected heap after it minus the collected heap before it
 // (`retainedKB`; its growth with the garbage included depends on when the engine scavenged, which
 // moved 1.6 MB between steps of an unchanged-retention build, perf/method.md). The heap reading
-// needs a collection right before the mount, so it gets cycles of its own.
+// needs a collection right before the mount, so it gets samples of its own, each on a fresh page:
+// a page that mounted the scenario before can still hold that tree, and a baseline read over it
+// subtracts it from the next mount (v0 at d9ebafcc held its last unmounted tree and read about
+// 2.9 KB per checkbox low).
 //
 // Each cycle takes the page's operations: `collect()` (a full collection), `readHeap()` (used JS
-// heap in bytes) and `runStep(index)` (runs one step and resolves with its result).
+// heap in bytes), `runStep(index)` (runs one step and resolves with its result) and, for a heap
+// sample, `setWarmup(on)` (fixtures render one item while it is on, `shared/sizes.ts`).
 
 /**
  * Collect, an untimed mount and unmount, the timed mount, then each other step timed after a
@@ -52,13 +56,24 @@ export function retainedKB(heaps, finalHeap) {
   });
 }
 
-/** Collect, read, mount, collect, read, unmount. Resolves with the mounted tree's heap in KB. */
-export async function heapCycle({ collect, readHeap, runStep, stepCount }) {
+/**
+ * One heap sample on a fresh page: mount and unmount the scenario at one item (the code, its
+ * shapes and the library's one-time state load, no tree worth holding), then collect, read the
+ * baseline, mount, collect, read, unmount, collect, read. Resolves with the mounted tree's heap and
+ * what the page still holds after the unmount, both in KB against that baseline.
+ */
+export async function heapSample({ collect, readHeap, runStep, stepCount, setWarmup }) {
+  await setWarmup(true);
+  await runStep(0);
+  await runStep(stepCount - 1);
+  await setWarmup(false);
   await collect();
-  const before = await readHeap();
+  const baseline = await readHeap();
   await runStep(0);
   await collect();
-  const after = await readHeap();
+  const mounted = await readHeap();
   await runStep(stepCount - 1);
-  return (after - before) / 1024;
+  await collect();
+  const afterUnmount = await readHeap();
+  return { mountedKB: (mounted - baseline) / 1024, heldKB: (afterUnmount - baseline) / 1024 };
 }

@@ -4,7 +4,7 @@ import { Checkbox } from '@solidports/base-ui/checkbox';
 import { Tabs } from '@solidports/base-ui/tabs';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { Slider } from '@solidports/base-ui/slider';
-import { items, size } from '../../shared/sizes';
+import { size, itemList } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
@@ -61,28 +61,28 @@ function CheckboxControlled() {
   );
 }
 
-const tabItems = items(size(200));
+const tabItems = itemList(200);
 function Tabs200() {
-  const value = useExposed('value', tabItems[0].value);
+  const value = useExposed('value', tabItems()[0].value);
   return (
     <Tabs.Root value={value()} onValueChange={setExposed('value')}>
       <Tabs.List>
-        <For each={tabItems}>{(it) => <Tabs.Tab value={it.value}>{it.label}</Tabs.Tab>}</For>
+        <For each={tabItems()}>{(it) => <Tabs.Tab value={it.value}>{it.label}</Tabs.Tab>}</For>
         <Tabs.Indicator />
       </Tabs.List>
-      <For each={tabItems}>
+      <For each={tabItems()}>
         {(it) => <Tabs.Panel value={it.value}>Panel {it.label}</Tabs.Panel>}
       </For>
     </Tabs.Root>
   );
 }
 
-const accItems = items(size(300));
+const accItems = itemList(300);
 function Accordion300() {
   const value = useExposed('value', [] as string[]);
   return (
     <Accordion.Root multiple value={value()} onValueChange={setExposed('value')}>
-      <For each={accItems}>
+      <For each={accItems()}>
         {(it) => (
           <Accordion.Item value={it.value}>
             <Accordion.Header>

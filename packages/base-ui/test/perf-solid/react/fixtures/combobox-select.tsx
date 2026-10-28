@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Select } from '@base-ui/react/select';
 import { Combobox } from '@base-ui/react/combobox';
 import { Autocomplete } from '@base-ui/react/autocomplete';
-import { items, size } from '../../shared/sizes';
+import { items, size, itemList } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
 type Item = { value: string; label: string };
@@ -83,12 +83,12 @@ function ComboboxFixture(props: { count: number }) {
   );
 }
 
-const multipleItems = items(size(1000));
+const multipleItems = itemList(1000);
 function ComboboxMultiple() {
   const open = useExposed('open', false);
   return (
     <Combobox.Root
-      items={multipleItems}
+      items={multipleItems()}
       multiple
       open={open}
       onOpenChange={setExposed('open')}
@@ -127,10 +127,10 @@ function ComboboxMultiple() {
   );
 }
 
-const labels = items(size(1000)).map((it) => it.label);
+const labels = itemList(1000, (it) => it.label);
 function AutocompleteFixture(props: { mode?: 'list' | 'both' }) {
   return (
-    <Autocomplete.Root items={labels} mode={props.mode}>
+    <Autocomplete.Root items={labels()} mode={props.mode}>
       <Autocomplete.Input data-testid="input" />
       <Autocomplete.Portal>
         <Autocomplete.Positioner sideOffset={4}>

@@ -12,7 +12,7 @@ import {
   sizeVar,
 } from '../../shared/raw-motion';
 import type { PanelSize } from '../../shared/raw-motion';
-import { items, size } from '../../shared/sizes';
+import { size, itemList } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
@@ -211,13 +211,13 @@ function RawAccordionPanel(props: { id: string; labelledBy: string; children: un
   );
 }
 
-const accItems = items(size(300));
+const accItems = itemList(300);
 function RawAccordion() {
   const value = useExposed('value', [] as string[]);
   return (
     <div>
       {/* eslint-disable-next-line solid/prefer-for -- the floor's list never changes: a plain map is the minimum a hand-written page writes */}
-      {accItems.map((it, i) => {
+      {accItems().map((it, i) => {
         const open = () => value().includes(it.value);
         const panelId = `raw-acc-panel-${i}`;
         const triggerId = `raw-acc-trigger-${i}`;
@@ -262,15 +262,15 @@ function RawAccordion() {
   );
 }
 
-const tabItems = items(size(200));
+const tabItems = itemList(200);
 function RawTabs() {
-  const value = useExposed('value', tabItems[0].value);
+  const value = useExposed('value', tabItems()[0].value);
   const [highlighted, setHighlighted] = createSignal(0);
   return (
     <div data-orientation="horizontal" data-activation-direction="none">
       <div role="tablist" data-orientation="horizontal" data-activation-direction="none">
         {/* eslint-disable-next-line solid/prefer-for -- the floor's list never changes: a plain map is the minimum a hand-written page writes */}
-        {tabItems.map((it, i) => {
+        {tabItems().map((it, i) => {
           const active = () => it.value === value();
           return (
             <button
@@ -294,7 +294,7 @@ function RawTabs() {
         <span role="presentation" />
       </div>
       {/* eslint-disable-next-line solid/prefer-for -- the floor's list never changes: a plain map is the minimum a hand-written page writes */}
-      {tabItems.map((it, i) => (
+      {tabItems().map((it, i) => (
         <Show when={it.value === value()}>
           <div
             role="tabpanel"

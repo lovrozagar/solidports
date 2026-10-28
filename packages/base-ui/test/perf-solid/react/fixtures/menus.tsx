@@ -3,13 +3,13 @@ import { Menu } from '@base-ui/react/menu';
 import { ContextMenu } from '@base-ui/react/context-menu';
 import { Menubar } from '@base-ui/react/menubar';
 import { NavigationMenu } from '@base-ui/react/navigation-menu';
-import { items, size } from '../../shared/sizes';
+import { items, itemList } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
 const popupStyle = { maxHeight: '300px', overflow: 'auto' } as const;
 
-const menuItems = items(size(500));
+const menuItems = itemList(500);
 function Menu500() {
   const open = useExposed('open', false);
   return (
@@ -18,7 +18,7 @@ function Menu500() {
       <Menu.Portal>
         <Menu.Positioner sideOffset={4}>
           <Menu.Popup style={popupStyle}>
-            {menuItems.map((it) => (
+            {menuItems().map((it) => (
               <Menu.Item key={it.value}>{it.label}</Menu.Item>
             ))}
           </Menu.Popup>
@@ -28,7 +28,7 @@ function Menu500() {
   );
 }
 
-const checkItems = items(size(100));
+const checkItems = itemList(100);
 function CheckboxRadio() {
   const open = useExposed('open', false);
   const [radio, setRadio] = React.useState('item-0');
@@ -38,14 +38,14 @@ function CheckboxRadio() {
       <Menu.Portal>
         <Menu.Positioner sideOffset={4}>
           <Menu.Popup style={popupStyle}>
-            {checkItems.map((it) => (
+            {checkItems().map((it) => (
               <Menu.CheckboxItem key={it.value} data-kind="check" closeOnClick={false}>
                 <Menu.CheckboxItemIndicator>✓</Menu.CheckboxItemIndicator>
                 {it.label}
               </Menu.CheckboxItem>
             ))}
             <Menu.RadioGroup value={radio} onValueChange={setRadio}>
-              {checkItems.map((it) => (
+              {checkItems().map((it) => (
                 <Menu.RadioItem
                   key={it.value}
                   value={it.value}
@@ -89,7 +89,7 @@ function Submenu(props: { label: string; depth: number }) {
   );
 }
 
-const subRoots = items(size(20));
+const subRoots = itemList(20);
 function Submenus() {
   const open = useExposed('open', false);
   return (
@@ -98,7 +98,7 @@ function Submenus() {
       <Menu.Portal>
         <Menu.Positioner>
           <Menu.Popup>
-            {subRoots.map((it) => (
+            {subRoots().map((it) => (
               <Submenu key={it.value} label={`Sub ${it.value}`} depth={1} />
             ))}
           </Menu.Popup>
@@ -108,11 +108,11 @@ function Submenus() {
   );
 }
 
-const manyRoots = items(size(500));
+const manyRoots = itemList(500);
 function ManyRoots() {
   return (
     <div>
-      {manyRoots.map((it) => (
+      {manyRoots().map((it) => (
         <Menu.Root key={it.value}>
           <Menu.Trigger>{it.label}</Menu.Trigger>
           <Menu.Portal>
@@ -129,12 +129,12 @@ function ManyRoots() {
   );
 }
 
-const targets = items(size(200));
+const targets = itemList(200);
 const contextItems = items(20);
 function ContextMenus() {
   return (
     <div>
-      {targets.map((it) => (
+      {targets().map((it) => (
         <ContextMenu.Root key={it.value}>
           <ContextMenu.Trigger data-target={it.value} style={{ height: '8px' }}>
             {it.label}
@@ -157,7 +157,7 @@ function ContextMenus() {
 }
 
 const bar = items(10);
-const barItems = items(size(50));
+const barItems = itemList(50);
 function Menubar10() {
   return (
     <Menubar>
@@ -167,7 +167,7 @@ function Menubar10() {
           <Menu.Portal>
             <Menu.Positioner>
               <Menu.Popup style={popupStyle}>
-                {barItems.map((it) => (
+                {barItems().map((it) => (
                   <Menu.Item key={it.value}>
                     {menu.label} {it.label}
                   </Menu.Item>
@@ -182,7 +182,7 @@ function Menubar10() {
 }
 
 const navItems = items(8);
-const navLinks = items(size(100));
+const navLinks = itemList(100);
 function Navigation() {
   return (
     <NavigationMenu.Root delay={0} closeDelay={0}>
@@ -192,7 +192,7 @@ function Navigation() {
             <NavigationMenu.Trigger data-nav={nav.value}>{nav.label}</NavigationMenu.Trigger>
             <NavigationMenu.Content>
               <ul>
-                {navLinks.map((link) => (
+                {navLinks().map((link) => (
                   <li key={link.value}>
                     <NavigationMenu.Link href={`#${nav.value}-${link.value}`}>
                       {nav.label} {link.label}

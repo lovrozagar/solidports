@@ -44,6 +44,27 @@ describe("perf report", () => {
 		expect(summary["popover/content-200 › heap after mount KB"].cur).toMatchObject({ heapKB: 300 })
 	})
 
+	test("summarize adds a held-after-unmount row when the samples carry one", () => {
+		// v0 at d9ebafcc held its last unmounted tree: the heap sample reads it as held.
+		const held = {
+			"checkbox/uncontrolled-1000": {
+				react: { steps: {}, heapKB: ten([10000]), heldKB: ten([0]) },
+				base: { steps: {}, heapKB: ten([5200]), heldKB: ten([2900]) },
+				cur: { steps: {}, heapKB: ten([5400]), heldKB: ten([40]) },
+			},
+		}
+		const summary = summarize(held, ["react", "base", "cur"], {})
+		expect(summary["checkbox/uncontrolled-1000 › held after unmount KB"]).toMatchObject({
+			react: { heldKB: 0 },
+			base: { heldKB: 2900 },
+			cur: { heldKB: 40 },
+		})
+		// Results from before the held row (no heldKB samples) get none.
+		expect(
+			summarize(results, ["react", "base", "cur"], timers)["popover/content-200 › held after unmount KB"],
+		).toBeUndefined()
+	})
+
 	test("compareVariants reports raw floor scenarios but never judges them", () => {
 		const withRaw = {
 			...results,

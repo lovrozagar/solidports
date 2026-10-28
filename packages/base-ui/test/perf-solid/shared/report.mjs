@@ -3,6 +3,8 @@
 import { GATED, judge, judgeAll, median, p90 } from './regression.mjs';
 
 const HEAP = 'heap after mount KB';
+/** What a page still holds after the unmount, against the heap sample's baseline (`heapSample`). */
+const HELD = 'held after unmount KB';
 /** A step's judged metrics: its times and what it retains on the heap (`growthKB` is reported only). */
 const STEP_METRICS = ['sync', 'script', 'settled', 'retainedKB'];
 /** A first-open step's: its times, and what it retains together with the mount's heap. */
@@ -10,6 +12,9 @@ const FIRST_OPEN_METRICS = ['sync', 'script', 'settled', 'openBudgetKB'];
 function metricsOf(key, entry) {
   if (key.endsWith(HEAP)) {
     return ['heapKB'];
+  }
+  if (key.endsWith(HELD)) {
+    return ['heldKB'];
   }
   return entry.firstOpen ? FIRST_OPEN_METRICS : STEP_METRICS;
 }
@@ -93,6 +98,16 @@ export function summarize(results, names, timers, firstOpens = {}) {
       };
     }
     summary[`${id} › ${HEAP}`] = heap;
+    if (names.every((name) => byName[name].heldKB?.length)) {
+      const held = {};
+      for (const name of names) {
+        held[name] = {
+          heldKB: median(byName[name].heldKB),
+          samples: { heldKB: byName[name].heldKB },
+        };
+      }
+      summary[`${id} › ${HELD}`] = held;
+    }
   }
   return summary;
 }
@@ -221,4 +236,3 @@ export function settledBeforeTimer(summary, timers) {
   }
   return lines;
 }
-

@@ -1,6 +1,7 @@
 // Runs the shared scenarios (`shared/scenarios/*.ts`) against the React and Solid production builds
 // in Chromium. Each scenario runs in a fresh page per variant: WARMUP unmeasured cycles, then RUNS
-// timing cycles of mount → steps → unmount, then HEAP_RUNS heap cycles (`shared/cycles.mjs`).
+// timing cycles of mount → steps → unmount; then HEAP_RUNS heap samples, each on a fresh page of
+// its own (`shared/cycles.mjs`: a one-item warm-up, then the mounted and the held heap).
 // Variants are interleaved so their ratios are comparable within one session: two rounds, or one per
 // order of a balanced design (`shared/order.mjs`) when there are more than two variants, each round
 // in that design's next order, so no variant keeps one place. The runs split over the rounds keep
@@ -22,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit } from 'playwright';
 import { matchConsole } from './shared/console.mjs';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
-import { heapCycle, retainedKB, timingCycle } from './shared/cycles.mjs';
+import { heapSample, retainedKB, timingCycle } from './shared/cycles.mjs';
 import { engineSpec, measuredColumns } from './shared/engines.mjs';
 import { diagFromEnv, withDiag, writeDiag } from './shared/diag.mjs';
 import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
@@ -164,11 +165,10 @@ for (const { id, steps } of list) {
     }
     for (const name of ORDERS[round % ORDERS.length]) {
       const { page, cdp, errors, logs } = await openPage(browser, name);
-      results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], errors: [] };
+      results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], heldKB: [], errors: [] };
       const entry = results[id][name];
       // Without CDP there is no forced full collection: the cycles skip it.
       const collect = cdp ? () => collectGarbage(cdp) : async () => {};
-      const readHeap = () => page.evaluate('performance.memory.usedJSHeapSize');
       // The cycle's untimed warm-up mount and unmount are its first two calls (`timingCycle`).
       let timedRun = false;
       let callInCycle = 0;
@@ -248,13 +248,33 @@ for (const { id, steps } of list) {
           }
         });
       }
-      timedRun = false;
-      for (let run = 0; ENGINE.heap && run < HEAP_ROUNDS[round]; run += 1) {
-        entry.heapKB.push(await heapCycle({ collect, readHeap, runStep, stepCount }));
-      }
       entry.errors.push(...errors);
       consoleEntries.push(...logs.map((log) => ({ scenario: id, variant: name, ...log })));
       await page.close();
+      // Heap samples, each on a fresh page: a page that mounted the scenario can still hold that
+      // tree, and a baseline read over it would subtract it from the next mount.
+      for (let run = 0; ENGINE.heap && run < HEAP_ROUNDS[round]; run += 1) {
+        const fresh = await openPage(browser, name);
+        const sample = await heapSample({
+          collect: () => collectGarbage(fresh.cdp),
+          readHeap: () => fresh.page.evaluate('performance.memory.usedJSHeapSize'),
+          runStep: (index) =>
+            evaluateInTask(fresh.page, ([scenario, step]) => window.bench.step(scenario, step), [
+              id,
+              index,
+            ]),
+          stepCount,
+          setWarmup: (on) =>
+            fresh.page.evaluate((value) => {
+              globalThis.__benchWarmup = value;
+            }, on),
+        });
+        entry.heapKB.push(sample.mountedKB);
+        entry.heldKB.push(sample.heldKB);
+        entry.errors.push(...fresh.errors);
+        consoleEntries.push(...fresh.logs.map((log) => ({ scenario: id, variant: name, ...log })));
+        await fresh.page.close();
+      }
     }
   }
   // A faster but broken variant must not count: DOM summaries must agree with the first variant.
@@ -306,9 +326,10 @@ const lines = [
   `|---|${NAMES.map(() => '---').join('|')}|${ratioNames.map(() => '---').join('|')}|`,
 ];
 for (const [key, entry] of Object.entries(summary)) {
-  if (key.endsWith('heap after mount KB')) {
+  if (key.endsWith('heap after mount KB') || key.endsWith('held after unmount KB')) {
+    const field = key.endsWith('heap after mount KB') ? 'heapKB' : 'heldKB';
     lines.push(
-      `| ${key} | ${NAMES.map((name) => fmt(entry[name].heapKB)).join(' | ')} | ${ratioNames.map(() => '').join(' | ')} |`,
+      `| ${key} | ${NAMES.map((name) => fmt(entry[name][field])).join(' | ')} | ${ratioNames.map(() => '').join(' | ')} |`,
     );
     continue;
   }
