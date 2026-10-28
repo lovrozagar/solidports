@@ -34,5 +34,5 @@ export function engineSpec(name) {
 
 /** The columns an engine measures, in the report's order. */
 export function measuredColumns(spec) {
-  return [...IN_PAGE, ...(spec.cdp ? CDP : []), ...(spec.heap ? ['heapKB'] : [])];
+  return [...IN_PAGE, ...(spec.cdp ? CDP : []), ...(spec.heap ? ['heapKB', 'heldKB'] : [])];
 }

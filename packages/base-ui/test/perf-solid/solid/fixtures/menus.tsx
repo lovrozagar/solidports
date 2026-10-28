@@ -3,13 +3,13 @@ import { Menu } from '@solidports/base-ui/menu';
 import { ContextMenu } from '@solidports/base-ui/context-menu';
 import { Menubar } from '@solidports/base-ui/menubar';
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
-import { items, size } from '../../shared/sizes';
+import { items, itemList } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
 const popupStyle = { 'max-height': '300px', overflow: 'auto' } as const;
 
-const menuItems = items(size(500));
+const menuItems = itemList(500);
 function Menu500() {
   const open = useExposed('open', false);
   return (
@@ -18,7 +18,7 @@ function Menu500() {
       <Menu.Portal>
         <Menu.Positioner sideOffset={4}>
           <Menu.Popup style={popupStyle}>
-            <For each={menuItems}>{(it) => <Menu.Item>{it.label}</Menu.Item>}</For>
+            <For each={menuItems()}>{(it) => <Menu.Item>{it.label}</Menu.Item>}</For>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -26,7 +26,7 @@ function Menu500() {
   );
 }
 
-const checkItems = items(size(100));
+const checkItems = itemList(100);
 function CheckboxRadio() {
   const open = useExposed('open', false);
   const [radio, setRadio] = createSignal('item-0');
@@ -36,7 +36,7 @@ function CheckboxRadio() {
       <Menu.Portal>
         <Menu.Positioner sideOffset={4}>
           <Menu.Popup style={popupStyle}>
-            <For each={checkItems}>
+            <For each={checkItems()}>
               {(it) => (
                 <Menu.CheckboxItem data-kind="check" closeOnClick={false}>
                   <Menu.CheckboxItemIndicator>✓</Menu.CheckboxItemIndicator>
@@ -45,7 +45,7 @@ function CheckboxRadio() {
               )}
             </For>
             <Menu.RadioGroup value={radio()} onValueChange={(value) => setRadio(value as string)}>
-              <For each={checkItems}>
+              <For each={checkItems()}>
                 {(it) => (
                   <Menu.RadioItem value={it.value} data-kind="radio" closeOnClick={false}>
                     <Menu.RadioItemIndicator>•</Menu.RadioItemIndicator>
@@ -88,7 +88,7 @@ function Submenu(props: { label: string; depth: number }) {
   );
 }
 
-const subRoots = items(size(20));
+const subRoots = itemList(20);
 function Submenus() {
   const open = useExposed('open', false);
   return (
@@ -97,7 +97,7 @@ function Submenus() {
       <Menu.Portal>
         <Menu.Positioner>
           <Menu.Popup>
-            <For each={subRoots}>{(it) => <Submenu label={`Sub ${it.value}`} depth={1} />}</For>
+            <For each={subRoots()}>{(it) => <Submenu label={`Sub ${it.value}`} depth={1} />}</For>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -105,11 +105,11 @@ function Submenus() {
   );
 }
 
-const manyRoots = items(size(500));
+const manyRoots = itemList(500);
 function ManyRoots() {
   return (
     <div>
-      <For each={manyRoots}>
+      <For each={manyRoots()}>
         {(it) => (
           <Menu.Root>
             <Menu.Trigger>{it.label}</Menu.Trigger>
@@ -128,12 +128,12 @@ function ManyRoots() {
   );
 }
 
-const targets = items(size(200));
+const targets = itemList(200);
 const contextItems = items(20);
 function ContextMenus() {
   return (
     <div>
-      <For each={targets}>
+      <For each={targets()}>
         {(it) => (
           <ContextMenu.Root>
             <ContextMenu.Trigger data-target={it.value} style={{ height: '8px' }}>
@@ -160,7 +160,7 @@ function ContextMenus() {
 }
 
 const bar = items(10);
-const barItems = items(size(50));
+const barItems = itemList(50);
 function Menubar10() {
   return (
     <Menubar>
@@ -171,7 +171,7 @@ function Menubar10() {
             <Menu.Portal>
               <Menu.Positioner>
                 <Menu.Popup style={popupStyle}>
-                  <For each={barItems}>
+                  <For each={barItems()}>
                     {(it) => (
                       <Menu.Item>
                         {menu.label} {it.label}
@@ -189,7 +189,7 @@ function Menubar10() {
 }
 
 const navItems = items(8);
-const navLinks = items(size(100));
+const navLinks = itemList(100);
 function Navigation() {
   return (
     <NavigationMenu.Root delay={0} closeDelay={0}>
@@ -200,7 +200,7 @@ function Navigation() {
               <NavigationMenu.Trigger data-nav={nav.value}>{nav.label}</NavigationMenu.Trigger>
               <NavigationMenu.Content>
                 <ul>
-                  <For each={navLinks}>
+                  <For each={navLinks()}>
                     {(link) => (
                       <li>
                         <NavigationMenu.Link href={`#${nav.value}-${link.value}`}>

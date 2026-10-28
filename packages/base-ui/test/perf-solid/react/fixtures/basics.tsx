@@ -4,7 +4,7 @@ import { Checkbox } from '@base-ui/react/checkbox';
 import { Tabs } from '@base-ui/react/tabs';
 import { Accordion } from '@base-ui/react/accordion';
 import { Slider } from '@base-ui/react/slider';
-import { items, size } from '../../shared/sizes';
+import { size, itemList } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
@@ -58,20 +58,20 @@ function CheckboxControlled() {
   );
 }
 
-const tabItems = items(size(200));
+const tabItems = itemList(200);
 function Tabs200() {
-  const value = useExposed('value', tabItems[0].value);
+  const value = useExposed('value', tabItems()[0].value);
   return (
     <Tabs.Root value={value} onValueChange={setExposed('value')}>
       <Tabs.List>
-        {tabItems.map((it) => (
+        {tabItems().map((it) => (
           <Tabs.Tab key={it.value} value={it.value}>
             {it.label}
           </Tabs.Tab>
         ))}
         <Tabs.Indicator />
       </Tabs.List>
-      {tabItems.map((it) => (
+      {tabItems().map((it) => (
         <Tabs.Panel key={it.value} value={it.value}>
           Panel {it.label}
         </Tabs.Panel>
@@ -80,12 +80,12 @@ function Tabs200() {
   );
 }
 
-const accItems = items(size(300));
+const accItems = itemList(300);
 function Accordion300() {
   const value = useExposed('value', [] as string[]);
   return (
     <Accordion.Root multiple value={value} onValueChange={setExposed('value')}>
-      {accItems.map((it) => (
+      {accItems().map((it) => (
         <Accordion.Item key={it.value} value={it.value}>
           <Accordion.Header>
             <Accordion.Trigger>{it.label}</Accordion.Trigger>

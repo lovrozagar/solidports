@@ -1,16 +1,16 @@
 import * as React from 'react';
 import { Select } from '@base-ui/react/select';
 import { Combobox } from '@base-ui/react/combobox';
-import { items, size } from '../../shared/sizes';
+import { itemList } from '../../shared/sizes';
 import { setters, useExposed } from '../exposed';
 
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
 
-const selectItems = items(size(1000));
+const selectItems = itemList(1000);
 function Select1000() {
   const open = useExposed('open', false);
   return (
-    <Select.Root items={selectItems} open={open} onOpenChange={setExposed('open')}>
+    <Select.Root items={selectItems()} open={open} onOpenChange={setExposed('open')}>
       <Select.Trigger>
         <Select.Value data-testid="value" placeholder="Pick" />
       </Select.Trigger>
@@ -18,7 +18,7 @@ function Select1000() {
         <Select.Positioner sideOffset={4}>
           <Select.Popup style={{ maxHeight: '300px', overflowY: 'auto' }}>
             <Select.List>
-              {selectItems.map((it) => (
+              {selectItems().map((it) => (
                 <Select.Item key={it.value} value={it.value}>
                   <Select.ItemIndicator>✓</Select.ItemIndicator>
                   <Select.ItemText>{it.label}</Select.ItemText>
@@ -33,12 +33,12 @@ function Select1000() {
 }
 
 type Item = { value: string; label: string };
-const comboItems = items(size(1000));
+const comboItems = itemList(1000);
 function Combobox1000() {
   const open = useExposed('open', false);
   return (
     <Combobox.Root
-      items={comboItems}
+      items={comboItems()}
       open={open}
       onOpenChange={setExposed('open')}
       itemToStringLabel={(it: Item) => it.label}
