@@ -1,7 +1,7 @@
 ---
 tags: [floating, popup, store, interactions, perf]
 sources: [packages/base-ui/packages/solid/src/floating-ui-solid, packages/base-ui/packages/solid/src/floating-ui-solid/components/FloatingRootStoreV2.ts, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useFloatingRootContext.ts, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useSyncedFloatingRootContext.ts, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/utils/popups/createPopupFloatingRootContext.ts, packages/base-ui/packages/solid/src/navigation-menu/root/NavigationMenuRoot.tsx, packages/base-ui/packages/react/src/floating-ui-react]
-verified: 2026-10-16
+verified: 2026-10-28
 ---
 
 # Floating UI layer
@@ -60,6 +60,7 @@ All paths below are under `packages/base-ui/packages/solid/src/floating-ui-solid
 - `useListNavigation` (about 1,100 lines): returns a static `item` object and `enabled`-gated `reference`, `floating` and `trigger`. A navigation reaches the consumer's `activeIndex` at the next flush.
 - `useTypeahead`: one `sharedProps = { onKeyDown, onFocusOut }` for reference and floating; React's bubbling `onBlur` maps to `focusout`.
 - `FloatingFocusManager`: handles the Chrome/Firefox `focusout`-on-removal difference and coordinates with `FloatingPortal`, which restores tabbability before the queued focus-on-open step.
+- The inside-portal mark (`dataRef.insidePortal`): a `focusout` inside a portaled floating element sets it, and a 0 ms timer clears it. It lives on the root, which outlives the popup, so `FloatingFocusManager` clears a pending mark when it unmounts. Otherwise an unmount that cancels the timer (Escape with focus on the popup, then the restore-to-popup return) leaves it set, and `useDismiss` drops the next session's first press-less outside click.
 - `FloatingTree`: Solid contexts for node id and tree; `FloatingTreeStore` is a plain class with `nodesRef` and an emitter.
 
 ## Costs

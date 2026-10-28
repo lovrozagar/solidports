@@ -2334,6 +2334,69 @@ describe('FloatingFocusManager', () => {
     });
   });
 
+  // jsdom fires no focusout when the focused element is removed.
+  describe.skipIf(isJSDOM)('a focus move out of a portal', () => {
+    // A focusout inside a portaled floating element marks the next outside press as inside the
+    // tree until a 0 ms timer clears it. When the manager unmounts before that timer runs, the mark
+    // must still clear: it lives on the root's data, which outlives the popup.
+    test('does not swallow the next session’s outside click when the manager unmounts first', async () => {
+      const [open, setOpen] = createSignal(false);
+
+      function Test() {
+        const { refs, context } = useFloating({
+          get open() {
+            return open();
+          },
+          onOpenChange: setOpen,
+        });
+        const dismiss = useDismiss({ context, props: { outsidePressEvent: 'intentional' } });
+        const { getReferenceProps, getFloatingProps } = useInteractions([dismiss]);
+
+        return (
+          <>
+            <button data-testid="outside" />
+            <button data-testid="reference" ref={refs.setReference} {...getReferenceProps()} />
+            <FloatingPortal>
+              <Show when={open()}>
+                <FloatingFocusManager context={context} modal={false} returnFocus={false} restoreFocus="popup">
+                  <div data-testid="floating" ref={refs.setFloating} {...getFloatingProps()}>
+                    <button data-testid="inside" />
+                  </div>
+                </FloatingFocusManager>
+              </Show>
+            </FloatingPortal>
+          </>
+        );
+      }
+
+      render(() => <Test />);
+      act(() => setOpen(true));
+      await flushMicrotasks();
+      act(() => screen.getByTestId('inside').focus());
+
+      // The focused element leaves the DOM and the manager unmounts in the same task: the restore
+      // to the popup returns before the mark is cleared, and the unmount cancels its timer.
+      act(() => {
+        screen.getByTestId('inside').remove();
+        setOpen(false);
+      });
+      expect(screen.queryByTestId('floating')).toBe(null);
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
+
+      act(() => setOpen(true));
+      await flushMicrotasks();
+      expect(screen.getByTestId('floating')).not.toBe(null);
+
+      // A virtual click (keyboard, assistive technology) has no press to clear the mark first.
+      fireEvent.click(screen.getByTestId('outside'), { detail: 0 });
+      await waitFor(() => {
+        expect(screen.queryByTestId('floating')).toBe(null);
+      });
+    });
+  });
+
   describe('prop: restoreFocus', () => {
     function App(componentProps: { restoreFocus?: boolean }) {
       const props = defaultProps(componentProps, { restoreFocus: true });
